@@ -20,7 +20,8 @@ function msb_defaults() {
 		'extra_hour'     => 75,
 		'ionos_agent'    => 'ebc6fb14-da07-4847-b119-e3212e99dabb',
 		'ionos_widget'   => 1,
-		'chat_enabled'     => 0,
+		'brand_style'      => 1,
+		'chat_enabled'     => 1,
 		'chat_model'       => 'claude-opus-5-5',
 		'chat_ip_limit'    => 20,
 		'chat_daily_limit' => 300,
@@ -50,6 +51,7 @@ function msb_sanitize_settings( $in ) {
 	$out['ionos_agent']    = isset( $in['ionos_agent'] ) ? preg_replace( '/[^a-f0-9-]/i', '', $in['ionos_agent'] ) : $d['ionos_agent'];
 	$out['ionos_widget']   = empty( $in['ionos_widget'] ) ? 0 : 1;
 	$out['chat_enabled']     = empty( $in['chat_enabled'] ) ? 0 : 1;
+	$out['brand_style']      = empty( $in['brand_style'] ) ? 0 : 1;
 	$out['chat_model']       = isset( $in['chat_model'] ) && array_key_exists( $in['chat_model'], msb_chat_models() ) ? $in['chat_model'] : $d['chat_model'];
 	$out['chat_ip_limit']    = isset( $in['chat_ip_limit'] ) ? min( 500, max( 1, (int) $in['chat_ip_limit'] ) ) : $d['chat_ip_limit'];
 	$out['chat_daily_limit'] = isset( $in['chat_daily_limit'] ) ? min( 100000, max( 1, (int) $in['chat_daily_limit'] ) ) : $d['chat_daily_limit'];
@@ -141,6 +143,10 @@ function msb_settings_page() {
 					</tr>
 				<?php endforeach; ?>
 				<tr>
+					<th scope="row">Estilo de marca</th>
+					<td><label><input type="checkbox" name="msb_settings[brand_style]" value="1" <?php checked( $o['brand_style'], 1 ); ?> /> Aplicar colores y tipografías de Media Show a la tienda, el carrito, el checkout y el resto de páginas</label></td>
+				</tr>
+				<tr>
 					<th scope="row">Widget de voz y chat IONOS</th>
 					<td><label><input type="checkbox" name="msb_settings[ionos_widget]" value="1" <?php checked( $o['ionos_widget'], 1 ); ?> /> Mostrar en toda la web</label></td>
 				</tr>
@@ -149,8 +155,8 @@ function msb_settings_page() {
 			<table class="form-table" role="presentation">
 				<tr>
 					<th scope="row">Chat en la web</th>
-					<td><label><input type="checkbox" name="msb_settings[chat_enabled]" value="1" <?php checked( $o['chat_enabled'], 1 ); ?> /> Activar el asistente</label>
-					<p class="description">Necesita una clave de la API de Anthropic (console.anthropic.com → API Keys). Cada conversación se paga por uso en esa cuenta.</p></td>
+					<td><label><input type="checkbox" name="msb_settings[chat_enabled]" value="1" <?php checked( $o['chat_enabled'], 1 ); ?> /> Mostrar el asistente</label>
+					<p class="description">Sin clave funciona como asistente guiado (sin coste): recomienda pack, abre el 3D y deriva a la IA de voz de IONOS y a WhatsApp. Con clave de la API de Anthropic (console.anthropic.com → API Keys) responde con Claude; cada conversación se paga por uso en esa cuenta.</p></td>
 				</tr>
 				<tr>
 					<th scope="row"><label for="msb-key">Clave de la API de Anthropic</label></th>

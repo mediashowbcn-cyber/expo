@@ -31,6 +31,7 @@ function msb_models() {
 		'truss'     => 'Truss de escenario',
 		'booth'     => 'Cabina DJ',
 		'dj'        => 'DJ (figura en la cabina)',
+		'spk'       => 'Altavoz adicional RCF EVOX 12',
 		'mic'       => 'Micrófono adicional',
 		'lectern'   => 'Atril con micrófono',
 		'stream'    => 'Cámaras de streaming',

@@ -302,3 +302,28 @@ footer.site { padding: 36px 0 24px; color: var(--gray); font-size: 13px; }
   .call-btns .btn { width: 100%; }
 }
 @media (prefers-reduced-motion: reduce) { .call-orb svg, .call-orb .ring, .live-dot, .mb-call::after { animation: none; } }
+
+.pack-buy { width: 100%; padding: 13px 16px; font-size: 14px; }
+
+/* Montaje: panel del equipo y encaje con la foto */
+.stage-box { position: relative; }
+.insp { position: absolute; top: 12px; right: 12px; z-index: 5; width: min(270px, calc(100% - 24px)); background: rgba(10,10,10,.92); border: 1px solid var(--line, #2a2a2a); border-left: 3px solid #E65837; border-radius: 12px; padding: 12px; display: grid; gap: 10px; backdrop-filter: blur(6px); }
+.insp[hidden], .fit-panel[hidden], .pro-opts[hidden], .insp [hidden] { display: none !important; }
+.insp-head { display: flex; justify-content: space-between; align-items: center; }
+.insp-head strong { font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: .5px; color: #F4F0E8; }
+.insp-head button { background: none; border: 0; color: #F4F0E8; font-size: 24px; line-height: 1; cursor: pointer; }
+.fit-row { display: grid; gap: 4px; font-size: 12.5px; color: #A6A49E; }
+.fit-row span { display: flex; justify-content: space-between; gap: 8px; }
+.fit-row output { color: #F4F0E8; font-weight: 600; }
+.fit-row input[type=range] { width: 100%; accent-color: #E65837; }
+.fit-row select, .insp-dims input, .pro-opts select { background: #0f0f10; color: #F4F0E8; border: 1px solid #2a2a2a; border-radius: 8px; padding: 7px 9px; font: inherit; }
+.insp-dims { display: flex; align-items: center; gap: 6px; color: #A6A49E; }
+.insp-dims input { width: 74px; }
+.insp-btns { display: flex; flex-wrap: wrap; gap: 6px; }
+.fit-panel { position: absolute; left: 12px; top: 58px; z-index: 5; width: min(250px, calc(100% - 24px)); background: rgba(10,10,10,.92); border: 1px solid #2a2a2a; border-left: 3px solid #E65837; border-radius: 12px; padding: 10px 12px; backdrop-filter: blur(6px); }
+.fit-panel[open] { display: grid; gap: 10px; }
+.fit-panel summary { cursor: pointer; font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: .5px; color: #E65837; list-style-position: inside; }
+.fit-check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #F4F0E8; }
+.fit-check input { accent-color: #E65837; width: 16px; height: 16px; }
+.pro-opts { margin-top: 12px; display: grid; gap: 6px; font-size: 12.5px; color: #A6A49E; }
+@media (max-width: 680px) { .insp, .fit-panel { position: static; width: auto; margin: 8px; } }

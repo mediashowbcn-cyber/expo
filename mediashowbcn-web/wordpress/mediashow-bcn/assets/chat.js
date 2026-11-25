@@ -4,6 +4,7 @@
   const C = window.MSB_CHAT;
   if (!C) return;
   const KEY = 'msb-chat-v1';
+  const AI = C.mode === 'ai';
   const load = () => { try { return JSON.parse(sessionStorage.getItem(KEY)) || []; } catch (e) { return []; } };
   const save = h => { try { sessionStorage.setItem(KEY, JSON.stringify(h.slice(-30))); } catch (e) { /* sin almacenamiento */ } };
   let history = load();
@@ -22,7 +23,7 @@
     </button>
     <section class="msbc-panel" id="msbc-panel" role="dialog" aria-label="Asistente de Media Show BCN" hidden>
       <header class="msbc-head">
-        <div><strong>Asistente Media Show</strong><span><i class="msbc-live"></i> En línea · IA</span></div>
+        <div><strong>Asistente Media Show</strong><span><i class="msbc-live"></i> En línea · ${AI ? 'IA' : 'respuesta al momento'}</span></div>
         <button type="button" class="msbc-close" aria-label="Cerrar el chat">×</button>
       </header>
       <div class="msbc-log" role="log" aria-live="polite"></div>
@@ -32,7 +33,7 @@
         <textarea id="msbc-input" rows="1" maxlength="1000" placeholder="Cuéntame tu evento…"></textarea>
         <button type="submit" class="msbc-send" aria-label="Enviar">➤</button>
       </form>
-      <p class="msbc-note">Asistente de inteligencia artificial (Claude, de Anthropic). No compartas datos sensibles. <a href="${esc(C.privacy)}" target="_blank" rel="noopener">Privacidad</a></p>
+      <p class="msbc-note">${AI ? 'Asistente de inteligencia artificial (Claude, de Anthropic). No compartas datos sensibles.' : 'Asistente automático. ¿Prefieres hablar? Nuestra IA de voz atiende 24/7 en el ' + esc(C.phoneLabel || '') + '.'} <a href="${esc(C.privacy)}" target="_blank" rel="noopener">Privacidad</a></p>
     </section>`;
   document.body.appendChild(root);
 
@@ -53,7 +54,7 @@
       return b;
     }
     const l = document.createElement('a');
-    l.className = 'msbc-act' + (a.type === 'whatsapp' ? ' msbc-act-wa' : '');
+    l.className = 'msbc-act' + (a.type === 'whatsapp' ? ' msbc-act-wa' : a.type === 'buy' ? ' msbc-act-pri' : a.type === 'call' ? ' msbc-act-call' : '');
     l.href = a.url; l.textContent = a.label;
     if (a.type === 'whatsapp') { l.target = '_blank'; l.rel = 'noopener'; }
     return l;
@@ -81,7 +82,8 @@
     chips.hidden = history.length > 0;
   }
 
-  chips.innerHTML = (C.suggestions || []).map(s => `<button type="button">${esc(s)}</button>`).join('');
+  const SUGG = AI ? (C.suggestions || []) : ['Boda', 'Evento de empresa', 'Fiesta o cumpleaños', 'DJ o concierto', 'Quiero llamar'];
+  chips.innerHTML = SUGG.map(s => `<button type="button">${esc(s)}</button>`).join('');
   chips.addEventListener('click', e => { const b = e.target.closest('button'); if (b) send(b.textContent); });
 
   function toggle(open) {
@@ -106,6 +108,16 @@
     const typing = bubble('assistant', '');
     typing.classList.add('msbc-typing');
     typing.innerHTML = '<span></span><span></span><span></span>';
+    if (!AI) {
+      const r = guided(text);
+      await new Promise(res => setTimeout(res, 450));
+      typing.remove();
+      history.push({ role: 'assistant', content: r.reply, actions: r.actions });
+      save(history);
+      bubble('assistant', r.reply, r.actions);
+      busy = false;
+      return;
+    }
     const fd = new FormData();
     fd.append('action', 'msb_chat');
     fd.append('nonce', C.nonce);
@@ -124,6 +136,40 @@
     save(history);
     bubble('assistant', reply, actions);
     busy = false;
+  }
+
+  /* Modo guiado (sin clave de IA): tipo de evento → aforo → pack recomendado con acciones. */
+  const eur = v => Math.round(v).toLocaleString('es-ES') + ' €';
+  const waUrl = t => 'https://wa.me/' + C.whatsapp + '?text=' + encodeURIComponent(t);
+  const call = () => ({ type: 'call', label: '📞 Llamar 24/7', url: 'tel:' + C.phone });
+  const TYPES = [[/boda|casamiento|matrimonio/, 'boda'], [/empresa|corporativ|congreso|conferencia|presentaci|jornada|gala/, 'evento de empresa'], [/fiesta|cumple|aniversario|privad/, 'fiesta'], [/dj|concierto|directo|banda|m[uú]sica/, 'evento musical']];
+  const memo = () => { const m = {}; history.forEach(h => { if (h.role === 'user') { const t = h.content.toLowerCase(); TYPES.forEach(([re, n]) => { if (re.test(t)) m.type = n; }); const g = guests(t); if (g) m.guests = g; } }); return m; };
+  function guests(t) {
+    if (/hasta 60/.test(t)) return 50;
+    if (/60.?[–-].?120/.test(t)) return 100;
+    if (/120.?[–-].?200/.test(t)) return 160;
+    if (/m[aá]s de 200/.test(t)) return 250;
+    const n = t.match(/(\d{2,4})\s*(personas|invitados|pax|asistentes|gente)?/);
+    return n ? Number(n[1]) : 0;
+  }
+  function packFor(g) {
+    const P = C.packs || [];
+    return P.find(p => g >= p.min && (p.max === null || g <= p.max)) || P.find(p => p.max === null) || P[P.length - 1];
+  }
+  function guided(text) {
+    const t = text.toLowerCase();
+    if (/llam|tel[eé]fono|hablar|voz/.test(t)) return { reply: `Nuestra IA de voz te atiende **24/7** en el **${C.phoneLabel}**: te asesora y toma nota de tu evento. Si prefieres, escríbenos por WhatsApp.`, actions: [call(), { type: 'whatsapp', label: 'WhatsApp', url: waUrl('Hola Media Show BCN, quiero información para mi evento.') }] };
+    if (/precio|cu[aá]nto|tarifa|presupuesto/.test(t) && !memo().guests) return { reply: 'Los packs van desde **' + eur(Math.min(...(C.packs || [{ price: 0 }]).map(p => p.price))) + '** con 6 horas incluidas. ¿Cuántas personas esperas?', actions: [] };
+    const m = memo();
+    if (!m.type && !m.guests) return { reply: '¡Hola! Te ayudo a montar tu evento en un minuto. ¿Qué celebras?', actions: [], chips: true };
+    if (!m.guests) return { reply: `Perfecto, una ${m.type}. ¿Cuántas personas esperas? Escribe un número o elige: **hasta 60**, **60–120**, **120–200** o **más de 200**.`, actions: [] };
+    const p = packFor(m.guests);
+    if (!p) return { reply: 'Ahora mismo no tengo packs publicados. Escríbenos y te preparamos un presupuesto.', actions: [{ type: 'whatsapp', label: 'WhatsApp', url: waUrl('Hola, quiero un presupuesto.') }, call()] };
+    const buy = p.buy ? { type: 'buy', label: 'Comprar ahora', url: p.link } : { type: 'buy', label: 'Solicitar ahora', url: waUrl(`Hola Media Show BCN, quiero solicitar el pack ${p.name} para ${m.guests} personas${m.type ? ' (' + m.type + ')' : ''}.`) };
+    return {
+      reply: `Para ${m.guests} personas te recomiendo el **Pack ${p.name}** (${p.from ? 'desde ' : ''}${eur(p.price)} + IVA, 6 h incluidas). Míralo montado en 3D y añade pantallas, luces o DJ; el precio se actualiza al momento.`,
+      actions: [{ type: 'quoter', label: 'Verlo en 3D', config: { pack: p.id, asistentes: m.guests, extras: [] } }, buy, { type: 'whatsapp', label: 'WhatsApp', url: waUrl(`Hola Media Show BCN, me interesa el pack ${p.name} para ${m.guests} personas.`) }, call()]
+    };
   }
 
   form.addEventListener('submit', e => { e.preventDefault(); send(input.value); });

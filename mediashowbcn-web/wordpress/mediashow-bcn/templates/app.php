@@ -114,11 +114,9 @@ $msb_ld = array(
 								<p class="pack-desc"><?php echo esc_html( $p['desc'] ); ?></p>
 								<div class="pack-ctas">
 									<?php if ( $p['buy'] ) : ?>
-										<a class="btn btn-sm btn-pri" href="<?php echo esc_url( $p['link'] ); ?>">Comprar</a>
-										<button type="button" class="btn btn-sm" onclick="openQuoterWithPack(<?php echo (int) $p['id']; ?>)">Personalizar en 3D</button>
+										<a class="btn btn-pri pack-buy" href="<?php echo esc_url( $p['link'] ); ?>">Comprar ahora</a>
 									<?php else : ?>
-										<button type="button" class="btn btn-sm btn-pri" onclick="openQuoterWithPack(<?php echo (int) $p['id']; ?>)">Presupuesto en 3D</button>
-										<a class="btn btn-sm" href="<?php echo esc_url( $p['link'] ); ?>">Ver detalles</a>
+										<a class="btn btn-pri pack-buy" href="<?php echo esc_url( $msb_wa . '?text=' . rawurlencode( 'Hola Media Show BCN, quiero solicitar el pack ' . $p['name'] . ' para mi evento.' ) ); ?>" target="_blank" rel="noopener">Solicitar ahora</a>
 									<?php endif; ?>
 								</div>
 							</div>
@@ -204,9 +202,28 @@ $msb_ld = array(
 				<div class="stage-box">
 					<canvas id="canvas-3d" aria-label="Escenario 3D con el equipo seleccionado" role="img"></canvas>
 					<div class="stage-legend" id="stage-legend" aria-hidden="true"></div>
+					<div class="insp" id="insp" hidden role="group" aria-labelledby="insp-title">
+						<div class="insp-head"><strong id="insp-title">Equipo</strong><button type="button" id="insp-close" aria-label="Cerrar ajustes">×</button></div>
+						<label class="fit-row" id="insp-size-row" for="insp-size"><span>Tamaño <output id="insp-size-val"></output></span><input type="range" id="insp-size" min="30" max="300" step="5" /></label>
+						<label class="fit-row" id="insp-inch-row" for="insp-inch"><span>Tamaño de pantalla</span>
+							<select id="insp-inch"><?php foreach ( array( 32, 43, 50, 55, 65, 75, 86, 98 ) as $in ) : ?><option value="<?php echo (int) $in; ?>"><?php echo (int) $in; ?>"</option><?php endforeach; ?></select></label>
+						<div class="fit-row" id="insp-dims-row"><span>Medidas (ancho × alto, m) <output id="insp-m2"></output></span>
+							<div class="insp-dims"><input type="number" id="insp-w" min="1" max="16" step="0.5" aria-label="Ancho en metros" /> × <input type="number" id="insp-h" min="0.5" max="8" step="0.5" aria-label="Alto en metros" /></div></div>
+						<label class="fit-row" for="insp-lift"><span>Altura sobre el suelo <output id="insp-lift-val"></output></span><input type="range" id="insp-lift" min="0" max="400" step="5" /></label>
+						<div class="insp-btns"><button type="button" class="btn btn-sm" data-rot="-15">↺ 15°</button><button type="button" class="btn btn-sm" data-rot="15">↻ 15°</button><button type="button" class="btn btn-sm" id="insp-reset">Restablecer</button></div>
+					</div>
+				      <details class="fit-panel" id="fit-panel" hidden open>
+				        <summary>Encajar con la foto</summary>
+				        <label class="fit-row" for="fit-height"><span>Altura de la cámara <output id="fit-height-val"></output></span><input type="range" id="fit-height" min="0.5" max="8" step="0.1" /></label>
+				        <label class="fit-row" for="fit-dist"><span>Distancia <output id="fit-dist-val"></output></span><input type="range" id="fit-dist" min="2" max="22" step="0.1" /></label>
+				        <label class="fit-row" for="fit-fov"><span>Lente (ángulo) <output id="fit-fov-val"></output></span><input type="range" id="fit-fov" min="20" max="90" step="1" /></label>
+				        <label class="fit-row" for="fit-aim"><span>Punto de mira <output id="fit-aim-val"></output></span><input type="range" id="fit-aim" min="0" max="4" step="0.05" /></label>
+				        <label class="fit-row" for="fit-shadow"><span>Sombras en el suelo <output id="fit-shadow-val"></output></span><input type="range" id="fit-shadow" min="0" max="0.9" step="0.05" /></label>
+				        <label class="fit-check"><input type="checkbox" id="fit-tarima" checked /> Mostrar tarima</label>
+				      </details>
 					<div class="stage-fallback" id="stage-fallback" hidden>Tu navegador no puede mostrar el escenario 3D. El cálculo del presupuesto funciona igualmente.</div>
 					<div class="stage-bar">
-						<span>Arrastra el fondo para girar 360° · Arrastra un equipo para moverlo · Doble clic para girarlo</span>
+						<span>Arrastra el fondo para girar 360° · Toca un equipo para ajustar tamaño y altura · Arrástralo para moverlo</span>
 						<div style="display:flex;gap:8px;flex-wrap:wrap;">
 							<button type="button" class="btn btn-sm" onclick="setCamPreset('front')">Frente</button>
 							<button type="button" class="btn btn-sm" onclick="setCamPreset('audience')">Público</button>
@@ -233,6 +250,13 @@ $msb_ld = array(
 				        <button type="button" class="btn btn-sm" id="shot-btn">Imagen 1080p</button>
 				        <button type="button" class="btn btn-sm" id="video-btn">Vídeo 1080p · 10 s</button>
 				      </div>
+				      <div class="pro-opts pro-only" hidden>
+				        <label for="export-res">Resolución</label>
+				        <select id="export-res"><option value="1080">1080p (Full HD)</option><option value="1440">1440p (2K)</option><option value="2160">4K (3840 × 2160)</option></select>
+				        <label class="fit-check"><input type="checkbox" id="export-mark" /> Marca de agua</label>
+				        <p class="msg" style="margin:4px 0 0;">Opciones del equipo: solo las ves con sesión de administrador.</p>
+				      </div>
+				      <p class="msg" id="export-note" hidden style="margin:8px 0 0;">Las descargas llevan marca de agua. ¿Quieres el render limpio en 4K? Pídelo como extra.</p>
 				    </div>
 				  </div>
 				  <p class="msg" id="export-msg" role="status"></p>
@@ -294,6 +318,7 @@ $msb_ld = array(
 					</div>
 					<p class="p-muted" id="prop-meta" style="margin:8px 0 12px;"></p>
 					<div class="p-lines" id="prop-lines"></div>
+					<p class="p-muted" id="prop-sizes" hidden></p>
 					<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-top:10px;"><span class="p-muted" style="font-weight:600;">Total con IVA</span><span class="p-total" id="prop-total">0,00 €</span></div>
 					<p class="p-muted" style="border-top:1px solid var(--rule-crudo);padding-top:10px;margin-top:10px;">Importe orientativo, sujeto a disponibilidad de fecha, visita técnica y condiciones del recinto. Validez: 15 días. Reserva y resto antes del evento según las condiciones de reserva.</p>
 					<p class="p-muted" style="margin-top:8px;">Media Show BCN · <?php echo esc_html( msb_opt( 'base' ) ); ?> · 24/7 (IA): <?php echo esc_html( msb_opt( 'phone_label' ) ); ?> · WhatsApp: <?php echo esc_html( msb_opt( 'whatsapp_label' ) ); ?> · <?php echo esc_html( msb_opt( 'email' ) ); ?></p>

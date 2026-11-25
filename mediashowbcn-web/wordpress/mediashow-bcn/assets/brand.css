@@ -1,0 +1,33 @@
+/* Media Show BCN — colores y tipografías de marca en la tienda, el carrito, el checkout y el resto de páginas (tema Kadence). */
+:root {
+  --global-palette1: #E65837; --global-palette2: #c9462a; --global-palette3: #F4F0E8; --global-palette4: #e9e4da;
+  --global-palette5: #A6A49E; --global-palette6: #6f6d68; --global-palette7: #1a1a1a; --global-palette8: #111111; --global-palette9: #0A0A0A;
+  --global-palette-btn-bg: #E65837; --global-palette-btn-bg-hover: #F4F0E8; --global-palette-btn: #0A0A0A; --global-palette-btn-hover: #0A0A0A;
+  --global-body-font-family: 'Work Sans', system-ui, sans-serif; --global-heading-font-family: 'Bebas Neue', Impact, sans-serif;
+}
+body { background: #0A0A0A; color: #F4F0E8; font-family: 'Work Sans', system-ui, sans-serif; }
+.site, .content-bg, .site-main, .entry-content-wrap, body.woocommerce .content-bg, .woocommerce div.product { background: #0A0A0A; }
+.entry.content-bg, .loop-entry.content-bg, .woocommerce ul.products li.product, .wc-block-grid__product { background: #111; border: 1px solid #222; border-radius: 14px; }
+h1, h2, h3, h4, .entry-title, .product_title, .woocommerce-loop-product__title, .wc-block-components-title { font-family: 'Bebas Neue', Impact, sans-serif; letter-spacing: .5px; font-weight: 400; color: #F4F0E8; }
+h1, .entry-title, .product_title { font-size: clamp(36px, 5vw, 60px); line-height: 1; }
+a { color: #E65837; } a:hover { color: #F4F0E8; }
+.site-header, #masthead, .site-header-row-container-inner, .site-footer, .site-footer-row-container-inner { background: #0A0A0A !important; border-color: #1f1f1f; }
+.site-branding .site-title, .main-navigation .primary-menu-container > ul > li.menu-item > a, .header-navigation .header-menu-container ul li a { color: #F4F0E8 !important; font-weight: 600; }
+.main-navigation .primary-menu-container > ul > li.menu-item > a:hover, .header-navigation .header-menu-container ul li.current-menu-item > a { color: #E65837 !important; }
+.button, button.button, .wp-element-button, .woocommerce a.button, .woocommerce button.button, .woocommerce input.button, .woocommerce #respond input#submit, .wc-block-components-button:not(.is-link), .single_add_to_cart_button, .checkout-button, #place_order {
+  background: #E65837 !important; color: #0A0A0A !important; border: 0 !important; border-radius: 10px !important; font-weight: 700 !important; letter-spacing: .2px; text-transform: none; }
+.button:hover, .woocommerce a.button:hover, .woocommerce button.button:hover, .wc-block-components-button:not(.is-link):hover, .single_add_to_cart_button:hover { background: #F4F0E8 !important; color: #0A0A0A !important; }
+.woocommerce ul.products li.product .price, .woocommerce div.product p.price, .woocommerce div.product span.price, .wc-block-components-product-price, .amount { color: #E65837; font-weight: 700; }
+.woocommerce span.onsale { background: #E65837; color: #0A0A0A; }
+input[type=text], input[type=email], input[type=tel], input[type=number], input[type=date], input[type=password], input[type=search], select, textarea, .select2-container--default .select2-selection--single, .wc-block-components-text-input input {
+  background: #111 !important; color: #F4F0E8 !important; border: 1px solid #2a2a2a !important; border-radius: 10px !important; }
+input:focus, select:focus, textarea:focus { border-color: #E65837 !important; outline: none; box-shadow: 0 0 0 2px rgba(230,88,55,.25); }
+label, .woocommerce form .form-row label { color: #F4F0E8; }
+.woocommerce table.shop_table, .woocommerce-cart-form, .cart_totals, .woocommerce-checkout-review-order, #order_review, .woocommerce-MyAccount-content, .wc-block-components-sidebar, .wc-block-cart, .wc-block-checkout { background: #111; border-color: #222 !important; border-radius: 14px; color: #F4F0E8; }
+.woocommerce table.shop_table th, .woocommerce table.shop_table td { border-color: #222 !important; }
+.woocommerce-message, .woocommerce-info, .woocommerce-error, .wc-block-components-notice-banner { background: #141414 !important; color: #F4F0E8 !important; border-top-color: #E65837 !important; border-left-color: #E65837 !important; }
+.woocommerce-breadcrumb, .woocommerce-result-count, .product_meta, .woocommerce-product-details__short-description { color: #A6A49E; }
+.woocommerce-tabs ul.tabs li a { color: #A6A49E !important; } .woocommerce-tabs ul.tabs li.active a { color: #E65837 !important; }
+.woocommerce div.product div.images img, .woocommerce ul.products li.product a img { border-radius: 12px; }
+.msb-event-fields { background: #111; border: 1px solid #2a2a2a; border-left: 3px solid #E65837; border-radius: 12px; padding: 14px; }
+::selection { background: #E65837; color: #0A0A0A; }

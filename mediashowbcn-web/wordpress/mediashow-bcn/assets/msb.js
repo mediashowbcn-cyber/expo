@@ -9,7 +9,7 @@
   const packById = id => PACKS.find(p => p.id === Number(id));
   const isLed = ex => /^led_/.test(ex.model);
   const LEDS = EXTRAS.filter(isLed);
-  const priceTxt = (price, max) => price === null ? 'A consultar' : '+' + eur0(price) + (max > 1 ? ' / ud. (máx. ' + max + ')' : '');
+  const priceTxt = (price, max) => price === null ? 'A consultar' : '+' + eur0(price) + (max > 1 ? ' / ud.' + (max < 10 ? ' (máx. ' + max + ')' : '') : '');
 
   const ICONS = {
     totem: '<rect x="7" y="2" width="10" height="17" rx="1.5"/><path d="M12 19v3M8 22h8"/>',
@@ -22,6 +22,7 @@
     truss: '<path d="M3 6h18M3 10h18M3 6l4 4 4-4 4 4 4-4M5 10v11M19 10v11"/>',
     booth: '<rect x="3" y="10" width="18" height="10" rx="1.5"/><circle cx="8" cy="7" r="2.5"/><circle cx="16" cy="7" r="2.5"/>',
     dj: '<circle cx="12" cy="7" r="3.5"/><path d="M7.5 7a4.5 4.5 0 019 0M5 21c0-3.5 3.1-6 7-6s7 2.5 7 6"/>',
+    spk: '<rect x="6" y="2" width="12" height="20" rx="2"/><circle cx="12" cy="14" r="4"/><circle cx="12" cy="6.5" r="1.5"/>',
     mic: '<rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v4"/>',
     lectern: '<path d="M6 7h12l-2 4H8z"/><path d="M9 11v9M15 11v9M7 20h10"/>',
     '': '<path d="M4 7l8-4 8 4v10l-8 4-8-4z"/><path d="M4 7l8 4 8-4M12 11v10"/>'
@@ -312,6 +313,10 @@
       `Fecha: ${fmtDate(state.date)} · ${state.guests} personas · ${state.hours} h · ${state.space} · ${ZONES[state.zone]}.`,
       `Iluminación: ${$('dm-select').selectedOptions[0].text}.`
     ];
+    const sizes = Stage.describe();
+    if (sizes.length) wa.push('Medidas en el render: ' + sizes.join('; ') + '.');
+    $('prop-sizes').hidden = !sizes.length;
+    $('prop-sizes').textContent = sizes.length ? 'Medidas en el render: ' + sizes.join('; ') + '. Precio a confirmar.' : '';
     const extrasTxt = q.lines.slice(1).filter(l => !/^Horas extra/.test(l.label)).map(l => l.label + (l.cents === null ? ' (a consultar)' : ''));
     if (extrasTxt.length) wa.push('Extras: ' + extrasTxt.join(', ') + '.');
     if ((models.totem || models.screen55) && state.logo) wa.push('Tengo logo para las pantallas; os lo envío por aquí.');
@@ -442,7 +447,9 @@
         venueUrl = img.src;
         Stage.setVenue(img);
         $('venue-remove').hidden = false;
-        msg.textContent = 'Foto cargada. Arrastra el fondo para girar la cámara y arrastra los equipos hasta que encajen.';
+        $('fit-panel').hidden = false;
+        syncView();
+        msg.textContent = 'Foto cargada. Encaja la cámara con los controles de abajo y toca cada equipo para ajustar su tamaño.';
       };
       img.onerror = () => { msg.textContent = 'No se ha podido leer la foto. Prueba con otra.'; };
       img.src = URL.createObjectURL(file);
@@ -452,24 +459,87 @@
       if (venueUrl) URL.revokeObjectURL(venueUrl);
       venueUrl = null;
       $('venue-remove').hidden = true;
+      $('fit-panel').hidden = true;
+      Stage.setView({ tarima: true });
       msg.textContent = 'Foto quitada.';
     });
     $('shot-btn').addEventListener('click', async () => {
-      try { download(await Stage.snapshot(), 'mediashowbcn-propuesta-1080p.png'); msg.textContent = 'Imagen 1080p descargada.'; }
+      const o = exportOpts();
+      try { download(await Stage.snapshot(o), `mediashowbcn-propuesta-${o.h}p.png`); msg.textContent = `Imagen ${o.label} descargada.`; }
       catch (e) { msg.textContent = e.message; }
     });
     $('video-btn').addEventListener('click', async () => {
       if (Stage.recording) return;
       const btn = $('video-btn');
       btn.setAttribute('aria-disabled', 'true');
-      msg.textContent = 'Grabando 10 segundos en 1080p… no cambies de pestaña.';
+      const o = exportOpts();
+      msg.textContent = `Grabando 10 segundos en ${o.label}… no cambies de pestaña.`;
       try {
-        const { blob, ext } = await Stage.record(10);
-        download(blob, 'mediashowbcn-propuesta-1080p.' + ext);
-        msg.textContent = 'Vídeo 1080p descargado (' + ext.toUpperCase() + ').';
+        const { blob, ext } = await Stage.record(10, o);
+        download(blob, `mediashowbcn-propuesta-${o.h}p.` + ext);
+        msg.textContent = `Vídeo ${o.label} descargado (${ext.toUpperCase()}).`;
       } catch (e) { msg.textContent = e.message; }
       btn.removeAttribute('aria-disabled');
     });
+  }
+
+  const RES = { '1080': { w: 1920, h: 1080, label: '1080p' }, '1440': { w: 2560, h: 1440, label: '1440p' }, '2160': { w: 3840, h: 2160, label: '4K' } };
+  function exportOpts() {
+    const r = RES[S.pro && $('export-res') ? $('export-res').value : '1080'] || RES['1080'];
+    return Object.assign({ mark: !(S.pro && $('export-mark') && !$('export-mark').checked) }, r);
+  }
+
+  /* Encaje de la cámara con la foto del espacio */
+  const FIT = { height: ['fit-height', 1, ' m'], dist: ['fit-dist', 1, ' m'], fov: ['fit-fov', 0, '°'], aim: ['fit-aim', 1, ' m'], shadow: ['fit-shadow', 0, ' %'] };
+  function syncView() {
+    const v = Stage.getView();
+    if (!v) return;
+    Object.keys(FIT).forEach(k => {
+      const [id, d, u] = FIT[k];
+      $(id).value = v[k];
+      $(id + '-val').textContent = k === 'shadow' ? Math.round(v[k] * 100) + u : Number(v[k]).toFixed(d).replace('.', ',') + u;
+    });
+    $('fit-tarima').checked = v.tarima;
+  }
+  function setupFit() {
+    Object.keys(FIT).forEach(k => $(FIT[k][0]).addEventListener('input', e => { Stage.setView({ [k]: Number(e.target.value) }); syncView(); }));
+    $('fit-tarima').addEventListener('change', e => { Stage.setView({ tarima: e.target.checked }); render(); });
+    window.addEventListener('msb:camera', () => { if (!$('fit-panel').hidden) syncView(); });
+  }
+
+  /* Panel del equipo tocado: tamaño, pulgadas, medidas de la pantalla LED, altura y giro */
+  const num = v => String(+Number(v).toFixed(2)).replace('.', ',');
+  function showInspector(d) {
+    $('insp').hidden = !d;
+    if (!d) return;
+    $('insp-title').textContent = d.label;
+    const inch = d.kind === 'screen' || d.kind === 'totem', wall = d.kind === 'wall';
+    $('insp-inch-row').hidden = !inch;
+    $('insp-dims-row').hidden = !wall;
+    $('insp-size-row').hidden = inch || wall;
+    $('insp-size').value = Math.round(d.size * 100);
+    $('insp-size-val').textContent = Math.round(d.size * 100) + ' %';
+    if (inch) $('insp-inch').value = String(d.inch);
+    if (wall) { $('insp-w').value = d.dims[0]; $('insp-h').value = d.dims[1]; $('insp-m2').textContent = num(d.dims[0] * d.dims[1]) + ' m²'; }
+    $('insp-lift').value = Math.round(d.lift * 100);
+    $('insp-lift-val').textContent = num(d.lift) + ' m';
+  }
+  function setupInspector() {
+    window.addEventListener('msb:select', e => showInspector(e.detail));
+    window.addEventListener('msb:montage', () => render());
+    const set = (p, v) => showInspector(Stage.adjust(p, v));
+    $('insp-size').addEventListener('input', e => set('size', e.target.value / 100));
+    $('insp-inch').addEventListener('change', e => set('inch', Number(e.target.value)));
+    $('insp-lift').addEventListener('input', e => set('lift', e.target.value / 100));
+    const dims = () => {
+      const w = Math.round(Number($('insp-w').value) * 2) / 2, h = Math.round(Number($('insp-h').value) * 2) / 2;
+      if (w >= 1 && h >= 0.5) set('dims', [w, h]);
+    };
+    $('insp-w').addEventListener('change', dims);
+    $('insp-h').addEventListener('change', dims);
+    $('insp').addEventListener('click', e => { const r = e.target.closest('[data-rot]'); if (r) set('rot', Number(r.dataset.rot)); });
+    $('insp-reset').addEventListener('click', () => set('reset'));
+    $('insp-close').addEventListener('click', () => Stage.select(null));
   }
 
 /* ===================== ESCENARIO 3D (Three.js r128) ===================== */
@@ -864,6 +934,23 @@ const Stage = (() => {
     return g;
   }
 
+  /* ---------- Montaje: altura de tarima, colecciones que crecen y ajustes por equipo ---------- */
+  let SH = 0.4;
+  const CAP = { heads: 48, bars: 24, speakers: 24, mics: 24, screens: 24, totems: 24 };
+  const KIND = { trx: 'Altavoz Alto TRX315', speaker: 'Altavoz RCF EVOX 12', totem: 'Tótem', screen: 'Pantalla', mic: 'Micrófono', cam: 'Cámara', wall: 'Pantalla LED', booth: 'Cabina DJ', lectern: 'Atril', foh: 'Control de sonido', head: 'Cabeza móvil' };
+  let draggables = [], dragObj = null, selected = null, selBox = null;
+  let stageMeshes = [];
+
+  function tag(o, kind) { o.userData.kind = kind; o.userData.lift = 0; o.userData.size = 1; o.userData.inch = 55; return o; }
+  function addDraggable(o, kind) { tag(o, kind); scene.add(o); draggables.push(o); return o; }
+  function place(o, x, z, onStage, ry) {
+    o.userData.onStage = !!onStage && SH > 0;
+    o.position.set(x, (o.userData.onStage ? SH : 0) + o.userData.lift, z);
+    if (ry !== undefined) o.rotation.y = ry;
+  }
+  const fill = (list, n, make) => { while (list.length < n) list.push(make(list.length)); return list; };
+  const notify = () => window.dispatchEvent(new CustomEvent('msb:montage'));
+
   function init() {
     if (inited || failed) return;
     if (!window.THREE || !THREE.OrbitControls) { setTimeout(init, 150); return; }
@@ -884,18 +971,18 @@ const Stage = (() => {
     controls.enableDamping = true;
     controls.enablePan = false;
     controls.maxPolarAngle = Math.PI / 2 - 0.04;
-    controls.minDistance = 3.5;
-    controls.maxDistance = 17;
+    controls.minDistance = 2;
+    controls.maxDistance = 22;
+    controls.addEventListener('end', () => window.dispatchEvent(new CustomEvent('msb:camera')));
     clock = new THREE.Clock();
 
     makeTextures(); makeMaterials();
 
-    // Iluminación 360°: hemisférica, clave frontal, contra y relleno traseros
     scene.add(new THREE.HemisphereLight(0xdbe4f0, 0x1a1e28, 0.6));
     const key = new THREE.DirectionalLight(0xfff4ea, 0.95);
     key.position.set(4, 9, 8); key.castShadow = true;
     key.shadow.mapSize.set(1024, 1024);
-    Object.assign(key.shadow.camera, { left: -7, right: 7, top: 7, bottom: -3, near: 1, far: 30 });
+    Object.assign(key.shadow.camera, { left: -9, right: 9, top: 9, bottom: -4, near: 1, far: 34 });
     key.shadow.camera.updateProjectionMatrix();
     scene.add(key);
     const frontFill = new THREE.DirectionalLight(0xbcd2ff, 0.35); frontFill.position.set(-6, 4, 7); scene.add(frontFill);
@@ -905,12 +992,13 @@ const Stage = (() => {
     lights.a = new THREE.PointLight(pal.a, 1.8, 11); lights.a.position.set(-1.8, 3.3, -1.4); scene.add(lights.a);
     lights.b = new THREE.PointLight(pal.b, 1.6, 11); lights.b.position.set(1.8, 3.3, -1.4); scene.add(lights.b);
 
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), M.floor); rig.floor = floor;
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), M.floor); rig.floor = floor;
     floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
 
     const stage = box(7.2, 0.4, 4.2, M.stage); stage.position.set(0, 0.2, -0.5); stage.receiveShadow = true; stage.castShadow = true; scene.add(stage);
     const skirt = box(7.22, 0.38, 0.02, M.skirt); skirt.position.set(0, 0.19, 1.61); scene.add(skirt);
     const steps = box(0.9, 0.2, 0.4, M.stage); steps.position.set(3.0, 0.1, 1.85); scene.add(steps);
+    stageMeshes = [stage, skirt, steps];
 
     const drape = new THREE.Mesh(new THREE.PlaneGeometry(9, 5), M.drape); drape.position.set(0, 2.5, -2.75); scene.add(drape); rig.drape = drape;
 
@@ -920,36 +1008,22 @@ const Stage = (() => {
     trussRun(new THREE.Vector3(-3.35, 3.8, -2.1), new THREE.Vector3(3.35, 3.8, -2.1), M.alu, rig.truss);
     [-3.2, 3.2].forEach(x => { const p = box(0.6, 0.02, 0.6, M.alu); p.position.set(x, 0.41, -2.1); rig.truss.add(p); });
 
-    rig.trx = [buildTrx(), buildTrx()];
-    rig.trx.forEach(t => scene.add(t));
-    rig.speakers = [];
-    for (let i = 0; i < 6; i++) { const s = buildRcf(); scene.add(s); rig.speakers.push(s); }
-
-    rig.heads = [];
-    for (let i = 0; i < 10; i++) { const h = buildHead(); h.g.position.set(0, 3.62, -2.1); h.phase = i * 0.7; scene.add(h.g); rig.heads.push(h); }
-
-    rig.bars = [];
-    for (let i = 0; i < 6; i++) { const b = buildBar(); b.g.position.set(0, 0.435, 1.4); scene.add(b.g); rig.bars.push(b); }
+    rig.trx = [0, 1].map(() => addDraggable(buildTrx(), 'trx'));
+    rig.speakers = []; rig.heads = []; rig.bars = []; rig.mics = []; rig.screens = []; rig.totems = []; rig.cams = [];
 
     rig.pars = [];
     [-1, 1].forEach(sx => { const p = buildPar(); p.g.position.set(sx * 2.95, 2.7, -1.85); p.g.lookAt(sx * 0.6, 0.9, 0.6); scene.add(p.g); rig.pars.push(p); });
 
-    rig.mics = [];
-    [[0, 0.95], [-1.2, 0.85], [1.2, 0.85], [-2.2, 0.6], [2.2, 0.6], [-0.6, 0.3], [0.6, 0.3], [-1.8, -0.2]].forEach(([x, z]) => { const m = buildMic(); m.position.set(x, 0.4, z); scene.add(m); rig.mics.push(m); });
-
-    rig.booth = buildBooth(); rig.booth.position.set(0, 0.4, -0.7); scene.add(rig.booth);
-    rig.dj = buildDJ(); rig.dj.g.position.set(0, 0, -0.62); rig.dj.g.rotation.y = 0; rig.booth.add(rig.dj.g);
-    rig.lectern = buildLectern(); rig.lectern.position.set(-2.1, 0.4, 0.75); rig.lectern.rotation.y = 0.25; scene.add(rig.lectern);
-    rig.foh = buildFoh(); rig.foh.position.set(0, 0, 7.2); rig.foh.rotation.y = Math.PI; scene.add(rig.foh);
-    rig.cams = [];
-    [-2.6, 2.6].forEach(x => { const c = buildCam(); c.position.set(x, 0, 5.6); c.lookAt(0, 0, -1); scene.add(c); rig.cams.push(c); });
+    rig.booth = addDraggable(buildBooth(), 'booth');
+    rig.dj = buildDJ(); rig.dj.g.position.set(0, 0, -0.62); rig.booth.add(rig.dj.g);
+    rig.lectern = addDraggable(buildLectern(), 'lectern');
+    rig.foh = addDraggable(buildFoh(), 'foh');
     rig.walls = {};
-    [['S', 2, 1.5], ['M', 3, 2], ['L', 4, 2.5]].forEach(([k, w, h]) => { const wall = buildLedWall(w, h); wall.position.set(0, 0.4, -1.85); scene.add(wall); rig.walls[k] = wall; });
-    rig.screens = [];
-    [[-4.7, 3.2, 0.5], [4.7, 3.2, -0.5], [-5.2, 0.4, 0.9], [5.2, 0.4, -0.9]].forEach(([x, z, r]) => { const sc = buildScreen55(); sc.position.set(x, 0, z); sc.rotation.y = r; scene.add(sc); rig.screens.push(sc); });
-
-    rig.totems = [buildTotem(), buildTotem()];
-    rig.totems.forEach(t => scene.add(t));
+    [['S', 2, 1.5], ['M', 3, 2], ['L', 4, 2.5]].forEach(([k, w, h]) => {
+      const wall = addDraggable(buildLedWall(w, h), 'wall');
+      wall.userData.dims = [w, h]; wall.userData.base = [w, h]; wall.userData.key = k;
+      rig.walls[k] = wall;
+    });
 
     const N = 380, pos = new Float32Array(N * 3);
     for (let i = 0; i < N; i++) { pos[i * 3] = (Math.random() - 0.5) * 9; pos[i * 3 + 1] = 0.4 + Math.random() * 3.8; pos[i * 3 + 2] = -2 + Math.random() * 6; }
@@ -957,11 +1031,11 @@ const Stage = (() => {
     rig.haze = new THREE.Points(hg, new THREE.PointsMaterial({ map: tex.puff, size: 1.6, transparent: true, opacity: 0.16, depthWrite: false, color: 0xb8bcc4 }));
     scene.add(rig.haze);
 
+    selBox = new THREE.BoxHelper(undefined, 0xe65837); selBox.visible = false; scene.add(selBox);
+
     drawTotem();
     if (document.fonts && document.fonts.load) document.fonts.load('60px "Bebas Neue"').then(() => { drawTotem(); drawLed(0); });
 
-    draggables = [...rig.trx, ...rig.speakers, ...rig.totems, ...rig.screens, ...rig.mics, ...rig.cams, ...Object.values(rig.walls), rig.booth, rig.lectern, rig.foh];
-    draggables.forEach(o => { o.userData.home = { p: o.position.clone(), r: o.rotation.y }; });
     setupDrag(canvas);
 
     const ro = new ResizeObserver(resize); ro.observe(canvas);
@@ -970,11 +1044,11 @@ const Stage = (() => {
     loop();
   }
 
-  // Arrastrar equipos por el suelo o el escenario; doble clic para girarlos 45°
-  let draggables = [], dragObj = null;
+  /* Arrastrar mueve el equipo; un toque lo selecciona para ajustarlo; doble clic lo gira 45°. */
   function setupDrag(canvas) {
     const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
     const hit = new THREE.Vector3(), off = new THREE.Vector3();
+    let down = null;
     const aim = e => {
       const r = canvas.getBoundingClientRect();
       ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
@@ -991,6 +1065,7 @@ const Stage = (() => {
     // Va en fase de captura para adelantarse a OrbitControls y no girar la cámara al arrastrar.
     canvas.addEventListener('pointerdown', e => {
       if (e.button !== 0) return;
+      down = { x: e.clientX, y: e.clientY, moved: false };
       const o = pick(e);
       if (!o) return;
       dragObj = o;
@@ -1001,16 +1076,24 @@ const Stage = (() => {
       canvas.style.cursor = 'grabbing';
     }, true);
     canvas.addEventListener('pointermove', e => {
+      if (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 5) down.moved = true;
       if (!dragObj) { if (e.pointerType === 'mouse') canvas.style.cursor = pick(e) ? 'grab' : ''; return; }
+      if (!down || !down.moved) return;
       aim(e);
       if (!ray.ray.intersectPlane(plane, hit)) return;
-      const x = Math.max(-7, Math.min(7, hit.x + off.x)), z = Math.max(-2.5, Math.min(9, hit.z + off.z));
-      const onStage = Math.abs(x) < 3.55 && z > -2.55 && z < 1.55;
-      dragObj.position.set(x, onStage ? 0.4 : 0, z);
+      const x = Math.max(-14, Math.min(14, hit.x + off.x)), z = Math.max(-6, Math.min(16, hit.z + off.z));
+      place(dragObj, x, z, Math.abs(x) < 3.55 && z > -2.55 && z < 1.55);
       plane.constant = -dragObj.position.y;
       dragObj.userData.moved = true;
     });
-    const end = () => { if (!dragObj) return; dragObj = null; controls.enabled = true; canvas.style.cursor = ''; };
+    const end = e => {
+      const tap = down && !down.moved;
+      if (tap) select(dragObj || (e.type === 'pointerup' ? pick(e) : null));
+      else if (dragObj && dragObj === selected) notify();
+      down = null;
+      if (!dragObj) return;
+      dragObj = null; controls.enabled = true; canvas.style.cursor = '';
+    };
     canvas.addEventListener('pointerup', end);
     canvas.addEventListener('pointercancel', end);
     canvas.addEventListener('dblclick', e => {
@@ -1019,80 +1102,226 @@ const Stage = (() => {
     });
   }
 
+  function info(o) {
+    if (!o) return null;
+    const u = o.userData;
+    return { kind: u.kind, label: KIND[u.kind] || 'Equipo', size: u.size, inch: u.inch, lift: u.lift, dims: u.dims ? u.dims.slice() : null, rot: Math.round(THREE.MathUtils.radToDeg(o.rotation.y)) };
+  }
+
+  function select(o) {
+    selected = o || null;
+    selBox.visible = !!selected;
+    if (selected) selBox.setFromObject(selected);
+    window.dispatchEvent(new CustomEvent('msb:select', { detail: info(selected) }));
+  }
+
+  function rebuildWall(o, w, h) {
+    const n = buildLedWall(w, h);
+    n.position.copy(o.position); n.rotation.copy(o.rotation);
+    n.userData = Object.assign({}, o.userData, { dims: [w, h] });
+    n.visible = o.visible;
+    scene.remove(o); scene.add(n);
+    draggables[draggables.indexOf(o)] = n;
+    rig.walls[o.userData.key] = n;
+    return n;
+  }
+
+  /* Ajustes del equipo seleccionado desde el panel de montaje. */
+  function adjust(prop, v) {
+    const o = selected;
+    if (!o) return null;
+    const u = o.userData;
+    let t = o;
+    if (prop === 'size') { u.size = Math.max(0.3, Math.min(3, v)); o.scale.setScalar(u.size); }
+    else if (prop === 'inch') { u.inch = v; u.size = v / 55; o.scale.setScalar(u.size); }
+    else if (prop === 'lift') { u.lift = Math.max(0, Math.min(6, v)); place(o, o.position.x, o.position.z, u.onStage); }
+    else if (prop === 'rot') o.rotation.y += THREE.MathUtils.degToRad(v);
+    else if (prop === 'dims' && u.kind === 'wall') t = rebuildWall(o, Math.max(1, Math.min(16, v[0])), Math.max(0.5, Math.min(8, v[1])));
+    else if (prop === 'reset') {
+      if (u.kind === 'wall' && (u.dims[0] !== u.base[0] || u.dims[1] !== u.base[1])) t = rebuildWall(o, u.base[0], u.base[1]);
+      Object.assign(t.userData, { size: 1, inch: 55, lift: 0, moved: false });
+      t.scale.setScalar(1);
+      update(lastState);
+    }
+    t.userData.moved = t.userData.moved || prop !== 'reset';
+    selected = t;
+    selBox.setFromObject(t);
+    notify();
+    return info(t);
+  }
+
+  function setTarima(on) {
+    const d = (on ? 0.4 : 0) - SH;
+    if (!d) return;
+    if (!on) draggables.forEach(o => { o.userData.wasOnStage = o.userData.onStage; });
+    SH += d;
+    stageMeshes.forEach(m => { m.visible = on; });
+    rig.truss.position.y += d;
+    rig.pars.forEach(p => { p.g.position.y += d; });
+    draggables.forEach(o => place(o, o.position.x, o.position.z, on ? !!o.userData.wasOnStage : false));
+    update(lastState);
+  }
+
   function resetLayout() {
-    draggables.forEach(o => { o.userData.moved = false; o.position.copy(o.userData.home.p); o.rotation.y = o.userData.home.r; });
+    draggables.forEach(o => {
+      const u = o.userData;
+      if (u.kind === 'wall' && (u.dims[0] !== u.base[0] || u.dims[1] !== u.base[1])) rebuildWall(o, u.base[0], u.base[1]);
+    });
+    draggables.forEach(o => { Object.assign(o.userData, { moved: false, lift: 0, size: 1, inch: 55 }); o.scale.setScalar(1); });
+    select(null);
+    update(lastState);
+    notify();
+  }
+
+  /* Resumen de medidas cambiadas para la propuesta y el WhatsApp. */
+  function describe() {
+    const out = [];
+    Object.values(rig.walls || {}).forEach(w => {
+      if (!w.visible) return;
+      const [a, b] = w.userData.dims, [a0, b0] = w.userData.base;
+      if (a !== a0 || b !== b0) out.push(`Pantalla LED de ${String(a).replace('.', ',')} × ${String(b).replace('.', ',')} m (${String(+(a * b).toFixed(2)).replace('.', ',')} m²) en vez de ${String(a0).replace('.', ',')} × ${String(b0).replace('.', ',')} m`);
+    });
+    [['screens', 'pantalla'], ['totems', 'tótem']].forEach(([k, name]) => {
+      const sizes = {};
+      (rig[k] || []).filter(o => o.visible && o.userData.inch !== 55).forEach(o => { sizes[o.userData.inch] = (sizes[o.userData.inch] || 0) + 1; });
+      Object.keys(sizes).forEach(i => out.push(`${sizes[i]} ${name}${sizes[i] > 1 ? (name === 'tótem' ? 's' : 's') : ''} de ${i}"`));
+    });
+    return out;
   }
 
   function resize() {
-    if (!renderer) return;
+    if (!renderer || exporting) return;
     const c = renderer.domElement, w = c.clientWidth, h = c.clientHeight;
     if (!w || !h) return;
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
+    fitBg(w / h);
   }
 
-  let cfg = null, ledTick = 0;
+  let cfg = null, ledTick = 0, lastState = null;
   function update(s) {
-    if (!inited) return;
+    if (!inited || !s) return;
+    lastState = s;
     mode = s.dm; pal = PAL[mode];
     const p = s.preset, x = s.models;
     const full = p === 'premium' || p === 'integral';
     const led = x.led_s ? 'S' : x.led_m ? 'M' : x.led_l ? 'L' : '';
     cfg = {
-      speakers: s.guests <= 60 ? 2 : s.guests <= 150 ? 4 : 6,
-      heads: Math.min(10, (full ? 4 : 0) + 6 * (x.heads || 0)),
-      bars: Math.min(6, (p === 'corporate' ? 2 : 0) + 4 * (x.bars || 0)),
+      base: s.guests <= 60 ? 2 : s.guests <= 150 ? 4 : 6,
+      extraSpk: x.spk || 0,
+      heads: (full ? 4 : 0) + 6 * (x.heads || 0),
+      bars: (p === 'corporate' ? 2 : 0) + 4 * (x.bars || 0),
       pars: p === 'corporate' ? 2 : 0,
-      mics: Math.min(8, ({ starter: 1, corporate: 2, premium: 4, integral: 4 }[p] || 2) + (x.mic || 0)),
+      mics: ({ starter: 1, corporate: 2, premium: 4, integral: 4 }[p] || 2) + (x.mic || 0),
       dj: (x.dj || 0) > 0,
       booth: p === 'starter' || (x.booth || 0) > 0 || (x.dj || 0) > 0,
       lectern: (x.lectern || 0) > 0,
       foh: p !== 'starter',
       wall: led || (p === 'integral' ? 'S' : ''),
-      screens: Math.min(4, x.screen55 || 0),
+      screens: x.screen55 || 0,
       cams: (p === 'integral' || (x.stream || 0) > 0) ? 2 : 0,
       haze: p === 'premium' || (x.smoke || 0) > 0,
-      totems: Math.min(2, x.totem || 0)
+      totems: x.totem || 0
     };
     cfg.truss = p !== 'starter' || cfg.heads > 0 || (x.truss || 0) > 0;
-
-    const xs = { 2: [-2.9, 2.9], 4: [-3.3, -2.6, 2.6, 3.3], 6: [-4.3, -3.4, -2.6, 2.6, 3.4, 4.3] }[cfg.speakers];
     cfg.trx = p === 'starter';
+    cfg.rcfBase = cfg.trx ? 0 : cfg.base;
+    cfg.speakers = cfg.rcfBase + cfg.extraSpk;
+    const vis = (n, k) => Math.min(n, CAP[k]);
+
     rig.trx.forEach((t, i) => {
       t.visible = cfg.trx;
-      if (t.visible && !t.userData.moved) { const px = i ? 2.9 : -2.9; t.position.set(px, 0.4, 1.0); t.rotation.y = -px * 0.06; }
+      if (t.visible && !t.userData.moved) { const px = i ? 2.9 : -2.9; place(t, px, 1.0, true, -px * 0.06); }
     });
+
+    const xs = { 0: [], 2: [-2.9, 2.9], 4: [-3.3, -2.6, 2.6, 3.3], 6: [-4.3, -3.4, -2.6, 2.6, 3.4, 4.3] }[cfg.rcfBase];
+    fill(rig.speakers, vis(cfg.speakers, 'speakers'), () => addDraggable(buildRcf(), 'speaker'));
     rig.speakers.forEach((sp, i) => {
-      sp.visible = !cfg.trx && i < cfg.speakers;
-      if (sp.visible && !sp.userData.moved) { const px = xs[i]; const out = Math.abs(px) > 3.5; sp.position.set(px, out ? 0 : 0.4, out ? 1.9 : 1.15); sp.rotation.y = -px * 0.05; }
+      sp.visible = i < vis(cfg.speakers, 'speakers');
+      if (!sp.visible || sp.userData.moved) return;
+      if (i < xs.length) { const px = xs[i], out = Math.abs(px) > 3.5; place(sp, px, out ? 1.9 : 1.15, !out, -px * 0.05); return; }
+      const k = i - xs.length, side = k % 2 ? 1 : -1, px = side * (4.9 + 0.8 * Math.floor(k / 2));
+      place(sp, px, 2.3, false, -side * 0.3);
     });
 
     rig.truss.visible = cfg.truss;
+    const nh = vis(cfg.heads, 'heads'), onTruss = Math.min(nh, 12);
+    fill(rig.heads, nh, i => { const h = buildHead(); h.phase = i * 0.7; scene.add(h.g); return h; });
     rig.heads.forEach((h, i) => {
-      h.g.visible = i < cfg.heads;
-      if (h.g.visible) h.g.position.x = cfg.heads === 1 ? 0 : -2.85 + i * (5.7 / (cfg.heads - 1));
+      h.g.visible = i < nh;
+      if (!h.g.visible) return;
+      if (i < 12) { h.g.rotation.x = 0; h.g.position.set(onTruss === 1 ? 0 : -2.85 + i * (5.7 / (onTruss - 1)), SH + 3.22, -2.1); return; }
+      const k = i - 12, side = k % 2 ? 1 : -1, col = Math.floor(k / 2);
+      h.g.rotation.x = Math.PI;
+      h.g.position.set(side * (3.95 + Math.floor(col / 6) * 0.6), 0, -2.2 + (col % 6) * 0.75);
     });
+
+    const nb = vis(cfg.bars, 'bars');
+    fill(rig.bars, nb, () => { const b = buildBar(); scene.add(b.g); return b; });
     rig.bars.forEach((b, i) => {
-      b.g.visible = i < cfg.bars;
-      if (b.g.visible) b.g.position.x = cfg.bars === 1 ? 0 : -2.7 + i * (5.4 / (cfg.bars - 1));
+      b.g.visible = i < nb;
+      if (!b.g.visible) return;
+      const row = Math.floor(i / 6), inRow = Math.min(6, nb - row * 6), j = i % 6;
+      const px = inRow === 1 ? 0 : -2.7 + j * (5.4 / (inRow - 1));
+      if (row === 0) b.g.position.set(px, SH + 0.035, 1.4);
+      else b.g.position.set(px * 1.25, 0.035, 1.9 + row * 0.5);
     });
     rig.pars.forEach(pr => { pr.g.visible = cfg.pars > 0; });
-    rig.mics.forEach((m, i) => { m.visible = i < cfg.mics; });
+
+    const micPos = [[0, 0.95], [-1.2, 0.85], [1.2, 0.85], [-2.2, 0.6], [2.2, 0.6], [-0.6, 0.3], [0.6, 0.3], [-1.8, -0.2]];
+    const nm = vis(cfg.mics, 'mics');
+    fill(rig.mics, nm, () => addDraggable(buildMic(), 'mic'));
+    rig.mics.forEach((m, i) => {
+      m.visible = i < nm;
+      if (!m.visible || m.userData.moved) return;
+      const [mx, mz] = micPos[i] || [-3 + ((i - 8) % 7), -1.2 - Math.floor((i - 8) / 7) * 0.6];
+      place(m, mx, mz, true);
+    });
+
     rig.booth.visible = cfg.booth;
+    if (!rig.booth.userData.moved) place(rig.booth, 0, -0.7, true, 0);
     rig.dj.g.visible = cfg.dj;
     rig.lectern.visible = cfg.lectern;
+    if (!rig.lectern.userData.moved) place(rig.lectern, -2.1, 0.75, true, 0.25);
     rig.foh.visible = cfg.foh;
-    Object.keys(rig.walls).forEach(k => { rig.walls[k].visible = cfg.wall === k; });
-    rig.screens.forEach((sc, i) => { sc.visible = i < cfg.screens; });
-    rig.cams.forEach(c => { c.visible = cfg.cams > 0; });
+    if (!rig.foh.userData.moved) place(rig.foh, 0, 7.2, false, Math.PI);
+    Object.keys(rig.walls).forEach(k => {
+      const w = rig.walls[k];
+      w.visible = cfg.wall === k;
+      if (!w.userData.moved) place(w, 0, -1.85, true, 0);
+    });
+
+    const scrPos = [[-4.7, 3.2, 0.5], [4.7, 3.2, -0.5], [-5.2, 0.4, 0.9], [5.2, 0.4, -0.9]];
+    const ns = vis(cfg.screens, 'screens');
+    fill(rig.screens, ns, () => addDraggable(buildScreen55(), 'screen'));
+    rig.screens.forEach((sc, i) => {
+      sc.visible = i < ns;
+      if (!sc.visible || sc.userData.moved) return;
+      const k = i - 4, side = k % 2 ? 1 : -1;
+      const [px, pz, r] = scrPos[i] || [side * 5.9, 5.4 + Math.floor(k / 2) * 2.2, -side * 1.2];
+      place(sc, px, pz, false, r);
+    });
+
+    const nc = cfg.cams;
+    fill(rig.cams, nc, () => addDraggable(buildCam(), 'cam'));
+    rig.cams.forEach((c, i) => {
+      c.visible = i < nc;
+      if (!c.visible || c.userData.moved) return;
+      const px = i ? 2.6 : -2.6; place(c, px, 5.6, false, Math.atan2(px, 6.6));
+    });
     rig.haze.visible = cfg.haze;
 
-    const tpos = cfg.totems === 1 ? [[2.4, -0.4]] : [[-2.4, 0.4], [2.4, -0.4]];
+    const nt = vis(cfg.totems, 'totems');
+    fill(rig.totems, nt, () => addDraggable(buildTotem(), 'totem'));
     rig.totems.forEach((t, i) => {
-      t.visible = i < cfg.totems;
-      if (t.visible && !t.userData.moved) { t.position.set(tpos[i][0], 0, 2.6); t.rotation.y = tpos[i][1]; }
+      t.visible = i < nt;
+      if (!t.visible || t.userData.moved) return;
+      if (nt === 1) { place(t, 2.4, 2.6, false, -0.4); return; }
+      const side = i % 2 ? 1 : -1, row = Math.floor(i / 2);
+      place(t, side * (2.4 + row * 1.3), 2.6 + row * 0.9, false, -side * 0.4);
     });
+    if (selected && !selected.visible) select(null);
 
     lights.a.color.setHex(pal.a); lights.b.color.setHex(pal.b); lights.rim.color.setHex(pal.rim);
     lights.backFill.color.setHex(mode === 'corp' ? 0xcfe0ff : 0x22d3ee);
@@ -1104,12 +1333,14 @@ const Stage = (() => {
     rig.lecternStrip.color.setHex(pal.a);
     drawLed(clock.getElapsedTime());
 
-    const leg = [cfg.trx ? '2 × Alto TRX315' : `${cfg.speakers} × RCF EVOX 12`];
+    const leg = [];
+    if (cfg.trx) leg.push('2 × Alto TRX315');
+    if (cfg.speakers) leg.push(`${cfg.speakers} × RCF EVOX 12`);
     if (cfg.heads) leg.push(`${cfg.heads} cabezas móviles`);
     if (cfg.bars) leg.push(`${cfg.bars} barras LED`);
-    if (cfg.wall) leg.push({ S: 'LED kit S 3 m²', M: 'LED kit M 6 m²', L: 'LED kit L 10 m²' }[cfg.wall]);
-    if (cfg.totems) leg.push(`${cfg.totems} tótem${cfg.totems > 1 ? 's' : ''} 55"`);
-    if (cfg.screens) leg.push(`${cfg.screens} pantalla${cfg.screens > 1 ? 's' : ''} 55"`);
+    if (cfg.wall) { const d = rig.walls[cfg.wall].userData.dims; leg.push(`LED ${String(d[0]).replace('.', ',')} × ${String(d[1]).replace('.', ',')} m`); }
+    if (cfg.totems) leg.push(`${cfg.totems} tótem${cfg.totems > 1 ? 's' : ''}`);
+    if (cfg.screens) leg.push(`${cfg.screens} pantalla${cfg.screens > 1 ? 's' : ''}`);
     if (cfg.dj) leg.push('DJ');
     if (cfg.lectern) leg.push('Atril');
     leg.push(pal.label);
@@ -1155,21 +1386,32 @@ const Stage = (() => {
     animateRig(t);
     if (rec) {
       const k = Math.min(1, (performance.now() - rec.start) / 1000 / rec.dur);
-      const a = rec.a0 + (k - 0.5) * Math.PI * 0.9;
+      const a = rec.a0 + (k - 0.5) * rec.sweep;
       camera.position.set(Math.sin(a) * rec.r, rec.h, Math.cos(a) * rec.r);
-      camera.lookAt(0, 1.6, 0);
+      camera.lookAt(controls.target);
     } else controls.update();
+    if (selected && selBox.visible) selBox.setFromObject(selected);
     renderer.render(scene, camera);
+    if (rec) compose(rec.ctx, rec.mark);
   }
 
-  // Foto del espacio del cliente como fondo; el suelo solo recoge las sombras
+  /* Foto del espacio de fondo, recortada para llenar el encuadre sin deformarse. */
+  let bgImg = null;
+  function fitBg(aspect) {
+    if (!bgImg || !scene.background || !scene.background.isTexture) return;
+    const t = scene.background, ia = bgImg.naturalWidth / bgImg.naturalHeight;
+    if (ia > aspect) { t.repeat.set(aspect / ia, 1); t.offset.set((1 - aspect / ia) / 2, 0); }
+    else { t.repeat.set(1, ia / aspect); t.offset.set(0, (1 - ia / aspect) / 2); }
+  }
   function setVenue(img) {
     if (!inited) return;
+    bgImg = img || null;
     if (img) {
       const t = new THREE.Texture(img); t.needsUpdate = true;
       scene.background = t; scene.fog = null;
       rig.floor.material = new THREE.ShadowMaterial({ opacity: 0.45 });
       rig.drape.visible = false;
+      fitBg(camera.aspect);
     } else {
       scene.background = new THREE.Color(0x08090c); scene.fog = new THREE.FogExp2(0x08090c, 0.032);
       rig.floor.material = M.floor;
@@ -1177,35 +1419,98 @@ const Stage = (() => {
     }
   }
 
-  function hiRes() {
-    const prevPR = renderer.getPixelRatio();
-    renderer.setPixelRatio(1); renderer.setSize(1920, 1080, false);
-    camera.aspect = 16 / 9; camera.updateProjectionMatrix();
-    return () => { renderer.setPixelRatio(prevPR); resize(); };
+  /* Encaje de la cámara con la foto: altura, distancia, lente y punto de mira. */
+  function getView() {
+    const off = new THREE.Vector3().subVectors(camera.position, controls.target);
+    return { height: +camera.position.y.toFixed(2), dist: +Math.hypot(off.x, off.z).toFixed(2), fov: Math.round(camera.fov), aim: +controls.target.y.toFixed(2), shadow: rig.floor.material.isShadowMaterial ? rig.floor.material.opacity : 0.45, tarima: SH > 0 };
+  }
+  function setView(v) {
+    if (!inited) return;
+    const off = new THREE.Vector3().subVectors(camera.position, controls.target);
+    const ang = Math.atan2(off.x, off.z);
+    if (v.aim !== undefined) controls.target.y = v.aim;
+    const dist = v.dist !== undefined ? v.dist : Math.hypot(off.x, off.z);
+    const height = v.height !== undefined ? v.height : camera.position.y;
+    camera.position.set(controls.target.x + Math.sin(ang) * dist, height, controls.target.z + Math.cos(ang) * dist);
+    if (v.fov !== undefined) { camera.fov = v.fov; camera.updateProjectionMatrix(); }
+    if (v.shadow !== undefined && rig.floor.material.isShadowMaterial) rig.floor.material.opacity = v.shadow;
+    if (v.tarima !== undefined) setTarima(v.tarima);
+    controls.update();
   }
 
-  function snapshot() {
+  /* Exportación: 1080p para todos; 1440p y 4K para el equipo. Marca de agua opcional. */
+  let exporting = false;
+  function hiRes(w, h) {
+    exporting = true;
+    const prevPR = renderer.getPixelRatio();
+    renderer.setPixelRatio(1); renderer.setSize(w, h, false);
+    camera.aspect = w / h; camera.updateProjectionMatrix();
+    fitBg(w / h);
+    const selVis = selBox.visible; selBox.visible = false;
+    return () => { exporting = false; selBox.visible = selVis; renderer.setPixelRatio(prevPR); resize(); };
+  }
+
+  function watermark(g, w, h) {
+    const u = h / 1080, txt = 'PROPUESTA · MEDIA SHOW BCN';
+    g.save();
+    g.globalAlpha = 0.1; g.fillStyle = '#ffffff';
+    g.font = `${Math.round(46 * u)}px "Bebas Neue", Impact, sans-serif`;
+    const step = g.measureText(txt).width + 160 * u;
+    g.translate(w / 2, h / 2); g.rotate(-0.35);
+    for (let r = -6; r <= 6; r++) for (let x = -w; x < w; x += step) g.fillText(txt, x + (r % 2 ? step / 2 : 0), r * 190 * u);
+    g.restore();
+  }
+  function badge(g, w, h) {
+    const u = h / 1080, a = 'MEDIA SHOW BCN', b2 = 'mediashowbcn.com · 615 78 20 87';
+    g.save();
+    g.textBaseline = 'middle';
+    const fa = `${Math.round(34 * u)}px "Bebas Neue", Impact, sans-serif`, fb = `500 ${Math.round(18 * u)}px "Work Sans", sans-serif`;
+    g.font = fa; const wa = g.measureText(a).width;
+    g.font = fb; const wb = g.measureText(b2).width;
+    const ph = 64 * u, pw = 26 * u + wa + 20 * u + wb + 24 * u, x = w - pw - 32 * u, y = h - ph - 28 * u;
+    g.fillStyle = 'rgba(10,10,10,.72)'; g.fillRect(x, y, pw, ph);
+    g.fillStyle = '#E65837'; g.fillRect(x, y, 8 * u, ph);
+    g.font = fa; g.fillStyle = '#F4F0E8'; g.fillText(a, x + 26 * u, y + ph / 2);
+    g.font = fb; g.fillStyle = '#A6A49E'; g.fillText(b2, x + 26 * u + wa + 20 * u, y + ph / 2);
+    g.restore();
+  }
+  function compose(ctx, mark) {
+    const c = ctx.canvas;
+    ctx.drawImage(renderer.domElement, 0, 0, c.width, c.height);
+    if (mark) watermark(ctx, c.width, c.height);
+    badge(ctx, c.width, c.height);
+  }
+
+  function snapshot(opt) {
+    const o = Object.assign({ w: 1920, h: 1080, mark: true }, opt);
     return new Promise((resolve, reject) => {
       if (!inited) return reject(new Error('El escenario 3D no está listo.'));
-      const restore = hiRes();
+      const restore = hiRes(o.w, o.h);
       renderer.render(scene, camera);
-      renderer.domElement.toBlob(b => { restore(); b ? resolve(b) : reject(new Error('No se ha podido crear la imagen.')); }, 'image/png');
+      const c = document.createElement('canvas'); c.width = o.w; c.height = o.h;
+      compose(c.getContext('2d'), o.mark);
+      restore();
+      c.toBlob(b => { b ? resolve(b) : reject(new Error('No se ha podido crear la imagen.')); }, 'image/png');
     });
   }
 
   let rec = null;
-  function record(seconds) {
+  function record(seconds, opt) {
+    const o = Object.assign({ w: 1920, h: 1080, mark: true }, opt);
     return new Promise((resolve, reject) => {
       if (!inited) return reject(new Error('El escenario 3D no está listo.'));
-      if (!window.MediaRecorder || !renderer.domElement.captureStream) return reject(new Error('Este navegador no permite grabar vídeo. Prueba con Chrome, Edge o Safari actualizados.'));
+      const c = document.createElement('canvas'); c.width = o.w; c.height = o.h;
+      if (!window.MediaRecorder || !c.captureStream) return reject(new Error('Este navegador no permite grabar vídeo. Prueba con Chrome, Edge o Safari actualizados.'));
       const type = ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm'].find(t => MediaRecorder.isTypeSupported(t));
       if (!type) return reject(new Error('Este navegador no permite grabar vídeo. Prueba con Chrome, Edge o Safari actualizados.'));
       const saved = camera.position.clone();
-      const off = new THREE.Vector3().subVectors(saved, new THREE.Vector3(0, 1.6, 0));
-      rec = { start: performance.now(), dur: seconds, r: Math.max(8, Math.hypot(off.x, off.z)), h: Math.max(2.4, saved.y), a0: Math.atan2(off.x, off.z) };
-      const restore = hiRes();
+      const off = new THREE.Vector3().subVectors(saved, controls.target);
+      // Con foto de fondo la cámara apenas se mueve para que el montaje siga encajando.
+      const sweep = bgImg ? 0.12 : Math.PI * 0.9;
+      rec = { start: performance.now(), dur: seconds, sweep, r: bgImg ? Math.hypot(off.x, off.z) : Math.max(8, Math.hypot(off.x, off.z)), h: bgImg ? saved.y : Math.max(2.4, saved.y), a0: Math.atan2(off.x, off.z), ctx: c.getContext('2d'), mark: o.mark };
+      const restore = hiRes(o.w, o.h);
       const chunks = [];
-      const mr = new MediaRecorder(renderer.domElement.captureStream(30), { mimeType: type, videoBitsPerSecond: 12e6 });
+      const mr = new MediaRecorder(c.captureStream(30), { mimeType: type, videoBitsPerSecond: o.w > 1920 ? 30e6 : 12e6 });
       mr.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
       mr.onstop = () => {
         rec = null; restore();
@@ -1231,6 +1536,11 @@ const Stage = (() => {
     setLogo(img) { logoImg = img; if (inited) { drawTotem(); drawLed(clock.getElapsedTime()); } },
     resetLayout() { if (inited) resetLayout(); },
     setVenue,
+    getView() { return inited ? getView() : null; },
+    setView,
+    adjust,
+    select(o) { if (inited && !o) select(null); },
+    describe() { return inited ? describe() : []; },
     snapshot,
     record,
     get recording() { return !!rec; },
@@ -1241,8 +1551,7 @@ const Stage = (() => {
   };
 })();
 
-
-  function setCamPreset(p) { Stage.cam(p); }
+  function setCamPreset(p) { Stage.cam(p); syncView(); }
 
   function resetLayout() { Stage.resetLayout(); render(); }
 
@@ -1252,6 +1561,10 @@ const Stage = (() => {
   buildExtrasList();
   setupLogo();
   setupExport();
+  setupFit();
+  setupInspector();
+  if (S.pro) document.querySelectorAll('.pro-only').forEach(el => { el.hidden = false; });
+  else $('export-note').hidden = false;
   syncInputs();
   ['guests-range', 'pack-select', 'hours-select', 'space-select', 'zone-select', 'dm-select', 'date-input', 'client-name', 'client-phone']
     .forEach(id => $(id).addEventListener(id === 'guests-range' || id.startsWith('client') ? 'input' : 'change', render));

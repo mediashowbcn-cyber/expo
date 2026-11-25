@@ -15,17 +15,42 @@ function msb_activate() {
 
 /* Al actualizar el plugin, crea los productos nuevos que falten (nunca toca los existentes). */
 add_action(
-	'admin_init',
+	'init',
 	function () {
-		if ( function_exists( 'WC' ) && get_option( 'msb_version' ) !== MSB_VERSION && current_user_can( 'manage_woocommerce' ) ) {
-			msb_setup_products();
-			if ( version_compare( (string) get_option( 'msb_version', '0' ), '1.1.0', '<' ) ) {
-				msb_show_extras_in_shop();
-			}
-			update_option( 'msb_version', MSB_VERSION, false );
+		if ( ! function_exists( 'WC' ) || get_option( 'msb_version' ) === MSB_VERSION || get_transient( 'msb_upgrading' ) ) {
+			return;
+		}
+		set_transient( 'msb_upgrading', 1, 60 );
+		$from = (string) get_option( 'msb_version', '0' );
+		msb_setup_products();
+		if ( version_compare( $from, '1.1.0', '<' ) ) {
+			msb_show_extras_in_shop();
+		}
+		if ( version_compare( $from, '1.3.0', '<' ) ) {
+			msb_raise_limits();
+		}
+		update_option( 'msb_version', MSB_VERSION, false );
+		delete_transient( 'msb_upgrading' );
+	},
+	20
+);
+
+/* 1.3.0: sube los máximos que siguen en el valor original (no toca los que el usuario cambió). */
+function msb_raise_limits() {
+	$limits = array(
+		'MSB-TOTEM'    => array( 2, 50 ),
+		'MSB-SCREEN55' => array( 4, 50 ),
+		'MSB-HEADS'    => array( 1, 8 ),
+		'MSB-BARS'     => array( 1, 6 ),
+		'MSB-MIC'      => array( 4, 20 ),
+	);
+	foreach ( $limits as $sku => $l ) {
+		$id = wc_get_product_id_by_sku( $sku );
+		if ( $id && (int) get_post_meta( $id, '_msb_max', true ) === $l[0] ) {
+			update_post_meta( $id, '_msb_max', $l[1] );
 		}
 	}
-);
+}
 
 /* Si WooCommerce se activa después del plugin, crea los productos la primera vez. */
 add_action(
@@ -195,19 +220,21 @@ function msb_setup_products() {
 		array( 'MSB-LED-S', 'Pantalla LED Kit S · 2 × 1,5 m (3 m²)', 900, 1, 'led_s', 'Pantalla LED modular de 3 m² con estructura.' ),
 		array( 'MSB-LED-M', 'Pantalla LED Kit M · 3 × 2 m (6 m²)', '', 1, 'led_m', 'Pantalla LED modular de 6 m² con estructura.' ),
 		array( 'MSB-LED-L', 'Pantalla LED Kit L · 4 × 2,5 m (10 m²)', '', 1, 'led_l', 'Pantalla LED modular de 10 m² con estructura.' ),
-		array( 'MSB-TOTEM', 'Tótem LED Digital 55"', 280, 2, 'totem', 'Tótem vertical de 55" con tu logo o contenido.' ),
-		array( 'MSB-SCREEN55', 'Pantalla 55" con pie', '', 4, 'screen55', 'Pantalla profesional de 55" en horizontal con pie de suelo.' ),
-		array( 'MSB-HEADS', 'Pack 6 Cabezas Móviles', 250, 1, 'heads', 'Seis cabezas móviles Wash/Beam en truss.' ),
-		array( 'MSB-BARS', 'Pack 4 Barras LED', 140, 1, 'bars', 'Cuatro barras LED para escenario o ambiente.' ),
+		array( 'MSB-TOTEM', 'Tótem LED Digital 55"', 280, 50, 'totem', 'Tótem vertical de 55" con tu logo o contenido.' ),
+		array( 'MSB-SCREEN55', 'Pantalla 55" con pie', '', 50, 'screen55', 'Pantalla profesional de 55" en horizontal con pie de suelo.' ),
+		array( 'MSB-HEADS', 'Pack 6 Cabezas Móviles', 250, 8, 'heads', 'Seis cabezas móviles Wash/Beam en truss.' ),
+		array( 'MSB-BARS', 'Pack 4 Barras LED', 140, 6, 'bars', 'Cuatro barras LED para escenario o ambiente.' ),
 		array( 'MSB-TRUSS', 'Truss de escenario 6 × 4 m', '', 1, 'truss', 'Estructura de truss de aluminio para colgar iluminación.' ),
 		array( 'MSB-BOOTH', 'Cabina DJ (DJ booth)', '', 1, 'booth', 'Cabina DJ con frontal iluminado.' ),
 		array( 'MSB-DJ', 'DJ profesional', '', 1, 'dj', 'DJ profesional durante el evento.' ),
-		array( 'MSB-MIC', 'Micrófono inalámbrico adicional', '', 4, 'mic', 'Micrófono inalámbrico con pie.' ),
+		array( 'MSB-SPK', 'Altavoz adicional RCF EVOX 12', '', 20, 'spk', 'Altavoz activo extra con subgrave para cubrir más espacio.' ),
+		array( 'MSB-MIC', 'Micrófono inalámbrico adicional', '', 20, 'mic', 'Micrófono inalámbrico con pie.' ),
 		array( 'MSB-LECTERN', 'Atril con micrófono', '', 1, 'lectern', 'Atril de conferencia con micrófono de cuello de cisne.' ),
 		array( 'MSB-STREAM', 'Streaming multicámara', 600, 1, 'stream', 'Realización multicámara y emisión en directo.' ),
 		array( 'MSB-TEC', 'Técnico adicional', 150, 3, '', 'Técnico extra durante el evento.' ),
 		array( 'MSB-FOTO', 'Fotografía del evento', 350, 1, '', 'Cobertura fotográfica profesional.' ),
 		array( 'MSB-SMOKE', 'Humo / fuego frío', 120, 1, 'smoke', 'Máquina de humo o fuego frío.' ),
+		array( 'MSB-RENDER', 'Render 3D de tu evento en 4K', 49, 1, '', 'Imagen 4K y vídeo de tu montaje sobre la foto de tu espacio, sin marca de agua. Entrega en 48 h.' ),
 	);
 	foreach ( $extra_defs as $i => $d ) {
 		msb_seed_product(

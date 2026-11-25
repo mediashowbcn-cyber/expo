@@ -42,6 +42,10 @@ function msb_legal_links() {
 add_action(
 	'wp_enqueue_scripts',
 	function () {
+		if ( msb_opt( 'brand_style' ) && ! msb_rendering() ) {
+			wp_enqueue_style( 'msb-brand-fonts', 'https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Work+Sans:wght@400;500;600;700&display=swap', array(), null ); // phpcs:ignore WordPress.WP.EnqueuedResourceParameters.MissingVersion
+			wp_enqueue_style( 'msb-brand', MSB_URL . 'assets/brand.css', array(), MSB_VERSION );
+		}
 		if ( msb_opt( 'ionos_widget' ) && msb_opt( 'ionos_agent' ) ) {
 			wp_enqueue_script( 'msb-ionos', 'https://ionos.ai-voicereceptionist.com/widget/v1/embed.js', array(), null, true ); // phpcs:ignore WordPress.WP.EnqueuedResourceParameters.MissingVersion
 		}
@@ -64,6 +68,7 @@ add_action(
 					'deposit'       => (float) msb_opt( 'deposit' ),
 					'includedHours' => (int) msb_opt( 'included_hours' ),
 					'extraHour'     => (float) msb_opt( 'extra_hour' ),
+					'pro'           => current_user_can( 'manage_woocommerce' ),
 				),
 				'shop'     => function_exists( 'WC' ) && msb_reserve_product_id() > 0,
 				'ajax'     => admin_url( 'admin-ajax.php' ),

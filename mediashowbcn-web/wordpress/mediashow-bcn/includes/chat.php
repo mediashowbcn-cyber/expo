@@ -25,8 +25,13 @@ function msb_chat_key() {
 	return (string) get_option( 'msb_anthropic_key', '' );
 }
 
+/* El chat se muestra si está activado: con clave responde Claude; sin clave, el modo guiado. */
 function msb_chat_enabled() {
-	return msb_opt( 'chat_enabled' ) && '' !== msb_chat_key();
+	return (bool) msb_opt( 'chat_enabled' );
+}
+
+function msb_chat_ai() {
+	return msb_chat_enabled() && '' !== msb_chat_key();
 }
 
 /* Recursos del chat en toda la web. */
@@ -48,6 +53,15 @@ add_action(
 					'home'        => msb_home_url(),
 					'whatsapp'    => msb_opt( 'whatsapp' ),
 					'privacy'     => $links['privacidad'],
+					'mode'        => msb_chat_ai() ? 'ai' : 'guided',
+					'phone'       => msb_opt( 'phone' ),
+					'phoneLabel'  => msb_opt( 'phone_label' ),
+					'packs'       => array_map(
+						function ( $p ) {
+							return array_intersect_key( $p, array_flip( array( 'id', 'name', 'price', 'from', 'min', 'max', 'buy', 'link' ) ) );
+						},
+						msb_catalog()['packs']
+					),
 					'greeting'    => msb_opt( 'chat_greeting' ),
 					'suggestions' => array( 'Boda para 100 personas', 'Evento de empresa con pantalla LED', '¿Qué incluye el pack Premium?' ),
 				)
@@ -290,7 +304,7 @@ add_action( 'wp_ajax_nopriv_msb_chat', 'msb_ajax_chat' );
 function msb_ajax_chat() {
 	check_ajax_referer( 'msb_chat', 'nonce' );
 	$busy = 'Ahora mismo no puedo responder. Escríbenos por WhatsApp al ' . msb_opt( 'whatsapp_label' ) . ' y te contestamos enseguida.';
-	if ( ! msb_chat_enabled() ) {
+	if ( ! msb_chat_ai() ) {
 		wp_send_json_error( array( 'message' => $busy ), 503 );
 	}
 	$messages = msb_chat_history( $_POST['messages'] ?? '' ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- se valida en msb_chat_history().

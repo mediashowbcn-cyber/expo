@@ -46,3 +46,4 @@
   .msbc-panel { width: 100vw; height: calc(100dvh - 60px); border-radius: 16px 16px 0 0; }
 }
 @media (prefers-reduced-motion: reduce) { .msbc-typing span { animation: none; } }
+.msbc-act-call { background: #F4F0E8; border-color: #F4F0E8; color: #0A0A0A; }
