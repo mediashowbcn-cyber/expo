@@ -112,14 +112,165 @@ add_action(
 	}
 );
 
-/* Packs, extras y equipos se reservan con el cotizador, no se compran sueltos. */
+/* Packs y extras con precio cerrado se compran en la tienda. Los equipos, los precios «desde» y los «a consultar» van por presupuesto. */
+function msb_buyable( $product ) {
+	$tipo = $product->get_meta( '_msb_tipo' );
+	return in_array( $tipo, array( 'pack', 'extra' ), true ) && 'yes' !== $product->get_meta( '_msb_desde' ) && '' !== $product->get_regular_price();
+}
+
 add_filter(
 	'woocommerce_is_purchasable',
 	function ( $purchasable, $product ) {
-		return in_array( $product->get_meta( '_msb_tipo' ), array( 'pack', 'extra', 'equipo' ), true ) ? false : $purchasable;
+		$tipo = $product->get_meta( '_msb_tipo' );
+		if ( in_array( $tipo, array( 'pack', 'extra', 'equipo' ), true ) ) {
+			return msb_buyable( $product );
+		}
+		return $purchasable;
 	},
 	10,
 	2
+);
+
+add_filter(
+	'woocommerce_quantity_input_args',
+	function ( $args, $product ) {
+		if ( 'extra' === $product->get_meta( '_msb_tipo' ) && (int) $product->get_meta( '_msb_max' ) > 0 ) {
+			$args['max_value'] = (int) $product->get_meta( '_msb_max' );
+		}
+		return $args;
+	},
+	10,
+	2
+);
+
+/* En los listados de la tienda el botón lleva a la ficha, donde se indica la fecha del evento. */
+add_filter(
+	'woocommerce_product_supports',
+	function ( $supports, $feature, $product ) {
+		return 'ajax_add_to_cart' === $feature && msb_buyable( $product ) ? false : $supports;
+	},
+	10,
+	3
+);
+add_filter(
+	'woocommerce_product_add_to_cart_url',
+	function ( $url, $product ) {
+		return msb_buyable( $product ) && ! is_singular( 'product' ) ? get_permalink( $product->get_id() ) : $url;
+	},
+	10,
+	2
+);
+add_filter(
+	'woocommerce_product_add_to_cart_text',
+	function ( $text, $product ) {
+		return msb_buyable( $product ) ? 'Elegir fecha' : $text;
+	},
+	10,
+	2
+);
+
+/* Datos del evento en la ficha del producto: llegan con el pedido. */
+add_action(
+	'woocommerce_before_add_to_cart_button',
+	function () {
+		global $product;
+		if ( ! $product || ! msb_buyable( $product ) ) {
+			return;
+		}
+		?>
+		<div class="msb-event-fields" style="display:grid;gap:10px;margin:0 0 16px;">
+			<p style="margin:0;"><label for="msb_event_date"><strong>Fecha del evento</strong> <abbr class="required" title="obligatorio">*</abbr></label><br />
+			<input type="date" id="msb_event_date" name="msb_event_date" required min="<?php echo esc_attr( gmdate( 'Y-m-d' ) ); ?>" /></p>
+			<p style="margin:0;"><label for="msb_event_place"><strong>Lugar del evento</strong> <abbr class="required" title="obligatorio">*</abbr></label><br />
+			<input type="text" id="msb_event_place" name="msb_event_place" required maxlength="120" placeholder="Espacio o barrio de Barcelona" /></p>
+			<p style="margin:0;"><label for="msb_event_guests"><strong>Asistentes</strong></label><br />
+			<input type="number" id="msb_event_guests" name="msb_event_guests" min="1" max="5000" inputmode="numeric" placeholder="Ej. 80" /></p>
+		</div>
+		<?php
+	}
+);
+
+add_filter(
+	'woocommerce_add_to_cart_validation',
+	function ( $passed, $product_id ) {
+		$product = wc_get_product( $product_id );
+		if ( ! $product || ! msb_buyable( $product ) ) {
+			return $passed;
+		}
+		// phpcs:disable WordPress.Security.NonceVerification.Missing -- formulario estándar de WooCommerce.
+		$date  = isset( $_POST['msb_event_date'] ) ? sanitize_text_field( wp_unslash( $_POST['msb_event_date'] ) ) : '';
+		$place = isset( $_POST['msb_event_place'] ) ? sanitize_text_field( wp_unslash( $_POST['msb_event_place'] ) ) : '';
+		// phpcs:enable
+		if ( ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $date ) || $date < gmdate( 'Y-m-d' ) ) {
+			wc_add_notice( 'Indica la fecha del evento para añadir este servicio.', 'error' );
+			return false;
+		}
+		if ( '' === $place ) {
+			wc_add_notice( 'Indica el lugar del evento para añadir este servicio.', 'error' );
+			return false;
+		}
+		return $passed;
+	},
+	10,
+	2
+);
+
+add_filter(
+	'woocommerce_add_cart_item_data',
+	function ( $data, $product_id ) {
+		$product = wc_get_product( $product_id );
+		if ( ! $product || ! msb_buyable( $product ) || empty( $_POST['msb_event_date'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
+			return $data;
+		}
+		// phpcs:disable WordPress.Security.NonceVerification.Missing
+		$data['msb_event'] = array(
+			'date'   => sanitize_text_field( wp_unslash( $_POST['msb_event_date'] ) ),
+			'place'  => mb_substr( sanitize_text_field( wp_unslash( $_POST['msb_event_place'] ?? '' ) ), 0, 120 ),
+			'guests' => absint( $_POST['msb_event_guests'] ?? 0 ),
+		);
+		// phpcs:enable
+		return $data;
+	},
+	10,
+	2
+);
+
+function msb_event_rows( $e ) {
+	$rows = array(
+		'Fecha del evento' => date_i18n( 'j \d\e F \d\e Y', strtotime( $e['date'] . ' 12:00' ) ),
+		'Lugar'            => $e['place'],
+	);
+	if ( ! empty( $e['guests'] ) ) {
+		$rows['Asistentes'] = (string) $e['guests'];
+	}
+	return $rows;
+}
+
+add_filter(
+	'woocommerce_get_item_data',
+	function ( $data, $item ) {
+		if ( ! empty( $item['msb_event'] ) ) {
+			foreach ( msb_event_rows( $item['msb_event'] ) as $k => $v ) {
+				$data[] = array( 'key' => $k, 'value' => $v );
+			}
+		}
+		return $data;
+	},
+	10,
+	2
+);
+
+add_action(
+	'woocommerce_checkout_create_order_line_item',
+	function ( $line, $key, $values ) {
+		if ( ! empty( $values['msb_event'] ) ) {
+			foreach ( msb_event_rows( $values['msb_event'] ) as $k => $v ) {
+				$line->add_meta_data( $k, $v );
+			}
+		}
+	},
+	10,
+	3
 );
 
 add_action(
@@ -129,8 +280,9 @@ add_action(
 		if ( ! $product || ! in_array( $product->get_meta( '_msb_tipo' ), array( 'pack', 'extra', 'equipo' ), true ) ) {
 			return;
 		}
-		$url = add_query_arg( 'msb_pack', 'pack' === $product->get_meta( '_msb_tipo' ) ? $product->get_id() : false, msb_home_url() ) . '#cotizador';
-		printf( '<p><a class="button alt" href="%s">Configurar y reservar en el cotizador 3D</a></p>', esc_url( $url ) );
+		$url  = add_query_arg( 'msb_pack', 'pack' === $product->get_meta( '_msb_tipo' ) ? $product->get_id() : false, msb_home_url() ) . '#cotizador';
+		$text = msb_buyable( $product ) ? '¿Quieres ajustarlo? Personalízalo en el cotizador 3D' : 'Pide tu presupuesto en el cotizador 3D';
+		printf( '<p><a class="button" href="%s">%s</a></p>', esc_url( $url ), esc_html( $text ) );
 	},
 	31
 );
@@ -189,6 +341,8 @@ function msb_catalog() {
 			'preset' => $p->get_meta( '_msb_modelo' ) ? $p->get_meta( '_msb_modelo' ) : 'corporate',
 			'desc'   => wp_strip_all_tags( $p->get_short_description() ),
 			'img'    => msb_image( $p, 'medium_large' ),
+			'link'   => get_permalink( $p->get_id() ),
+			'buy'    => msb_buyable( $p ),
 		);
 	}
 	usort(

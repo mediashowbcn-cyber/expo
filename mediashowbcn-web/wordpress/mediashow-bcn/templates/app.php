@@ -11,6 +11,10 @@ $msb_links = msb_legal_links();
 $msb_wa    = 'https://wa.me/' . msb_opt( 'whatsapp' );
 $msb_tel   = 'tel:' . msb_opt( 'phone' );
 $msb_hours = (int) msb_opt( 'included_hours' );
+$msb_shop  = function_exists( 'wc_get_page_permalink' ) ? wc_get_page_permalink( 'shop' ) : '';
+$msb_svc   = get_term_by( 'slug', 'extras-cotizador', 'product_cat' );
+$msb_svc   = $msb_svc ? get_term_link( $msb_svc ) : $msb_shop;
+$msb_svc   = is_wp_error( $msb_svc ) ? $msb_shop : $msb_svc;
 $msb_page  = get_queried_object();
 $msb_html  = $msb_page ? trim( apply_filters( 'the_content', $msb_page->post_content ) ) : ''; // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound
 $msb_eur   = function ( $v ) {
@@ -52,6 +56,7 @@ $msb_ld = array(
 				<button type="button" class="nav-btn active" id="nav-home" onclick="goHome()">Inicio</button>
 				<button type="button" class="nav-btn" id="nav-quoter" onclick="switchView('quoter')">Cotizador 3D</button>
 				<a class="nav-btn" href="#packs" onclick="return goHome('packs')">Packs</a>
+				<?php if ( $msb_shop ) : ?><a class="nav-btn" href="<?php echo esc_url( $msb_shop ); ?>">Tienda</a><?php endif; ?>
 				<?php if ( $msb_cat['equipos'] ) : ?><a class="nav-btn" href="#equipo" onclick="return goHome('equipo')">Equipo</a><?php endif; ?>
 				<a class="nav-btn" href="#contacto" onclick="return goHome('contacto')">Contacto</a>
 			</nav>
@@ -66,68 +71,38 @@ $msb_ld = array(
 	<div id="view-home">
 		<section class="hero">
 			<div class="container">
-				<div class="eyebrow">Producción técnica y audiovisual · <?php echo esc_html( msb_opt( 'base' ) ); ?></div>
+				<div class="eyebrow">Sonido · Luz · LED · DJ — Barcelona</div>
 				<h1>La producción no debe notarse, <em>debe sentirse.</em></h1>
-				<p class="lead">Sonido profesional RCF, iluminación DMX Stairville, tótems LED 55" y producción llave en mano para eventos, activaciones de marca y negocios en Barcelona y su área metropolitana.</p>
+				<p class="lead">Tú imaginas el evento. Nosotros lo hacemos sonar, brillar y funcionar a la primera.</p>
 				<div class="hero-ctas">
-					<button type="button" class="btn btn-pri" onclick="switchView('quoter')">Abrir Cotizador Técnico 3D</button>
-					<a class="btn" href="<?php echo esc_url( $msb_wa . '?text=' . rawurlencode( 'Hola Media Show BCN, quiero información para un evento en Barcelona.' ) ); ?>" target="_blank" rel="noopener">WhatsApp <?php echo esc_html( msb_opt( 'whatsapp_label' ) ); ?></a>
-					<a class="btn" href="<?php echo esc_url( $msb_tel ); ?>">Llamar 24/7 · <?php echo esc_html( msb_opt( 'phone_label' ) ); ?></a>
-				</div>
-				<div class="hero-meta">
-					<span><b>Base:</b> <?php echo esc_html( msb_opt( 'base' ) ); ?></span>
-					<span><b>Atención 24/7:</b> asistente de IA · <?php echo esc_html( msb_opt( 'phone_label' ) ); ?></span>
-					<span><b>Servicio base:</b> <?php echo esc_html( $msb_hours ); ?> h incluidas</span>
+					<button type="button" class="btn btn-pri" onclick="switchView('quoter')">Diseña tu evento en 3D →</button>
+					<a class="btn" href="#packs" onclick="return goHome('packs')">Ver packs</a>
+					<a class="btn" href="<?php echo esc_url( $msb_wa . '?text=' . rawurlencode( 'Hola Media Show BCN, quiero información para un evento en Barcelona.' ) ); ?>" target="_blank" rel="noopener">WhatsApp</a>
 				</div>
 			</div>
 		</section>
 
-		<section class="sec-block" aria-labelledby="pilares-t">
-			<div class="container">
-				<div class="eyebrow">Pilares del servicio</div>
-				<h2 class="sec-title" id="pilares-t">Precisión y presencia en cada montaje</h2>
-				<p class="sec-sub">Una sola empresa que diseña, monta y opera el evento con equipo propio y trato directo.</p>
-				<div class="grid-4">
-					<div class="card"><div class="pillar-num">01</div><strong>Experiencia real</strong><p class="pack-desc">Producción profesional sin espacio para la improvisación en directo.</p></div>
-					<div class="card"><div class="pillar-num">02</div><strong>Impacto total</strong><p class="pack-desc">Potencia acústica, claridad de voz y presencia visual impecable.</p></div>
-					<div class="card"><div class="pillar-num">03</div><strong>Precisión suiza</strong><p class="pack-desc">Llegamos antes, probamos todo, cumplimos horarios y tenemos plan B.</p></div>
-					<div class="card"><div class="pillar-num">04</div><strong>Imagen premium</strong><p class="pack-desc">Equipos cuidados, estética limpia y un único interlocutor.</p></div>
+		<section class="teaser" aria-labelledby="teaser-t">
+			<div class="container teaser-in">
+				<div class="teaser-copy">
+					<div class="eyebrow">Cotizador 3D · solo en Media Show BCN</div>
+					<h2 class="teaser-title" id="teaser-t">Monta tu evento <em>antes de que exista.</em></h2>
+					<p class="teaser-sub">Elige luces, sonido, pantallas LED y DJ en un escenario 3D. Sube una foto de tu sala y llévate la propuesta en vídeo.</p>
+					<button type="button" class="btn btn-pri btn-lg" onclick="switchView('quoter')">Entrar al cotizador 3D →</button>
 				</div>
-			</div>
-		</section>
-
-		<section class="sec-block" aria-labelledby="areas-t">
-			<div class="container">
-				<div class="eyebrow">Producción técnica llave en mano</div>
-				<h2 class="sec-title" id="areas-t">Configura tu montaje en 3D</h2>
-				<p class="sec-sub">Elige un área técnica para ver su alcance y abrirla directamente en el simulador 3D.</p>
-				<div class="cta-pillars">
-					<div style="display:flex;flex-direction:column;gap:10px;" role="tablist" aria-label="Áreas técnicas">
-						<button type="button" class="pillar-tab active" role="tab" aria-selected="true" onclick="selectPillar(0)"><span class="code">01 · Sonido &amp; Microfonía</span><h3>Sistemas RCF &amp; Audio Digital</h3><p>Columnas activas RCF EVOX 12, subgraves de alta presión acústica, consolas digitales y microfonía inalámbrica.</p></button>
-						<button type="button" class="pillar-tab" role="tab" aria-selected="false" onclick="selectPillar(1)"><span class="code">02 · Iluminación &amp; Rigging</span><h3>Cabezas Móviles, Barras LED y Truss</h3><p>Truss de aluminio, cabezas móviles Stairville Wash/Beam y control DMX programado para cada momento.</p></button>
-						<button type="button" class="pillar-tab" role="tab" aria-selected="false" onclick="selectPillar(2)"><span class="code">03 · Vídeo, LED &amp; Streaming</span><h3>Pantallas LED, Tótems y Realización</h3><p>Pantallas LED modulares, tótems digitales 55" con tu marca, realización multicámara y fotografía.</p></button>
-					</div>
-					<div class="pillar-preview" role="tabpanel" aria-live="polite">
-						<div>
-							<div class="eyebrow" id="pp-eyebrow">01 · Sonido &amp; Microfonía</div>
-							<h3 class="sec-title" style="font-size:36px;" id="pp-title">Sistemas RCF &amp; Audio Digital</h3>
-							<p class="sec-sub" style="margin-bottom:14px;" id="pp-body">Columnas activas RCF EVOX 12, subgraves de alta presión acústica, consolas digitales y microfonía inalámbrica sin interferencias para discursos, música en directo y DJ.</p>
-							<div class="pack-desc" style="color:var(--white);" id="pp-spec">Sonido limpio y homogéneo con técnico de sonido y pruebas previas.</div>
-						</div>
-						<div style="display:flex;gap:10px;flex-wrap:wrap;">
-							<button type="button" class="btn btn-pri" id="pp-btn" onclick="openQuoterWithPreset(0)">Configurar equipo en 3D →</button>
-							<a class="btn" href="<?php echo esc_url( $msb_tel ); ?>">Consultar 24/7 · <?php echo esc_html( msb_opt( 'phone_label' ) ); ?></a>
-						</div>
-					</div>
-				</div>
+				<button type="button" class="teaser-art" onclick="switchView('quoter')" aria-label="Abrir el cotizador 3D">
+					<span class="beam b1"></span><span class="beam b2"></span><span class="beam b3"></span><span class="beam b4"></span>
+					<span class="truss"></span><span class="deck"></span>
+					<span class="play">▶</span>
+				</button>
 			</div>
 		</section>
 
 		<section class="sec-block" id="packs" aria-labelledby="packs-t">
 			<div class="container">
-				<div class="eyebrow">Packs oficiales</div>
-				<h2 class="sec-title" id="packs-t">Precios claros con <?php echo esc_html( $msb_hours ); ?> horas incluidas</h2>
-				<p class="sec-sub">Montaje y desmontaje incluidos en Barcelona ciudad. Hora adicional: <?php echo esc_html( $msb_eur( msb_opt( 'extra_hour' ) ) ); ?>. Precios sin IVA.</p>
+				<div class="eyebrow">Packs listos para reservar</div>
+				<h2 class="sec-title" id="packs-t">Elige tu pack</h2>
+				<p class="sec-sub"><?php echo esc_html( $msb_hours ); ?> horas de servicio, montaje y desmontaje en Barcelona ciudad. Precios sin IVA.</p>
 				<?php if ( $msb_cat['packs'] ) : ?>
 					<div class="grid-4">
 						<?php foreach ( $msb_cat['packs'] as $p ) : ?>
@@ -137,14 +112,28 @@ $msb_ld = array(
 								<h3 class="font-display" style="font-size:28px;font-weight:400;"><?php echo esc_html( $p['name'] ); ?></h3>
 								<div class="pack-price"><?php echo esc_html( ( $p['from'] ? 'Desde ' : '' ) . $msb_eur( $p['price'] ) ); ?></div>
 								<p class="pack-desc"><?php echo esc_html( $p['desc'] ); ?></p>
-								<button type="button" class="btn btn-sm btn-pri" onclick="openQuoterWithPack(<?php echo (int) $p['id']; ?>)">Cotizar en 3D</button>
+								<div class="pack-ctas">
+									<?php if ( $p['buy'] ) : ?>
+										<a class="btn btn-sm btn-pri" href="<?php echo esc_url( $p['link'] ); ?>">Comprar</a>
+										<button type="button" class="btn btn-sm" onclick="openQuoterWithPack(<?php echo (int) $p['id']; ?>)">Personalizar en 3D</button>
+									<?php else : ?>
+										<button type="button" class="btn btn-sm btn-pri" onclick="openQuoterWithPack(<?php echo (int) $p['id']; ?>)">Presupuesto en 3D</button>
+										<a class="btn btn-sm" href="<?php echo esc_url( $p['link'] ); ?>">Ver detalles</a>
+									<?php endif; ?>
+								</div>
 							</div>
 						<?php endforeach; ?>
 					</div>
 				<?php else : ?>
 					<p class="sec-sub">Pronto publicaremos nuestros packs. Escríbenos por WhatsApp para un presupuesto.</p>
 				<?php endif; ?>
-				<p class="pack-note">Reserva de fecha con el <?php echo esc_html( (float) msb_opt( 'deposit' ) ); ?> %. Consulta las <a href="<?php echo esc_url( $msb_links['condiciones'] ); ?>">condiciones de reserva</a>.</p>
+				<?php if ( $msb_svc ) : ?>
+				<div class="svc-strip">
+					<div><strong>¿Solo necesitas algo concreto?</strong><span>Pantallas LED, tótems, DJ, luces o streaming a la carta.</span></div>
+					<a class="btn btn-sm" href="<?php echo esc_url( $msb_svc ); ?>">Ver servicios a la carta →</a>
+				</div>
+				<?php endif; ?>
+				<p class="pack-note">¿Prefieres reservar con el <?php echo esc_html( (float) msb_opt( 'deposit' ) ); ?> %? Hazlo desde el cotizador 3D. Consulta las <a href="<?php echo esc_url( $msb_links['condiciones'] ); ?>">condiciones de reserva</a>.</p>
 			</div>
 		</section>
 
@@ -167,19 +156,6 @@ $msb_ld = array(
 			</div>
 		</section>
 		<?php endif; ?>
-
-		<section class="sec-block" id="venues" aria-labelledby="venues-t">
-			<div class="container">
-				<div class="eyebrow">Conocimiento técnico local</div>
-				<h2 class="sec-title" id="venues-t">Recintos y zonas habituales en Barcelona</h2>
-				<p class="sec-sub">Planificamos accesos, acometida eléctrica y niveles acústicos adaptados al espacio.</p>
-				<div class="grid-3">
-					<div class="card"><strong>Eixample &amp; Gràcia</strong><p class="pack-desc">Locales comerciales, showrooms y galerías con control acústico y montaje ágil.</p></div>
-					<div class="card"><strong>Poblenou &amp; Fira / CCIB</strong><p class="pack-desc">Naves creativas, presentaciones de marca y congresos con refuerzo visual y de audio.</p></div>
-					<div class="card"><strong>Nou Barris &amp; Área Metropolitana</strong><p class="pack-desc">Base operativa en Nou Barris con respuesta rápida en Barcelona, hoteles y espacios privados.</p></div>
-				</div>
-			</div>
-		</section>
 
 		<?php if ( '' !== $msb_html ) : ?>
 		<section class="sec-block msb-content" id="galeria">

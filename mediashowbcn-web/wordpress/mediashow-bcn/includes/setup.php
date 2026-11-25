@@ -19,6 +19,9 @@ add_action(
 	function () {
 		if ( function_exists( 'WC' ) && get_option( 'msb_version' ) !== MSB_VERSION && current_user_can( 'manage_woocommerce' ) ) {
 			msb_setup_products();
+			if ( version_compare( (string) get_option( 'msb_version', '0' ), '1.1.0', '<' ) ) {
+				msb_show_extras_in_shop();
+			}
 			update_option( 'msb_version', MSB_VERSION, false );
 		}
 	}
@@ -118,6 +121,16 @@ function msb_setup_pages() {
 	}
 }
 
+/* Desde la 1.1.0 los extras se venden en la tienda: los que se crearon ocultos pasan a ser visibles. */
+function msb_show_extras_in_shop() {
+	foreach ( msb_products( 'extra' ) as $p ) {
+		if ( 'hidden' === $p->get_catalog_visibility() ) {
+			$p->set_catalog_visibility( 'visible' );
+			$p->save();
+		}
+	}
+}
+
 function msb_term( $name, $slug ) {
 	$t = get_term_by( 'slug', $slug, 'product_cat' );
 	if ( $t ) {
@@ -204,7 +217,6 @@ function msb_setup_products() {
 				'price'      => $d[2],
 				'desc'       => $d[5],
 				'order'      => $i,
-				'visibility' => 'hidden',
 				'meta'       => array( '_msb_tipo' => 'extra', '_msb_max' => $d[3], '_msb_modelo' => $d[4] ),
 			),
 			$extras
