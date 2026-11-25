@@ -374,3 +374,4 @@ details.fit-sec[open] { gap: 10px; }
 
 .show-box { display: grid; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid #222; }
 .show-box select { background: #0f0f10; color: #F4F0E8; border: 1px solid #2a2a2a; border-radius: 8px; padding: 6px 8px; font: inherit; margin-left: 6px; }
+.stage-busy { position: absolute; inset: 0; z-index: 8; display: grid; place-items: center; padding: 20px; text-align: center; background: rgba(10,10,10,.84); color: #F4F0E8; font: 600 15px/1.4 'Work Sans', system-ui, sans-serif; backdrop-filter: blur(4px); border-radius: inherit; }

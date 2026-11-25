@@ -321,7 +321,7 @@ $msb_ld = array(
 				      <label class="fit-row" for="bloom-range" style="margin-top:10px;"><span>Brillo de luces y pantallas <output id="bloom-val"></output></span><input type="range" id="bloom-range" min="0" max="1.5" step="0.05" value="0.5" /></label>
 				      <div class="pro-opts pro-only" hidden>
 				        <label for="export-res">Resolución</label>
-				        <select id="export-res"><option value="1080">1080p (Full HD)</option><option value="1440">1440p (2K)</option><option value="2160">4K (3840 × 2160)</option></select>
+				        <select id="export-res"><option value="1080">1080p (Full HD)</option><option value="1440">1440p (2K)</option><option value="2160">4K (3840 × 2160)</option><option value="sq">1:1 para tienda (1600 × 1600)</option></select>
 				        <label class="fit-check"><input type="checkbox" id="export-mark" /> Marca de agua</label>
 				        <p class="msg" style="margin:4px 0 0;">Opciones del equipo: solo las ves con sesión de administrador.</p>
 				      </div>

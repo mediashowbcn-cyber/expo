@@ -542,7 +542,7 @@
     });
   }
 
-  const RES = { '1080': { w: 1920, h: 1080, label: '1080p' }, '1440': { w: 2560, h: 1440, label: '1440p' }, '2160': { w: 3840, h: 2160, label: '4K' } };
+  const RES = { '1080': { w: 1920, h: 1080, label: '1080p' }, '1440': { w: 2560, h: 1440, label: '1440p' }, '2160': { w: 3840, h: 2160, label: '4K' }, sq: { w: 1600, h: 1600, label: '1:1 (producto)' } };
   function exportOpts() {
     const r = RES[S.pro && $('export-res') ? $('export-res').value : '1080'] || RES['1080'];
     return Object.assign({ mark: !(S.pro && $('export-mark') && !$('export-mark').checked) }, r);
@@ -1377,7 +1377,7 @@ const Stage = (() => {
     M.badge = new THREE.MeshStandardMaterial({ map: tex.rcf, roughness: 0.4 });
     M.alto = new THREE.MeshStandardMaterial({ map: tex.alto, roughness: 0.4 });
     M.pole = new THREE.MeshStandardMaterial({ color: 0x1d1e21, roughness: 0.35, metalness: 0.8 });
-    M.alu = new THREE.MeshStandardMaterial({ color: 0xc4c9cf, roughness: 0.28, metalness: 0.95 });
+    M.alu = new THREE.MeshStandardMaterial({ color: 0xc4c9cf, roughness: 0.4, metalness: 0.85 });
     M.black = new THREE.MeshStandardMaterial({ color: 0x0f1012, roughness: 0.5, metalness: 0.35 });
     M.stage = new THREE.MeshStandardMaterial({ color: 0x17181c, roughness: 0.62, metalness: 0.1 });
     M.skirt = new THREE.MeshStandardMaterial({ color: 0x0b0b0c, roughness: 0.95 });
@@ -1482,7 +1482,7 @@ const Stage = (() => {
   // Tótem LED 55" vertical con pantalla personalizable
   function buildTotem() {
     const g = new THREE.Group();
-    const base = box(0.78, 0.05, 0.5, M.alu); base.position.y = 0.025; g.add(base);
+    const base = box(0.78, 0.05, 0.5, M.pole); base.position.y = 0.025; g.add(base);
     const body = box(0.78, 1.9, 0.07, M.black); body.position.y = 1.0; g.add(body);
     const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.69, 1.22), M.totemScreen); screen.position.set(0, 1.18, 0.0362); g.add(screen);
     const back = box(0.5, 0.6, 0.04, M.cab); back.position.set(0, 1.0, -0.055); g.add(back);
@@ -1713,7 +1713,7 @@ const Stage = (() => {
     trussRun(V3(-hw, 0, 0), V3(-hw, TR.h, 0), M.alu, g);
     trussRun(V3(hw, 0, 0), V3(hw, TR.h, 0), M.alu, g);
     trussRun(V3(-hw - 0.15, TR.h - 0.15, 0), V3(hw + 0.15, TR.h - 0.15, 0), M.alu, g);
-    [-hw, hw].forEach(x => { const p = box(0.6, 0.02, 0.6, M.alu); p.position.set(x, 0.01, 0); g.add(p); });
+    [-hw, hw].forEach(x => { const p = box(0.6, 0.02, 0.6, M.pole); p.position.set(x, 0.01, 0); g.add(p); });
     g.traverse(o => { if (o.isMesh) o.castShadow = true; });
     rig.trussGeo = g; rig.truss.add(g);
   }
@@ -1766,7 +1766,7 @@ const Stage = (() => {
   /* Torre de truss vertical con base, opcionalmente con una cabeza móvil arriba. */
   function buildTower(h, withHead) {
     const g = new THREE.Group();
-    const base = box(0.6, 0.02, 0.6, M.alu); base.position.y = 0.01; g.add(base);
+    const base = box(0.6, 0.02, 0.6, M.pole); base.position.y = 0.01; g.add(base);
     trussRun(new THREE.Vector3(0, 0.02, 0), new THREE.Vector3(0, h, 0), M.alu, g);
     const top = box(0.36, 0.02, 0.36, M.alu); top.position.y = h + 0.01; g.add(top);
     g.traverse(o => { if (o.isMesh) o.castShadow = true; });
@@ -1914,7 +1914,7 @@ const Stage = (() => {
     const N = 380, pos = new Float32Array(N * 3);
     for (let i = 0; i < N; i++) { pos[i * 3] = (Math.random() - 0.5) * 9; pos[i * 3 + 1] = 0.4 + Math.random() * 3.8; pos[i * 3 + 2] = -2 + Math.random() * 6; }
     const hg = new THREE.BufferGeometry(); hg.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    rig.haze = new THREE.Points(hg, new THREE.PointsMaterial({ map: tex.puff, size: 1.6, transparent: true, opacity: 0.16, depthWrite: false, color: 0xb8bcc4 }));
+    rig.haze = new THREE.Points(hg, new THREE.PointsMaterial({ map: tex.puff, size: 3.2, transparent: true, opacity: 0.06, depthWrite: false, color: 0xb8bcc4 }));
     scene.add(rig.haze);
 
     selBox = new THREE.Box3Helper(new THREE.Box3(), 0xe65837); selBox.visible = false; scene.add(selBox);
@@ -1956,6 +1956,7 @@ const Stage = (() => {
     };
     // Va en fase de captura para adelantarse a OrbitControls y no girar la cámara al arrastrar.
     canvas.addEventListener('pointerdown', e => {
+      if (hq || rec) { e.stopImmediatePropagation(); e.preventDefault(); return; }
       if (e.button !== 0) return;
       if (fg.calib) { e.stopImmediatePropagation(); e.preventDefault(); calibClick(e); return; }
       if (SPACE && SPACE.drawing) { e.stopImmediatePropagation(); e.preventDefault(); spaceClick(e); return; }
@@ -2120,7 +2121,7 @@ const Stage = (() => {
       const rt = new THREE.WebGLRenderTarget(2, 2, { type: THREE.HalfFloatType, samples: renderer.capabilities.isWebGL2 ? 4 : 0 });
       composer = new THREE.EffectComposer(renderer, rt);
       composer.addPass(new THREE.RenderPass(scene, camera));
-      bloom = new THREE.UnrealBloomPass(new THREE.Vector2(256, 256), bloomOn, 0.45, 0.92);
+      bloom = new THREE.UnrealBloomPass(new THREE.Vector2(256, 256), bloomOn, 0.45, 0.96);
       composer.addPass(bloom);
       composer.addPass(new THREE.OutputPass());
     } catch (e) { composer = null; }
@@ -2813,6 +2814,39 @@ const Stage = (() => {
     return { ok: true, n: added };
   }
 
+  /* Foto de producto: deja solo los equipos indicados ('all' = todo menos control y cámaras)
+     y encuadra la cámara sobre ellos. Devuelve la función que lo deja todo como estaba. */
+  function productShot(kinds, onlyFirst) {
+    const all = kinds === 'all', keep = new Set(all ? [] : kinds), hidden = [], shown = [];
+    const want = k => (all ? !['foh', 'cam'].includes(k) : keep.has(k));
+    const hide = o => { if (o && o.visible) { o.visible = false; hidden.push(o); } };
+    draggables.forEach(o => { if (!want(o.userData.kind)) hide(o); else if (o.visible) shown.push(o); });
+    [['truss', rig.truss], ['tarima', rig.tarima]].forEach(([k, o]) => { if (!want(k)) hide(o); else if (o.visible) shown.push(o); });
+    rig.heads.forEach(h => { if (h.g.parent === scene) { if (!want('head')) hide(h.g); else if (h.g.visible) shown.push(h.g); } });
+    rig.bars.forEach(b => { if (!want('bars')) hide(b.g); else if (b.g.visible) shown.push(b.g); });
+    if (!all && !keep.has('haze')) hide(rig.haze);
+    if (onlyFirst) shown.splice(1).forEach(hide);
+    const sel = selected; select(null);
+    const saved = { pos: camera.position.clone(), target: controls.target.clone() };
+    const bb = new THREE.Box3();
+    shown.forEach(o => { o.updateMatrixWorld(true); o.traverse(m => { if (m.isMesh && m.visible && !m.userData.isBlob && !(m.material && m.material.blending === THREE.AdditiveBlending)) bb.expandByObject(m); }); });
+    if (!bb.isEmpty()) {
+      const c = bb.getCenter(V3(0, 0, 0)), sz = bb.getSize(V3(0, 0, 0));
+      const r = Math.max(sz.x * 0.5, sz.y * 0.7, sz.z * 0.45, 0.35) + 0.12;
+      const dist = r / Math.tan(camera.fov * Math.PI / 360) * (all ? 1.12 : 1);
+      const dir = (all ? V3(0.18, 0.32, 1) : V3(0.42, 0.28, 1)).normalize();
+      controls.target.copy(c);
+      camera.position.copy(c).addScaledVector(dir, dist);
+      camera.position.y = Math.max(camera.position.y, 0.6);
+      controls.update();
+    }
+    return () => {
+      hidden.forEach(o => { o.visible = true; });
+      camera.position.copy(saved.pos); controls.target.copy(saved.target); controls.update();
+      if (sel) select(sel);
+    };
+  }
+
   /* Datos del plano cenital para el dossier técnico (posiciones, huellas, cargas). */
   function planData() {
     const items = [];
@@ -3037,7 +3071,7 @@ const Stage = (() => {
     g.font = fb; g.fillStyle = '#A6A49E'; g.fillText(b2, x + 26 * u + wa + 20 * u, y + ph / 2);
     g.restore();
   }
-  function compose(ctx, mark, src) {
+  function compose(ctx, mark, src, noBadge) {
     const c = ctx.canvas;
     if (src !== false) ctx.drawImage(src || renderer.domElement, 0, 0, c.width, c.height);
     if (bgImg && fg.has) { const k = crop(fg.cut.width, fg.cut.height, c.width / c.height); ctx.drawImage(fg.cut, k.sx, k.sy, k.sw, k.sh, 0, 0, c.width, c.height); }
@@ -3051,7 +3085,7 @@ const Stage = (() => {
       ctx.fillStyle = '#E65837'; ctx.fillRect(56 * u, c.height - 58 * u, 120 * u, 6 * u);
       ctx.restore();
     }
-    badge(ctx, c.width, c.height);
+    if (!noBadge) badge(ctx, c.width, c.height);
   }
 
   function snapshot(opt) {
@@ -3070,12 +3104,21 @@ const Stage = (() => {
   /* Render final: acumula muchas pasadas moviendo un poco la luz y el encuadre
      (sombras suaves, bordes limpios, sin dientes de sierra). */
   let hq = false, beatFn = null, caption = '';
+  // Aviso sobre el escenario mientras se exporta: el lienzo cambia de tamaño y no debe tocarse.
+  function veil(text) {
+    let v = document.getElementById('stage-busy');
+    if (text === null) { if (v) v.remove(); return; }
+    if (!v) { v = document.createElement('div'); v.id = 'stage-busy'; v.className = 'stage-busy'; v.setAttribute('role', 'status'); renderer.domElement.parentNode.appendChild(v); }
+    v.textContent = text;
+  }
   const nextFrame = () => new Promise(r => requestAnimationFrame(() => r()));
   async function renderHQ(opt, progress) {
     const o = Object.assign({ w: 1920, h: 1080, mark: true, samples: 24 }, opt);
     if (!inited) throw new Error('El escenario 3D no está listo.');
     if (hq || rec) throw new Error('Ya hay una exportación en curso.');
     hq = true;
+    controls.enabled = false;
+    veil('Calculando el render final… 0 %');
     const restore = hiRes(o.w, o.h);
     const key = lights.key, base = key.position.clone(), prevMap = key.shadow.mapSize.x;
     key.shadow.mapSize.set(4096, 4096); if (key.shadow.map) { key.shadow.map.dispose(); key.shadow.map = null; }
@@ -3090,16 +3133,19 @@ const Stage = (() => {
         g.globalAlpha = 1 / (i + 1);
         g.drawImage(renderer.domElement, 0, 0, o.w, o.h);
         if (progress) progress((i + 1) / o.samples);
+        veil(`Calculando el render final… ${Math.round((i + 1) / o.samples * 100)} %`);
         await nextFrame();
       }
       g.globalAlpha = 1;
-      compose(g, o.mark, false);
+      compose(g, o.mark, false, o.badge === false);
     } finally {
       camera.clearViewOffset();
       key.position.copy(base);
       key.shadow.mapSize.set(prevMap, prevMap); if (key.shadow.map) { key.shadow.map.dispose(); key.shadow.map = null; }
       restore();
       hq = false;
+      controls.enabled = true;
+      veil(null);
     }
     return new Promise((res, rej) => acc.toBlob(b => (b ? res(b) : rej(new Error('No se ha podido crear la imagen.'))), 'image/png'));
   }
@@ -3126,10 +3172,12 @@ const Stage = (() => {
       const mr = new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: (o.w > 1920 ? 30e6 : 12e6) * ((o.fps || 30) > 30 ? 1.6 : 1) });
       mr.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
       mr.onstop = () => {
-        rec = null; restore();
+        rec = null; restore(); veil(null); controls.enabled = true;
         camera.position.copy(saved); controls.update();
         resolve({ blob: new Blob(chunks, { type }), ext: type.startsWith('video/mp4') ? 'mp4' : 'webm' });
       };
+      controls.enabled = false;
+      veil(`Grabando el vídeo (${seconds} s)… no cambies de pestaña.`);
       mr.start(500);
       setTimeout(() => mr.stop(), seconds * 1000);
     });
@@ -3185,6 +3233,7 @@ const Stage = (() => {
     getLayout() { return inited ? getLayout() : null; },
     exportGLB,
     planData() { return inited ? planData() : null; },
+    productShot(k, first) { return inited ? productShot(k, first) : () => {}; },
     autoForeground(r) { return inited ? autoForeground(r) : { ok: false, n: 0 }; },
     setBeat(fn) { beatFn = fn || null; if (!fn && bloom) bloom.strength = bloomOn; if (!fn && cfg && lastState) update(lastState); },
     setCaption(t) { caption = t || ''; },
@@ -3231,6 +3280,7 @@ const Stage = (() => {
   setupAI();
   window.addEventListener('msb:ready', () => render());
   if (D.models3d) Stage.setModels(D.models3d);
+  if (S.pro) window.msbStage = Stage;
   if (S.pro) document.querySelectorAll('.pro-only').forEach(el => { el.hidden = false; });
   else $('export-note').hidden = false;
   syncInputs();
