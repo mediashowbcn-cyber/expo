@@ -248,3 +248,8 @@ footer.site { padding: 36px 0 24px; color: var(--gray); font-size: 13px; }
 .seg button[aria-checked="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .seg button[aria-checked="true"] small { color: var(--on-accent); }
 .extra-choice { flex-wrap: wrap; }
+
+/* Foto del espacio y exportación */
+.export-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 680px) { .export-grid { grid-template-columns: 1fr; } }
+.export-box { margin-top: 16px; }

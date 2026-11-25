@@ -222,7 +222,29 @@ $msb_ld = array(
 					</div>
 				</div>
 
-				<div class="panel-box" style="margin-top:16px;">
+				<div class="panel-box export-box" style="margin-top:16px;">
+				  <h3>Tu espacio · imagen y vídeo</h3>
+				  <div class="export-grid">
+				    <div>
+				      <p class="msg" style="margin:0 0 8px;">Sube una foto de tu sala y verás el montaje encima. Gira la cámara hasta que encaje con la foto.</p>
+				      <div class="logo-actions" style="margin:0;">
+				        <input class="file-input" id="venue-input" type="file" accept="image/png,image/jpeg,image/webp" />
+				        <label for="venue-input" class="btn btn-sm btn-pri" style="margin:0;">Subir foto del espacio</label>
+				        <button type="button" class="btn btn-sm" id="venue-remove" hidden>Quitar foto</button>
+				      </div>
+				    </div>
+				    <div>
+				      <p class="msg" style="margin:0 0 8px;">Descarga la propuesta en Full HD (1920 × 1080) para enviarla o compartirla.</p>
+				      <div class="logo-actions" style="margin:0;">
+				        <button type="button" class="btn btn-sm" id="shot-btn">Imagen 1080p</button>
+				        <button type="button" class="btn btn-sm" id="video-btn">Vídeo 1080p · 10 s</button>
+				      </div>
+				    </div>
+				  </div>
+				  <p class="msg" id="export-msg" role="status"></p>
+				</div>
+
+				<div class="panel-box">
 					<h3>1. Pack, aforo y espacio</h3>
 					<div class="grid-2">
 						<div><label for="guests-range">Asistentes estimados: <strong id="guests-val" style="color:var(--accent);">100</strong></label><input id="guests-range" type="range" min="30" max="300" step="10" value="100" /></div>

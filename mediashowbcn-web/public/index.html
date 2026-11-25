@@ -200,6 +200,8 @@
     .extra-choice { flex-wrap: wrap; }
     .qty-ctl output { min-width: 20px; text-align: center; font-weight: 600; font-size: 13.5px; }
 
+    .export-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    @media (max-width: 680px) { .export-grid { grid-template-columns: 1fr; } }
     .logo-panel { margin-top: 12px; padding: 14px; border: 1px dashed var(--accent); border-radius: 10px; display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 14px; align-items: center; }
     .logo-thumb { width: 64px; height: 64px; border-radius: 8px; background: var(--bg); border: 1px solid var(--line); display: grid; place-items: center; overflow: hidden; }
     .logo-thumb img { max-width: 100%; max-height: 100%; object-fit: contain; }
@@ -387,7 +389,7 @@
             <div class="pack-aforo">30 – 60 personas</div>
             <h3 class="font-display" style="font-size:28px;font-weight:400;">Starter</h3>
             <div class="pack-price">385 €</div>
-            <p class="pack-desc">2 altavoces, consola analógica, 1 micro y DJ booth.</p>
+            <p class="pack-desc">2 altavoces Alto TRX315, consola analógica, 1 micro y DJ booth.</p>
             <button type="button" class="btn btn-sm btn-pri" onclick="openQuoterWithPack('starter')">Cotizar en 3D</button>
           </div>
           <div class="card">
@@ -492,7 +494,29 @@
           </div>
         </div>
 
-        <div class="panel-box" style="margin-top:16px;">
+        <div class="panel-box export-box" style="margin-top:16px;">
+          <h3>Tu espacio · imagen y vídeo</h3>
+          <div class="export-grid">
+            <div>
+              <p class="msg" style="margin:0 0 8px;">Sube una foto de tu sala y verás el montaje encima. Gira la cámara hasta que encaje con la foto.</p>
+              <div class="logo-actions" style="margin:0;">
+                <input class="file-input" id="venue-input" type="file" accept="image/png,image/jpeg,image/webp" />
+                <label for="venue-input" class="btn btn-sm btn-pri" style="margin:0;">Subir foto del espacio</label>
+                <button type="button" class="btn btn-sm" id="venue-remove" hidden>Quitar foto</button>
+              </div>
+            </div>
+            <div>
+              <p class="msg" style="margin:0 0 8px;">Descarga la propuesta en Full HD (1920 × 1080) para enviarla o compartirla.</p>
+              <div class="logo-actions" style="margin:0;">
+                <button type="button" class="btn btn-sm" id="shot-btn">Imagen 1080p</button>
+                <button type="button" class="btn btn-sm" id="video-btn">Vídeo 1080p · 10 s</button>
+              </div>
+            </div>
+          </div>
+          <p class="msg" id="export-msg" role="status"></p>
+        </div>
+
+        <div class="panel-box">
           <h3>1. Pack, aforo y espacio</h3>
           <div class="grid-2">
             <div>
@@ -996,6 +1020,57 @@
       });
     }
 
+    /* Foto del espacio y exportación en 1080p */
+    function download(blob, name) {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = name;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    }
+    function setupExport() {
+      const msg = $('export-msg'), input = $('venue-input');
+      let venueUrl = null;
+      input.addEventListener('change', () => {
+        const file = input.files && input.files[0];
+        input.value = '';
+        if (!file) return;
+        if (!/^image\/(png|jpeg|webp)$/.test(file.type) || file.size > 15 * 1024 * 1024) { msg.textContent = 'Sube una foto JPG, PNG o WebP de hasta 15 MB.'; return; }
+        const img = new Image();
+        img.onload = () => {
+          if (venueUrl) URL.revokeObjectURL(venueUrl);
+          venueUrl = img.src;
+          Stage.setVenue(img);
+          $('venue-remove').hidden = false;
+          msg.textContent = 'Foto cargada. Arrastra el fondo para girar la cámara y arrastra los equipos hasta que encajen.';
+        };
+        img.onerror = () => { msg.textContent = 'No se ha podido leer la foto. Prueba con otra.'; };
+        img.src = URL.createObjectURL(file);
+      });
+      $('venue-remove').addEventListener('click', () => {
+        Stage.setVenue(null);
+        if (venueUrl) URL.revokeObjectURL(venueUrl);
+        venueUrl = null;
+        $('venue-remove').hidden = true;
+        msg.textContent = 'Foto quitada.';
+      });
+      $('shot-btn').addEventListener('click', async () => {
+        try { download(await Stage.snapshot(), 'mediashowbcn-propuesta-1080p.png'); msg.textContent = 'Imagen 1080p descargada.'; }
+        catch (e) { msg.textContent = e.message; }
+      });
+      $('video-btn').addEventListener('click', async () => {
+        if (Stage.recording) return;
+        const btn = $('video-btn');
+        btn.setAttribute('aria-disabled', 'true');
+        msg.textContent = 'Grabando 10 segundos en 1080p… no cambies de pestaña.';
+        try {
+          const { blob, ext } = await Stage.record(10);
+          download(blob, 'mediashowbcn-propuesta-1080p.' + ext);
+          msg.textContent = 'Vídeo 1080p descargado (' + ext.toUpperCase() + ').';
+        } catch (e) { msg.textContent = e.message; }
+        btn.removeAttribute('aria-disabled');
+      });
+    }
+
     /* Galería: solo muestra las imágenes que existen */
     function setupGallery() {
       const grid = $('gallery-grid');
@@ -1079,6 +1154,11 @@
           g.fillStyle = '#16171a'; g.fillRect(0, 0, w, h);
           g.fillStyle = '#f4f4f4'; g.font = 'bold 64px Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
           g.fillText('RCF', w / 2, h / 2 + 4);
+        });
+        tex.alto = canvasTex(256, 96, (g, w, h) => {
+          g.fillStyle = '#121316'; g.fillRect(0, 0, w, h);
+          g.fillStyle = '#e8e8e8'; g.font = 'bold 60px Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+          g.fillText('ALTO', w / 2, h / 2 + 3);
         });
         tex.beam = canvasTex(4, 256, (g, w, h) => {
           const gr = g.createLinearGradient(0, 0, 0, h);
@@ -1172,6 +1252,7 @@
         M.grilleCol = new THREE.MeshStandardMaterial({ color: 0xffffff, map: gc, roughness: 0.55, metalness: 0.45 });
         M.port = new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 1 });
         M.badge = new THREE.MeshStandardMaterial({ map: tex.rcf, roughness: 0.4 });
+        M.alto = new THREE.MeshStandardMaterial({ map: tex.alto, roughness: 0.4 });
         M.pole = new THREE.MeshStandardMaterial({ color: 0x1d1e21, roughness: 0.35, metalness: 0.8 });
         M.alu = new THREE.MeshStandardMaterial({ color: 0xc4c9cf, roughness: 0.28, metalness: 0.95 });
         M.black = new THREE.MeshStandardMaterial({ color: 0x0f1012, roughness: 0.5, metalness: 0.35 });
@@ -1206,6 +1287,26 @@
           col.add(seg);
         }
         g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+        return g;
+      }
+
+      // Alto TRX315: caja trapezoidal de 15" con bocina, sobre trípode
+      function buildTrx() {
+        const g = new THREE.Group();
+        for (let i = 0; i < 3; i++) {
+          const a = i * 2.094 + 0.5;
+          strut(new THREE.Vector3(Math.cos(a) * 0.55, 0, Math.sin(a) * 0.55), new THREE.Vector3(0, 0.55, 0), 0.014, M.pole, g);
+        }
+        const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.019, 0.019, 1.0, 12), M.pole); pole.position.y = 0.95; g.add(pole);
+        const cab = new THREE.Group(); cab.position.y = 1.45; g.add(cab);
+        const shape = new THREE.Shape();
+        shape.moveTo(-0.24, 0); shape.lineTo(0.24, 0); shape.lineTo(0.2, 0.72); shape.lineTo(-0.2, 0.72); shape.closePath();
+        const body = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth: 0.42, bevelEnabled: true, bevelSize: 0.012, bevelThickness: 0.012, bevelSegments: 2 }), M.cab);
+        body.position.z = -0.21; cab.add(body);
+        const grille = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.5), M.grille); grille.position.set(0, 0.29, 0.225); cab.add(grille);
+        const horn = box(0.3, 0.13, 0.02, M.port); horn.position.set(0, 0.62, 0.222); cab.add(horn);
+        const badge = new THREE.Mesh(new THREE.PlaneGeometry(0.1, 0.035), M.alto); badge.position.set(0, 0.06, 0.23); cab.add(badge);
+        g.traverse(o => { if (o.isMesh) o.castShadow = true; });
         return g;
       }
 
@@ -1421,14 +1522,14 @@
         lights.a = new THREE.PointLight(pal.a, 1.8, 11); lights.a.position.set(-1.8, 3.3, -1.4); scene.add(lights.a);
         lights.b = new THREE.PointLight(pal.b, 1.6, 11); lights.b.position.set(1.8, 3.3, -1.4); scene.add(lights.b);
 
-        const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), M.floor);
+        const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), M.floor); rig.floor = floor;
         floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
 
         const stage = box(7.2, 0.4, 4.2, M.stage); stage.position.set(0, 0.2, -0.5); stage.receiveShadow = true; stage.castShadow = true; scene.add(stage);
         const skirt = box(7.22, 0.38, 0.02, M.skirt); skirt.position.set(0, 0.19, 1.61); scene.add(skirt);
         const steps = box(0.9, 0.2, 0.4, M.stage); steps.position.set(3.0, 0.1, 1.85); scene.add(steps);
 
-        const drape = new THREE.Mesh(new THREE.PlaneGeometry(9, 5), M.drape); drape.position.set(0, 2.5, -2.75); scene.add(drape);
+        const drape = new THREE.Mesh(new THREE.PlaneGeometry(9, 5), M.drape); drape.position.set(0, 2.5, -2.75); scene.add(drape); rig.drape = drape;
 
         rig.truss = new THREE.Group(); scene.add(rig.truss);
         trussRun(new THREE.Vector3(-3.2, 0.4, -2.1), new THREE.Vector3(-3.2, 3.95, -2.1), M.alu, rig.truss);
@@ -1436,6 +1537,8 @@
         trussRun(new THREE.Vector3(-3.35, 3.8, -2.1), new THREE.Vector3(3.35, 3.8, -2.1), M.alu, rig.truss);
         [-3.2, 3.2].forEach(x => { const p = box(0.6, 0.02, 0.6, M.alu); p.position.set(x, 0.41, -2.1); rig.truss.add(p); });
 
+        rig.trx = [buildTrx(), buildTrx()];
+        rig.trx.forEach(t => scene.add(t));
         rig.speakers = [];
         for (let i = 0; i < 6; i++) { const s = buildRcf(); scene.add(s); rig.speakers.push(s); }
 
@@ -1474,7 +1577,7 @@
         drawTotem();
         if (document.fonts && document.fonts.load) document.fonts.load('60px "Bebas Neue"').then(() => { drawTotem(); drawLed(0); });
 
-        draggables = [...rig.speakers, ...rig.totems, ...rig.screens, ...rig.mics, ...rig.cams, ...Object.values(rig.walls), rig.booth, rig.lectern, rig.foh];
+        draggables = [...rig.trx, ...rig.speakers, ...rig.totems, ...rig.screens, ...rig.mics, ...rig.cams, ...Object.values(rig.walls), rig.booth, rig.lectern, rig.foh];
         draggables.forEach(o => { o.userData.home = { p: o.position.clone(), r: o.rotation.y }; });
         setupDrag(canvas);
 
@@ -1571,8 +1674,13 @@
         cfg.truss = p !== 'starter' || cfg.heads > 0 || x.truss > 0;
 
         const xs = { 2: [-2.9, 2.9], 4: [-3.3, -2.6, 2.6, 3.3], 6: [-4.3, -3.4, -2.6, 2.6, 3.4, 4.3] }[cfg.speakers];
+        cfg.trx = p === 'starter';
+        rig.trx.forEach((t, i) => {
+          t.visible = cfg.trx;
+          if (t.visible && !t.userData.moved) { const px = i ? 2.9 : -2.9; t.position.set(px, 0.4, 1.0); t.rotation.y = -px * 0.06; }
+        });
         rig.speakers.forEach((sp, i) => {
-          sp.visible = i < cfg.speakers;
+          sp.visible = !cfg.trx && i < cfg.speakers;
           if (sp.visible && !sp.userData.moved) { const px = xs[i]; const out = Math.abs(px) > 3.5; sp.position.set(px, out ? 0 : 0.4, out ? 1.9 : 1.15); sp.rotation.y = -px * 0.05; }
         });
 
@@ -1612,7 +1720,7 @@
         rig.lecternStrip.color.setHex(pal.a);
         drawLed(clock.getElapsedTime());
 
-        const leg = [`${cfg.speakers} × RCF EVOX 12`];
+        const leg = [cfg.trx ? '2 × Alto TRX315' : `${cfg.speakers} × RCF EVOX 12`];
         if (cfg.heads) leg.push(`${cfg.heads} cabezas móviles`);
         if (cfg.bars) leg.push(`${cfg.bars} barras LED`);
         if (cfg.wall) leg.push({ S: 'LED kit S 3 m²', M: 'LED kit M 6 m²', L: 'LED kit L 10 m²' }[cfg.wall]);
@@ -1661,8 +1769,68 @@
         if (!active || document.hidden) return;
         const t = clock.getElapsedTime();
         animateRig(t);
-        controls.update();
+        if (rec) {
+          const k = Math.min(1, (performance.now() - rec.start) / 1000 / rec.dur);
+          const a = rec.a0 + (k - 0.5) * Math.PI * 0.9;
+          camera.position.set(Math.sin(a) * rec.r, rec.h, Math.cos(a) * rec.r);
+          camera.lookAt(0, 1.6, 0);
+        } else controls.update();
         renderer.render(scene, camera);
+      }
+
+      // Foto del espacio del cliente como fondo; el suelo solo recoge las sombras
+      function setVenue(img) {
+        if (!inited) return;
+        if (img) {
+          const t = new THREE.Texture(img); t.needsUpdate = true;
+          scene.background = t; scene.fog = null;
+          rig.floor.material = new THREE.ShadowMaterial({ opacity: 0.45 });
+          rig.drape.visible = false;
+        } else {
+          scene.background = new THREE.Color(0x08090c); scene.fog = new THREE.FogExp2(0x08090c, 0.032);
+          rig.floor.material = M.floor;
+          rig.drape.visible = true;
+        }
+      }
+
+      function hiRes() {
+        const prevPR = renderer.getPixelRatio();
+        renderer.setPixelRatio(1); renderer.setSize(1920, 1080, false);
+        camera.aspect = 16 / 9; camera.updateProjectionMatrix();
+        return () => { renderer.setPixelRatio(prevPR); resize(); };
+      }
+
+      function snapshot() {
+        return new Promise((resolve, reject) => {
+          if (!inited) return reject(new Error('El escenario 3D no está listo.'));
+          const restore = hiRes();
+          renderer.render(scene, camera);
+          renderer.domElement.toBlob(b => { restore(); b ? resolve(b) : reject(new Error('No se ha podido crear la imagen.')); }, 'image/png');
+        });
+      }
+
+      let rec = null;
+      function record(seconds) {
+        return new Promise((resolve, reject) => {
+          if (!inited) return reject(new Error('El escenario 3D no está listo.'));
+          if (!window.MediaRecorder || !renderer.domElement.captureStream) return reject(new Error('Este navegador no permite grabar vídeo. Prueba con Chrome, Edge o Safari actualizados.'));
+          const type = ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm'].find(t => MediaRecorder.isTypeSupported(t));
+          if (!type) return reject(new Error('Este navegador no permite grabar vídeo. Prueba con Chrome, Edge o Safari actualizados.'));
+          const saved = camera.position.clone();
+          const off = new THREE.Vector3().subVectors(saved, new THREE.Vector3(0, 1.6, 0));
+          rec = { start: performance.now(), dur: seconds, r: Math.max(8, Math.hypot(off.x, off.z)), h: Math.max(2.4, saved.y), a0: Math.atan2(off.x, off.z) };
+          const restore = hiRes();
+          const chunks = [];
+          const mr = new MediaRecorder(renderer.domElement.captureStream(30), { mimeType: type, videoBitsPerSecond: 12e6 });
+          mr.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+          mr.onstop = () => {
+            rec = null; restore();
+            camera.position.copy(saved); controls.update();
+            resolve({ blob: new Blob(chunks, { type }), ext: type.startsWith('video/mp4') ? 'mp4' : 'webm' });
+          };
+          mr.start(500);
+          setTimeout(() => mr.stop(), seconds * 1000);
+        });
       }
 
       function setCam(pos) {
@@ -1678,6 +1846,10 @@
         setActive(v) { active = v; if (v) resize(); },
         setLogo(img) { logoImg = img; if (inited) { drawTotem(); drawLed(clock.getElapsedTime()); } },
         resetLayout() { if (inited) resetLayout(); },
+        setVenue,
+        snapshot,
+        record,
+        get recording() { return !!rec; },
         cam(preset) {
           const presets = { front: [0, 3.4, 10], audience: [5.5, 2.2, 8.5], back: [0.8, 3.6, -9.5] };
           setCam(presets[preset] || presets.front);
@@ -1690,6 +1862,7 @@
     /* Arranque */
     buildExtrasList();
     setupLogo();
+    setupExport();
     setupGallery();
     ['guests-range', 'pack-select', 'hours-select', 'space-select', 'zone-select', 'dm-select', 'date-input', 'client-name', 'client-phone']
       .forEach(id => $(id).addEventListener(id === 'guests-range' || id.startsWith('client') ? 'input' : 'change', render));

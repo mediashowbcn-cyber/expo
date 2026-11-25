@@ -13,6 +13,17 @@ function msb_activate() {
 	}
 }
 
+/* Al actualizar el plugin, crea los productos nuevos que falten (nunca toca los existentes). */
+add_action(
+	'admin_init',
+	function () {
+		if ( function_exists( 'WC' ) && get_option( 'msb_version' ) !== MSB_VERSION && current_user_can( 'manage_woocommerce' ) ) {
+			msb_setup_products();
+			update_option( 'msb_version', MSB_VERSION, false );
+		}
+	}
+);
+
 /* Si WooCommerce se activa después del plugin, crea los productos la primera vez. */
 add_action(
 	'admin_init',
@@ -145,10 +156,10 @@ function msb_seed_product( $d, $cat ) {
 function msb_setup_products() {
 	$packs  = msb_term( 'Packs', 'packs' );
 	$extras = msb_term( 'Extras cotizador', 'extras-cotizador' );
-	msb_term( 'Equipos', 'equipos' );
+	$equipos = msb_term( 'Equipos', 'equipos' );
 
 	$pack_defs = array(
-		array( 'MSB-STARTER', 'Starter', 385, 30, 60, 'starter', 'no', '2 altavoces, consola analógica, 1 micro y DJ booth.' ),
+		array( 'MSB-STARTER', 'Starter', 385, 30, 60, 'starter', 'no', '2 altavoces Alto TRX315, consola analógica, 1 micro y DJ booth.' ),
 		array( 'MSB-CORPORATE', 'Corporate', 875, 60, 120, 'corporate', 'no', '4 altavoces, 1 sub, consola digital, 2 micros, truss básico, 2 barras LED, 2 PAR y técnico.' ),
 		array( 'MSB-PREMIUM', 'Premium', 1790, 120, 200, 'premium', 'no', '4 altavoces de alta potencia, 2 subs, 4 micros inalámbricos, truss 4×3, cabezas móviles, humo y técnico.' ),
 		array( 'MSB-INTEGRAL', 'Producción integral', 2600, 200, '', 'integral', 'yes', 'Pantalla LED, cámaras, streaming, iluminación y sonido.' ),
@@ -197,6 +208,24 @@ function msb_setup_products() {
 				'meta'       => array( '_msb_tipo' => 'extra', '_msb_max' => $d[3], '_msb_modelo' => $d[4] ),
 			),
 			$extras
+		);
+	}
+
+	$equipo_defs = array(
+		array( 'EQ-RCF-EVOX12', 'RCF EVOX 12', 'Sistema de columna activo con subgrave para voz y música.' ),
+		array( 'EQ-ALTO-TRX315', 'Alto TRX315', 'Altavoz activo de 15" y 2 vías, sobre trípode.' ),
+	);
+	foreach ( $equipo_defs as $i => $d ) {
+		msb_seed_product(
+			array(
+				'sku'   => $d[0],
+				'name'  => $d[1],
+				'price' => '',
+				'desc'  => $d[2],
+				'order' => $i,
+				'meta'  => array( '_msb_tipo' => 'equipo' ),
+			),
+			$equipos
 		);
 	}
 
