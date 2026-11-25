@@ -371,3 +371,6 @@ details.fit-sec[open] { gap: 10px; }
 .ar-head { display: flex; justify-content: space-between; align-items: center; }
 .ar-head strong { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: .5px; }
 .ar-head button { background: none; border: 0; color: #F4F0E8; font-size: 26px; cursor: pointer; }
+
+.show-box { display: grid; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid #222; }
+.show-box select { background: #0f0f10; color: #F4F0E8; border: 1px solid #2a2a2a; border-radius: 8px; padding: 6px 8px; font: inherit; margin-left: 6px; }

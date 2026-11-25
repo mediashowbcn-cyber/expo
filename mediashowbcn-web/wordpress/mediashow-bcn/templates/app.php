@@ -259,6 +259,8 @@ $msb_ld = array(
 				        <div class="fit-sec">
 				          <strong>3 · Primer plano</strong>
 				          <p>Pinta encima de lo que está delante del montaje (mesas, sillas, columnas) y quedará por delante de los equipos.</p>
+				          <button type="button" class="btn btn-sm btn-pri" id="fg-ai">Detectar con IA (beta)</button>
+				          <p class="fit-msg" id="fg-msg" role="status"></p>
 				          <div class="insp-btns"><button type="button" class="btn btn-sm" id="fg-paint" aria-pressed="false">Pintar</button><button type="button" class="btn btn-sm" id="fg-erase" aria-pressed="false">Borrar</button><button type="button" class="btn btn-sm" id="fg-clear">Limpiar</button></div>
 				          <label class="fit-row" for="fg-brush"><span>Tamaño del pincel</span><input type="range" id="fg-brush" min="6" max="120" step="2" value="40" /></label>
 				        </div>
@@ -314,6 +316,7 @@ $msb_ld = array(
 				        <button type="button" class="btn btn-sm" id="shot-btn">Imagen 1080p</button>
 				        <button type="button" class="btn btn-sm" id="video-btn">Vídeo 1080p · 10 s</button>
 				        <button type="button" class="btn btn-sm btn-pri" id="hq-btn">Render final HQ</button>
+				        <button type="button" class="btn btn-sm" id="dossier-btn">Dossier técnico (PDF)</button>
 				      </div>
 				      <label class="fit-row" for="bloom-range" style="margin-top:10px;"><span>Brillo de luces y pantallas <output id="bloom-val"></output></span><input type="range" id="bloom-range" min="0" max="1.5" step="0.05" value="0.5" /></label>
 				      <div class="pro-opts pro-only" hidden>
@@ -326,6 +329,21 @@ $msb_ld = array(
 				    </div>
 				  </div>
 				  <p class="msg" id="export-msg" role="status"></p>
+				  <div class="show-box">
+				    <strong>Vídeo de show</strong>
+				    <span class="msg" style="margin:0;">Las luces siguen el ritmo de la canción y el vídeo pasa por las escenas del evento.</span>
+				    <div class="logo-actions" style="margin:0;align-items:center;">
+				      <label class="fit-check" for="show-dur">Duración <select id="show-dur"><option value="15">15 s</option><option value="30" selected>30 s</option><option value="60">60 s</option></select></label>
+				      <label class="fit-check"><input type="checkbox" id="show-scenes" checked /> Ceremonia → Cena → Fiesta</label>
+				    </div>
+				    <div class="logo-actions" style="margin:0;align-items:center;">
+				      <input class="file-input" id="show-music" type="file" accept="audio/*" />
+				      <label for="show-music" class="btn btn-sm" style="margin:0;">Añadir canción</label>
+				      <span class="msg" id="show-music-name" style="margin:0;">Sin canción: pulso de 124 BPM</span>
+				      <button type="button" class="btn btn-sm" id="show-music-clear" hidden>Quitar</button>
+				    </div>
+				    <button type="button" class="btn btn-sm btn-pri" id="show-btn">Grabar vídeo de show</button>
+				  </div>
 				  <div class="project-row">
 				    <strong>Proyecto</strong>
 				    <span class="msg" style="margin:0;">Se guarda solo en este navegador. Para guardarlo por cliente o pasarlo a otro equipo:</span>

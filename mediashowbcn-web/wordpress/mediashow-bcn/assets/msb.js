@@ -956,6 +956,261 @@
       } catch (e) { $('share-state').textContent = (e && e.message) || 'No se ha podido aprobar. Escríbenos por WhatsApp.'; }
     });
   }
+
+  /* Dossier técnico: plano con cotas, cobertura de sonido, material, consumo y cargas en el truss.
+     Los consumos y pesos son valores orientativos de catálogo; confirmar con las fichas técnicas. */
+  const SPEC = {
+    speaker: { name: 'Altavoz RCF EVOX 12', w: 700, kg: 41, spl: 128 },
+    trx: { name: 'Altavoz Alto TRX315 (trípode)', w: 450, kg: 25, spl: 126 },
+    totem: { name: 'Tótem LED 55"', w: 250, kg: 60 },
+    screen: { name: 'Pantalla con pie / colgada', w: 150, kg: 25 },
+    mic: { name: 'Micrófono inalámbrico (receptor)', w: 20, kg: 1 },
+    cam: { name: 'Cámara de realización', w: 150, kg: 8 },
+    booth: { name: 'Cabina DJ con equipo', w: 600, kg: 45 },
+    lectern: { name: 'Atril con micrófono', w: 20, kg: 15 },
+    foh: { name: 'Control de sonido / luces (FOH)', w: 400, kg: 30 },
+    tower: { name: 'Torre de truss', w: 0, kg: 28 },
+    head: { name: 'Cabeza móvil Wash/Beam', w: 250, kg: 16 },
+    bar: { name: 'Barra LED', w: 60, kg: 3 },
+    par: { name: 'PAR LED', w: 120, kg: 5 },
+    wall: { name: 'Pantalla LED (por m²)', w: 200, kg: 30 },
+    haze: { name: 'Máquina de humo / haze', w: 900, kg: 10 }
+  };
+  const fmtN = (v, d = 1) => Number(v).toLocaleString('es-ES', { maximumFractionDigits: d });
+
+  function drawPlan(P, W, H, withCoverage) {
+    const c = document.createElement('canvas'); c.width = W; c.height = H;
+    const g = c.getContext('2d');
+    const pts = [];
+    P.items.forEach(it => pts.push([it.x - it.w / 2, it.z - it.d / 2], [it.x + it.w / 2, it.z + it.d / 2]));
+    if (P.space) P.space.forEach(p => pts.push(p));
+    if (P.tarima) pts.push([-P.tarima.w / 2, P.tarima.back], [P.tarima.w / 2, P.tarima.back + P.tarima.d]);
+    if (P.truss) pts.push([P.truss.x - P.truss.w / 2, P.truss.z], [P.truss.x + P.truss.w / 2, P.truss.z]);
+    if (!pts.length) pts.push([-4, -3], [4, 6]);
+    let x0 = Math.min(...pts.map(p => p[0])) - 1.2, x1 = Math.max(...pts.map(p => p[0])) + 1.2;
+    let z0 = Math.min(...pts.map(p => p[1])) - 1.2, z1 = Math.max(...pts.map(p => p[1])) + 1.2;
+    const pad = 70, k = Math.min((W - pad * 2) / (x1 - x0), (H - pad * 2) / (z1 - z0));
+    const X = x => pad + (x - x0) * k + ((W - pad * 2) - (x1 - x0) * k) / 2, Z = z => pad + (z - z0) * k + ((H - pad * 2) - (z1 - z0) * k) / 2;
+    g.fillStyle = '#ffffff'; g.fillRect(0, 0, W, H);
+    // cobertura de sonido (SPL aproximado a volumen máximo)
+    const spk = P.items.filter(it => it.kind === 'speaker' || it.kind === 'trx');
+    if (withCoverage && spk.length) {
+      const step = 0.25, col = v => v >= 106 ? [230, 60, 40] : v >= 100 ? [245, 140, 50] : v >= 94 ? [245, 205, 60] : v >= 88 ? [120, 200, 90] : v >= 82 ? [70, 170, 190] : [110, 130, 210];
+      for (let x = x0; x < x1; x += step) for (let z = z0; z < z1; z += step) {
+        const cx = x + step / 2, cz = z + step / 2;
+        if (P.space && !inPoly(P.space, cx, cz)) continue;
+        let e = 0;
+        spk.forEach(s => {
+          const dx = cx - s.x, dz = cz - s.z, d = Math.max(1, Math.hypot(dx, dz));
+          const fx = Math.sin(s.ry), fz = Math.cos(s.ry), ang = Math.acos(Math.max(-1, Math.min(1, (dx * fx + dz * fz) / (Math.hypot(dx, dz) || 1)))) * 180 / Math.PI;
+          const dir = ang < 45 ? 0 : ang < 75 ? -6 : ang < 110 ? -12 : -20;
+          e += Math.pow(10, (SPEC[s.kind].spl - 20 * Math.log10(d) + dir) / 10);
+        });
+        const L = 10 * Math.log10(e), [r, gg, b] = col(L);
+        g.fillStyle = `rgba(${r},${gg},${b},.35)`; g.fillRect(X(x), Z(z), step * k + 1, step * k + 1);
+      }
+    }
+    // cuadrícula de 1 m
+    g.strokeStyle = 'rgba(0,0,0,.07)'; g.lineWidth = 1;
+    for (let x = Math.ceil(x0); x <= x1; x++) { g.beginPath(); g.moveTo(X(x), Z(z0)); g.lineTo(X(x), Z(z1)); g.stroke(); }
+    for (let z = Math.ceil(z0); z <= z1; z++) { g.beginPath(); g.moveTo(X(x0), Z(z)); g.lineTo(X(x1), Z(z)); g.stroke(); }
+    const txt = (t, x, y, size = 13, color = '#0A0A0A', align = 'center') => { g.font = `600 ${size}px "Work Sans", Arial, sans-serif`; g.fillStyle = color; g.textAlign = align; g.textBaseline = 'middle'; g.fillText(t, x, y); };
+    // contorno del espacio con cotas
+    if (P.space) {
+      g.strokeStyle = '#0A0A0A'; g.lineWidth = 3; g.beginPath();
+      P.space.forEach(([x, z], i) => (i ? g.lineTo(X(x), Z(z)) : g.moveTo(X(x), Z(z)))); g.closePath(); g.stroke();
+      P.space.forEach(([x, z], i) => {
+        const [x2, z2] = P.space[(i + 1) % P.space.length], mx = (X(x) + X(x2)) / 2, mz = (Z(z) + Z(z2)) / 2;
+        g.fillStyle = '#fff'; g.fillRect(mx - 32, mz - 11, 64, 22); txt(fmtN(Math.hypot(x2 - x, z2 - z)) + ' m', mx, mz, 13);
+      });
+    }
+    // tarima
+    if (P.tarima) {
+      const t = P.tarima; g.fillStyle = 'rgba(10,10,10,.12)'; g.strokeStyle = '#0A0A0A'; g.lineWidth = 1.5;
+      g.fillRect(X(-t.w / 2), Z(t.back), t.w * k, t.d * k); g.strokeRect(X(-t.w / 2), Z(t.back), t.w * k, t.d * k);
+      txt(`Tarima ${fmtN(t.w)} × ${fmtN(t.d)} m · h ${fmtN(t.h, 2)} m`, X(0), Z(t.back + t.d) - 12, 12, '#555');
+    }
+    // truss
+    if (P.truss) {
+      const t = P.truss; g.save(); g.translate(X(t.x), Z(t.z)); g.rotate(-t.ry);
+      g.strokeStyle = '#7b8088'; g.lineWidth = Math.max(4, 0.29 * k); g.beginPath(); g.moveTo(-t.w / 2 * k, 0); g.lineTo(t.w / 2 * k, 0); g.stroke();
+      g.fillStyle = '#7b8088'; [-1, 1].forEach(sx => g.fillRect(sx * t.w / 2 * k - 0.3 * k, -0.3 * k, 0.6 * k, 0.6 * k));
+      g.restore(); txt(`Truss ${fmtN(t.w)} m × ${fmtN(t.h)} m alto`, X(t.x), Z(t.z) - Math.max(16, 0.45 * k), 12, '#555');
+    }
+    // equipos numerados
+    const legend = [];
+    P.items.forEach(it => {
+      if (it.kind === 'tarima') return;
+      g.save(); g.translate(X(it.x), Z(it.z)); g.rotate(-it.ry);
+      g.fillStyle = it.hung ? 'rgba(230,88,55,.15)' : 'rgba(230,88,55,.85)'; g.strokeStyle = '#0A0A0A'; g.lineWidth = 1.2;
+      if (it.hung) g.setLineDash([5, 4]);
+      g.fillRect((it.cx - it.w / 2) * k, (it.cz - it.d / 2) * k, it.w * k, Math.max(it.d * k, 3)); g.strokeRect((it.cx - it.w / 2) * k, (it.cz - it.d / 2) * k, it.w * k, Math.max(it.d * k, 3));
+      g.setLineDash([]);
+      if (it.kind === 'speaker' || it.kind === 'trx') { g.strokeStyle = '#E65837'; g.beginPath(); g.moveTo(0, 0); g.lineTo(0, 0.9 * k); g.stroke(); }
+      g.restore();
+      const n = legend.length + 1; legend.push(it);
+      g.beginPath(); g.arc(X(it.x), Z(it.z), 10, 0, Math.PI * 2); g.fillStyle = '#0A0A0A'; g.fill(); txt(String(n), X(it.x), Z(it.z), 11, '#fff');
+    });
+    P.floorHeads.forEach(h => { g.beginPath(); g.arc(X(h.x), Z(h.z), 6, 0, Math.PI * 2); g.fillStyle = '#22d3ee'; g.fill(); });
+    // escala
+    g.fillStyle = '#0A0A0A'; g.fillRect(pad, H - 34, k, 6); txt('1 m', pad + k / 2, H - 18, 12);
+    txt('FONDO · ESCENARIO', W / 2, 24, 14, '#E65837');
+    txt('PÚBLICO', W / 2, H - 20, 14, '#E65837');
+    return { url: c.toDataURL('image/png'), legend };
+  }
+  function inPoly(P, x, z) {
+    let ins = false;
+    for (let i = 0, j = P.length - 1; i < P.length; j = i++) { const [xi, zi] = P[i], [xj, zj] = P[j]; if ((zi > z) !== (zj > z) && x < (xj - xi) * (z - zi) / (zj - zi) + xi) ins = !ins; }
+    return ins;
+  }
+
+  function dossierHTML() {
+    const P = Stage.planData();
+    if (!P) return null;
+    const plan = drawPlan(P, 1400, 1000, false), cover = drawPlan(P, 1400, 1000, true);
+    const count = {};
+    P.items.forEach(it => { count[it.kind] = (count[it.kind] || 0) + 1; });
+    const towerHeads = P.items.filter(it => it.kind === 'tower' && it.head).length;
+    count.head = P.headsOnTruss + P.floorHeads.length + towerHeads;
+    count.bar = P.bars.length; count.par = P.pars; count.haze = P.haze ? 1 : 0;
+    const wallM2 = P.items.filter(it => it.kind === 'wall').reduce((a, it) => a + it.dims[0] * it.dims[1], 0);
+    const rows = Object.keys(SPEC).filter(k => k !== 'wall' && count[k]).map(k => ({ name: SPEC[k].name, q: count[k], w: SPEC[k].w * count[k], kg: SPEC[k].kg * count[k] }));
+    if (wallM2) rows.push({ name: SPEC.wall.name, q: fmtN(wallM2) + ' m²', w: SPEC.wall.w * wallM2, kg: SPEC.wall.kg * wallM2 });
+    const totalW = rows.reduce((a, r) => a + r.w, 0), amps = totalW / 230, lines = Math.max(1, Math.ceil(totalW / 3000));
+    // carga colgada del truss
+    const hungWall = P.items.filter(it => it.kind === 'wall' && it.hung).reduce((a, it) => a + it.dims[0] * it.dims[1] * SPEC.wall.kg, 0);
+    const hungScr = P.items.filter(it => it.kind === 'screen' && it.hung).length * SPEC.screen.kg;
+    const trussLoad = P.truss ? P.headsOnTruss * SPEC.head.kg + P.pars * SPEC.par.kg + hungWall + hungScr : 0;
+    const q = computeQuote(), pk = q.pack, name = $('client-name').value.trim() || 'Cliente';
+    const sizes = Stage.describe();
+    const area = P.space ? Math.abs(P.space.reduce((a, [x, z], i) => { const [x2, z2] = P.space[(i + 1) % P.space.length]; return a + x * z2 - x2 * z; }, 0)) / 2 : 0;
+    const li = plan.legend.map((it, i) => `<tr><td>${i + 1}</td><td>${esc(it.label)}${it.hung ? ' (colgada del truss)' : ''}${it.kind === 'wall' ? ` · ${fmtN(it.dims[0])} × ${fmtN(it.dims[1])} m` : ''}${(it.kind === 'screen' || it.kind === 'totem') && it.inch !== 55 ? ` · ${it.inch}"` : ''}${it.kind === 'tower' ? ` · ${fmtN(it.towerH, 2)} m${it.head ? ' con cabeza' : ''}` : ''}</td><td>${fmtN(it.x, 2)} / ${fmtN(it.z, 2)}</td></tr>`).join('');
+    return `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Dossier técnico · ${esc(name)} · Media Show BCN</title>
+<style>
+body{font:14px/1.45 "Work Sans",Arial,sans-serif;color:#0A0A0A;margin:0;padding:28px;background:#fff}
+h1{font:400 40px/1 "Bebas Neue",Impact,sans-serif;letter-spacing:.5px;margin:0 0 4px}h2{font:400 26px/1 "Bebas Neue",Impact,sans-serif;letter-spacing:.5px;margin:26px 0 8px;color:#E65837}
+.meta{color:#555;margin:0 0 6px}.brand{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #E65837;padding-bottom:10px}
+table{border-collapse:collapse;width:100%;margin:6px 0}td,th{border-bottom:1px solid #ddd;padding:6px 8px;text-align:left}th{background:#f4f0e8}td.n,th.n{text-align:right}
+img{width:100%;border:1px solid #ddd}.note{font-size:12px;color:#666}.kpi{display:flex;gap:12px;flex-wrap:wrap}.kpi div{flex:1 1 150px;background:#f4f0e8;border-left:4px solid #E65837;padding:10px}.kpi b{display:block;font-size:22px}
+.scale{display:flex;gap:6px;flex-wrap:wrap;font-size:12px}.scale span{padding:3px 8px;border-radius:4px}
+.tools{position:fixed;top:12px;right:12px}.tools button{background:#E65837;color:#0A0A0A;border:0;border-radius:8px;padding:10px 16px;font-weight:700;cursor:pointer}
+@media print{.tools{display:none}body{padding:0}h2{break-after:avoid}img{break-inside:avoid}}
+</style></head><body>
+<div class="tools"><button onclick="print()">Imprimir / guardar PDF</button></div>
+<div class="brand"><div><h1>Dossier técnico</h1><p class="meta">${esc(name)} · ${esc(fmtDate(state.date))} · ${state.guests} personas · ${state.hours} h · ${esc(state.space)} · ${esc(ZONES[state.zone])}</p>
+<p class="meta">${pk ? 'Pack ' + esc(pk.name) : ''} · Ref. MSB-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}</p></div><div style="text-align:right"><b style="font:400 28px 'Bebas Neue',Impact">MEDIA SHOW BCN</b><br><span class="meta">mediashowbcn.com · 615 78 20 87</span></div></div>
+<h2>Resumen</h2>
+<div class="kpi"><div>Consumo estimado<b>${fmtN(totalW / 1000, 1)} kW</b>${fmtN(amps, 0)} A a 230 V</div><div>Líneas de corriente<b>${lines} × 16 A</b>recomendadas (máx. 3 kW por línea)</div>${P.truss ? `<div>Carga colgada del truss<b>${fmtN(trussLoad, 0)} kg</b>${fmtN(P.truss.w)} m de vano</div>` : ''}${area ? `<div>Superficie del espacio<b>${fmtN(area)} m²</b>medida sobre la foto</div>` : ''}</div>
+<h2>Plano cenital</h2><img src="${plan.url}" alt="Plano cenital del montaje con cotas">
+<table><tr><th>#</th><th>Equipo</th><th class="n">Posición X / Z (m)</th></tr>${li}</table>
+${sizes.length ? `<p><b>Medidas del montaje:</b> ${esc(sizes.join('; '))}.</p>` : ''}
+<h2>Cobertura de sonido</h2><img src="${cover.url}" alt="Mapa de cobertura de sonido sobre el plano">
+<div class="scale"><span style="background:rgba(230,60,40,.35)">≥ 106 dB</span><span style="background:rgba(245,140,50,.35)">100–106</span><span style="background:rgba(245,205,60,.35)">94–100</span><span style="background:rgba(120,200,90,.35)">88–94</span><span style="background:rgba(70,170,190,.35)">82–88</span><span style="background:rgba(110,130,210,.35)">&lt; 82 dB</span></div>
+<p class="note">Nivel aproximado a volumen máximo (campo libre, sin reflexiones de la sala). Sirve para ver zonas con poco o demasiado nivel; el técnico ajusta en el montaje.</p>
+<h2>Material, consumo y peso</h2>
+<table><tr><th>Equipo</th><th class="n">Cantidad</th><th class="n">Consumo (W)</th><th class="n">Peso (kg)</th></tr>${rows.map(r => `<tr><td>${esc(r.name)}</td><td class="n">${r.q}</td><td class="n">${fmtN(r.w, 0)}</td><td class="n">${fmtN(r.kg, 0)}</td></tr>`).join('')}
+<tr><th>Total</th><th></th><th class="n">${fmtN(totalW, 0)}</th><th class="n">${fmtN(rows.reduce((a, r) => a + r.kg, 0), 0)}</th></tr></table>
+${P.truss ? `<p><b>Truss:</b> ${P.headsOnTruss} cabezas móviles, ${P.pars} PAR${hungWall ? `, pantalla LED colgada (${fmtN(hungWall, 0)} kg)` : ''}${hungScr ? `, pantallas colgadas (${fmtN(hungScr, 0)} kg)` : ''}. Total ${fmtN(trussLoad, 0)} kg. Comprobar con la tabla de carga del fabricante para ${fmtN(P.truss.w)} m de vano.</p>` : ''}
+<p class="note">Consumos y pesos orientativos de catálogo. Confirmar con las fichas técnicas del material asignado y con el técnico del recinto (potencia disponible, puntos de anclaje, accesos de carga).</p>
+<h2>Presupuesto</h2><table>${q.lines.map(l => `<tr><td>${esc(l.label)}</td><td class="n">${l.cents === null ? 'A consultar' : eur(l.cents)}</td></tr>`).join('')}<tr><th>Total con IVA</th><th class="n">${eur(q.total)}</th></tr></table>
+</body></html>`;
+  }
+  function setupDossier() {
+    $('dossier-btn').addEventListener('click', () => {
+      const html = dossierHTML();
+      if (!html) { $('export-msg').textContent = 'Abre el cotizador 3D antes de crear el dossier.'; return; }
+      const w = window.open('', '_blank');
+      if (!w) { download(new Blob([html], { type: 'text/html' }), 'mediashowbcn-dossier-tecnico.html'); $('export-msg').textContent = 'Dossier descargado. Ábrelo y pulsa «Imprimir / guardar PDF».'; return; }
+      w.document.open(); w.document.write(html); w.document.close();
+      $('export-msg').textContent = 'Dossier abierto en una pestaña nueva. Pulsa «Imprimir / guardar PDF».';
+    });
+  }
+
+  /* Vídeo de show: escenas Ceremonia → Cena → Fiesta y luces al ritmo de la canción */
+  function setupShow() {
+    const msg = $('export-msg'), btn = $('show-btn');
+    let music = null;
+    $('show-music').addEventListener('change', () => {
+      const f = $('show-music').files[0];
+      $('show-music').value = '';
+      if (!f) return;
+      if (!/^audio\//.test(f.type) || f.size > 25 * 1024 * 1024) { msg.textContent = 'Sube una canción MP3, M4A o WAV de hasta 25 MB.'; return; }
+      music = f; $('show-music-name').textContent = f.name; $('show-music-clear').hidden = false;
+    });
+    $('show-music-clear').addEventListener('click', () => { music = null; $('show-music-name').textContent = 'Sin canción: pulso de 124 BPM'; $('show-music-clear').hidden = true; });
+    btn.addEventListener('click', async () => {
+      if (btn.getAttribute('aria-disabled') === 'true' || Stage.recording) return;
+      btn.setAttribute('aria-disabled', 'true');
+      const dur = Number($('show-dur').value), o = Object.assign(exportOpts(), { fps: S.pro ? 60 : 30 });
+      const prevDm = state.dm, timers = [];
+      let ac = null, src = null, analyser = null, dest = null, data = null, env = 0;
+      try {
+        if (music) {
+          msg.textContent = 'Preparando la canción…';
+          ac = new (window.AudioContext || window.webkitAudioContext)();
+          const buf = await ac.decodeAudioData(await music.arrayBuffer());
+          src = ac.createBufferSource(); src.buffer = buf;
+          analyser = ac.createAnalyser(); analyser.fftSize = 1024; analyser.smoothingTimeConstant = 0.6;
+          dest = ac.createMediaStreamDestination();
+          src.connect(analyser); analyser.connect(dest); analyser.connect(ac.destination);
+          data = new Uint8Array(analyser.frequencyBinCount);
+        }
+        const t0 = performance.now();
+        Stage.setBeat(() => {
+          let v;
+          if (analyser) {
+            analyser.getByteFrequencyData(data);
+            const n = Math.max(3, Math.round(160 / (ac.sampleRate / analyser.fftSize)));
+            let sum = 0; for (let i = 1; i < n; i++) sum += data[i];
+            v = Math.max(0, (sum / (n - 1) / 255 - 0.4) / 0.6);
+          } else v = Math.pow(1 - ((performance.now() - t0) / 1000 * 124 / 60) % 1, 3);
+          env = Math.max(v, env * 0.86);
+          return env;
+        });
+        if ($('show-scenes').checked) {
+          [['Ceremonia', 'amber'], ['Cena', 'corp'], ['Fiesta', 'dm']].forEach(([name, dm], i) => timers.push(setTimeout(() => {
+            state.dm = dm; $('dm-select').value = dm; render(); Stage.setCaption(name);
+          }, i * dur * 1000 / 3)));
+        }
+        if (src) src.start();
+        msg.textContent = `Grabando el vídeo de show (${dur} s, ${o.label}${o.fps === 60 ? ' a 60 fps' : ''})… no cambies de pestaña.`;
+        const { blob, ext } = await Stage.record(dur, Object.assign(o, { audio: dest ? dest.stream.getAudioTracks()[0] : null }));
+        download(blob, `mediashowbcn-show-${o.h}p.${ext}`);
+        msg.textContent = `Vídeo de show descargado (${ext.toUpperCase()}${dest ? ', con música' : ''}).`;
+      } catch (e) { msg.textContent = (e && e.message) || 'No se ha podido grabar el vídeo de show.'; }
+      timers.forEach(clearTimeout);
+      try { if (src) src.stop(); if (ac) ac.close(); } catch (e) { /* ya parado */ }
+      Stage.setBeat(null); Stage.setCaption('');
+      state.dm = prevDm; $('dm-select').value = prevDm; render();
+      btn.removeAttribute('aria-disabled');
+    });
+  }
+
+  /* IA (beta): detecta mesas, sillas, plantas, personas o columnas y pone delante las que lo están */
+  const TJS = 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.2';
+  let segP = null;
+  function setupAI() {
+    const btn = $('fg-ai'), msg = $('fg-msg');
+    btn.addEventListener('click', async () => {
+      if (btn.getAttribute('aria-disabled') === 'true') return;
+      const photo = Stage.photoData();
+      if (!photo) { msg.textContent = 'Primero sube la foto del espacio.'; return; }
+      btn.setAttribute('aria-disabled', 'true');
+      try {
+        msg.textContent = 'Cargando la IA (unos 15 MB, solo la primera vez)…';
+        if (!segP) segP = import(TJS).then(({ pipeline, env }) => { env.allowLocalModels = false; return pipeline('image-segmentation', 'Xenova/segformer-b0-finetuned-ade-512-512'); });
+        const seg = await segP;
+        msg.textContent = 'Analizando la foto…';
+        const out = await seg(photo);
+        const r = Stage.autoForeground(out.map(o => ({ label: o.label, mask: { width: o.mask.width, height: o.mask.height, data: o.mask.data, channels: o.mask.channels } })));
+        msg.textContent = r.n ? `La IA ha puesto ${r.n} objeto${r.n > 1 ? 's' : ''} delante del montaje. Revísalo y corrige con «Pintar» o «Borrar».` : 'La IA no ha encontrado objetos delante del montaje. Si hay alguno, píntalo a mano.';
+      } catch (e) {
+        segP = null;
+        msg.textContent = 'No se ha podido usar la IA ahora (conexión o navegador sin soporte). Pinta el primer plano a mano.';
+      }
+      btn.removeAttribute('aria-disabled');
+    });
+  }
 /* ===================== ESCENARIO 3D (Three.js r128) ===================== */
 const Stage = (() => {
   let inited = false, active = false, failed = false;
@@ -2099,6 +2354,15 @@ const Stage = (() => {
       rig.dj.arms[1].rotation.x = -0.9 - 0.25 * Math.max(0, Math.sin(beat * 0.25 + 1));
     }
     if ((cfg.wall || cfg.screens) && !reduce && ++ledTick % 4 === 0) drawLed(t);
+    // Vídeo de show: las luces responden al ritmo (canción o pulso de 124 BPM).
+    if (beatFn) {
+      const bt = Math.max(0, Math.min(1, beatFn() || 0)), op = (cfg.haze ? 0.2 : 0.09) * (0.55 + 1.6 * bt);
+      lights.a.intensity = 1.1 + 2.2 * bt; lights.b.intensity = 1.0 + 2.0 * bt;
+      rig.heads.forEach(h => { h.beamMat.opacity = op; });
+      rig.towers.forEach(o => { if (o.userData.rigHead) o.userData.rigHead.beamMat.opacity = op; });
+      rig.bars.forEach(b => { b.glowMat.opacity = (cfg.haze ? 0.14 : 0.07) * (0.5 + 1.8 * bt); });
+      if (bloom) bloom.strength = bloomOn * (0.8 + 0.9 * bt);
+    }
   }
 
   function loop() {
@@ -2461,7 +2725,7 @@ const Stage = (() => {
     draggables.forEach(o => {
       if (!o.visible || o.userData.hung) return;
       const [x, z] = pullInside(Q, o.position.x, o.position.z, 0.45);
-      if (x !== o.position.x || z !== o.position.z) place(o, x, z);
+      if (x !== o.position.x || z !== o.position.z) { place(o, x, z); o.userData.moved = true; }
     });
     savePhotoCam();
     drawSpace(); spaceEvent(); notify();
@@ -2478,6 +2742,110 @@ const Stage = (() => {
     if (!photoCam) return;
     camera.position.fromArray(photoCam.pos); controls.target.fromArray(photoCam.target);
     venueFov = photoCam.fov; fitBg(camera.aspect); controls.update();
+  }
+
+  /* IA (beta): de los objetos que detecta la segmentación, pasa al primer plano los que
+     apoyan en el suelo más cerca de la cámara que el equipo que tapan. */
+  const FG_RE = /\b(chair|armchair|seat|sofa|table|desk|counter|bar|bench|stool|person|plant|flower|pot|vase|lamp|column|pillar|pole|railing|fence|box|cushion|signboard|basket|bottle)\b/i;
+  function autoForeground(results) {
+    if (!bgImg || !fg.mask) return { ok: false, n: 0 };
+    const MW = fg.mask.width, MH = fg.mask.height, ia = MW / MH;
+    const r = renderer.domElement, CW = r.clientWidth, CH = r.clientHeight;
+    const toPhotoPx = v => { // NDC del lienzo → píxel de la foto
+      const a = CW / CH; let u = v.x, w = v.y;
+      if (ia >= a) u = v.x * a / ia; else w = v.y * ia / a;
+      return [(u + 1) / 2 * MW, (1 - w) / 2 * MH];
+    };
+    const fromPhotoPx = (px, py) => { // píxel de la foto → NDC del lienzo
+      const [cx, cy] = photoToCanvas([(px / MW * 2 - 1) * ia, 1 - py / MH * 2], CW, CH);
+      return new THREE.Vector2(cx / CW * 2 - 1, 1 - cy / CH * 2);
+    };
+    const items = draggables.filter(o => o.visible && !o.userData.hung).concat(rig.truss.visible ? [rig.truss] : []).map(o => {
+      const bb = new THREE.Box3();
+      o.updateMatrixWorld(true);
+      o.traverse(m => { if (m.isMesh && m.visible && !m.userData.isBlob && !(m.material && m.material.blending === THREE.AdditiveBlending)) bb.expandByObject(m); });
+      if (bb.isEmpty()) return null;
+      let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+      for (let i = 0; i < 8; i++) {
+        const v = V3(i & 1 ? bb.max.x : bb.min.x, i & 2 ? bb.max.y : bb.min.y, i & 4 ? bb.max.z : bb.min.z).project(camera);
+        const [px, py] = toPhotoPx(v); x0 = Math.min(x0, px); x1 = Math.max(x1, px); y0 = Math.min(y0, py); y1 = Math.max(y1, py);
+      }
+      const near = bb.clampPoint(camera.position, V3(0, 0, 0));
+      return { x0, x1, y0, y1, dist: Math.hypot(near.x - camera.position.x, near.z - camera.position.z) };
+    }).filter(Boolean);
+    const ray = new THREE.Raycaster(), plane = new THREE.Plane(V3(0, 1, 0), 0), hit = V3(0, 0, 0);
+    const GW = 400, GH = Math.max(1, Math.round(GW / ia)), mg = fg.mask.getContext('2d');
+    let added = 0;
+    mg.globalCompositeOperation = 'source-over'; mg.fillStyle = '#000';
+    results.forEach(res => {
+      if (!FG_RE.test(String(res.label || ''))) return;
+      const m = res.mask, ch = m.channels || 1, grid = new Uint8Array(GW * GH);
+      for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) {
+        const sx = Math.min(m.width - 1, Math.floor((x + 0.5) * m.width / GW)), sy = Math.min(m.height - 1, Math.floor((y + 0.5) * m.height / GH));
+        grid[y * GW + x] = m.data[(sy * m.width + sx) * ch] > 127 ? 1 : 0;
+      }
+      const seen = new Uint8Array(GW * GH);
+      for (let i = 0; i < grid.length; i++) {
+        if (!grid[i] || seen[i]) continue;
+        const cells = [], stack = [i]; seen[i] = 1;
+        while (stack.length) {
+          const c = stack.pop(); cells.push(c);
+          const cx = c % GW, cy = (c / GW) | 0;
+          [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([dx, dy]) => { const nx = cx + dx, ny = cy + dy, n = ny * GW + nx; if (nx >= 0 && ny >= 0 && nx < GW && ny < GH && grid[n] && !seen[n]) { seen[n] = 1; stack.push(n); } });
+        }
+        if (cells.length < 20) continue;
+        let bx0 = GW, bx1 = 0, by0 = GH, by1 = 0;
+        cells.forEach(c => { const cx = c % GW, cy = (c / GW) | 0; bx0 = Math.min(bx0, cx); bx1 = Math.max(bx1, cx); by0 = Math.min(by0, cy); by1 = Math.max(by1, cy); });
+        const bottom = cells.filter(c => ((c / GW) | 0) === by1).map(c => c % GW), footX = bottom.reduce((a, b) => a + b, 0) / bottom.length;
+        ray.setFromCamera(fromPhotoPx((footX + 0.5) * MW / GW, (by1 + 1) * MH / GH), camera);
+        if (!ray.ray.intersectPlane(plane, hit)) continue;
+        const dist = Math.hypot(hit.x - camera.position.x, hit.z - camera.position.z);
+        const px0 = bx0 * MW / GW, px1 = (bx1 + 1) * MW / GW, py0 = by0 * MH / GH, py1 = (by1 + 1) * MH / GH;
+        const behind = items.some(it => it.x1 > px0 && it.x0 < px1 && it.y1 > py0 && it.y0 < py1 && it.dist < dist - 0.2);
+        if (behind) continue;
+        const cw = MW / GW + 0.6, chh = MH / GH + 0.6;
+        cells.forEach(c => mg.fillRect((c % GW) * MW / GW - 0.3, ((c / GW) | 0) * MH / GH - 0.3, cw, chh));
+        added++;
+      }
+    });
+    if (added) { fg.has = true; rebuildCut(); }
+    queueCommit();
+    return { ok: true, n: added };
+  }
+
+  /* Datos del plano cenital para el dossier técnico (posiciones, huellas, cargas). */
+  function planData() {
+    const items = [];
+    const foot = o => {
+      const bb = new THREE.Box3(), inv = new THREE.Matrix4();
+      o.updateMatrixWorld(true);
+      inv.copy(o.matrixWorld).invert();
+      o.traverse(m => {
+        if (!m.isMesh || !m.visible || m.userData.isBlob || (m.material && m.material.blending === THREE.AdditiveBlending)) return;
+        if (!m.geometry.boundingBox) m.geometry.computeBoundingBox();
+        bb.union(m.geometry.boundingBox.clone().applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, m.matrixWorld)));
+      });
+      if (bb.isEmpty()) return { w: 0.4, d: 0.4, cx: 0, cz: 0 };
+      const sc = o.scale.x || 1;
+      return { w: (bb.max.x - bb.min.x) * sc, d: (bb.max.z - bb.min.z) * sc, cx: (bb.max.x + bb.min.x) / 2 * sc, cz: (bb.max.z + bb.min.z) / 2 * sc };
+    };
+    draggables.forEach(o => {
+      if (!o.visible || o.userData.kind === 'truss') return;
+      const wp = o.getWorldPosition(V3(0, 0, 0)), q = o.getWorldQuaternion(new THREE.Quaternion());
+      const ry = new THREE.Euler().setFromQuaternion(q, 'YXZ').y, f = foot(o), u = o.userData;
+      items.push({ kind: u.kind, label: KIND[u.kind] || u.kind, x: wp.x, z: wp.z, ry, w: f.w, d: f.d, cx: f.cx, cz: f.cz, hung: !!u.hung, inch: u.inch, dims: u.dims, towerH: u.towerH, head: !!u.head, real: !!u.real });
+    });
+    const tw = rig.truss.getWorldPosition(V3(0, 0, 0));
+    const onTruss = rig.heads.filter(h => h.g.visible && h.g.parent === rig.truss).length;
+    const floorHeads = rig.heads.filter(h => h.g.visible && h.g.parent === scene).map(h => ({ x: h.g.position.x, z: h.g.position.z }));
+    const bars = rig.bars.filter(b => b.g.visible).map(b => ({ x: b.g.position.x, z: b.g.position.z, onStage: b.g.position.y > 0.2 }));
+    return {
+      items, floorHeads, bars, headsOnTruss: onTruss, pars: rig.pars[0] && rig.pars[0].g.visible ? rig.pars.length : 0,
+      truss: rig.truss.visible ? { x: tw.x, z: tw.z, ry: rig.truss.rotation.y, w: TR.w, h: TR.h } : null,
+      tarima: TAR.on && rig.tarima.visible ? { w: TAR.w, d: TAR.d, h: TAR.h, back: BACK } : null,
+      haze: !!(rig.haze && rig.haze.visible),
+      space: SPACE && SPACE.closed ? SPACE.pts.map(p => p.slice()) : null
+    };
   }
 
   /* Modelo .glb del montaje para la realidad aumentada (sin haces, humo, etiquetas ni sombras falsas). */
@@ -2674,6 +3042,15 @@ const Stage = (() => {
     if (src !== false) ctx.drawImage(src || renderer.domElement, 0, 0, c.width, c.height);
     if (bgImg && fg.has) { const k = crop(fg.cut.width, fg.cut.height, c.width / c.height); ctx.drawImage(fg.cut, k.sx, k.sy, k.sw, k.sh, 0, 0, c.width, c.height); }
     if (mark) watermark(ctx, c.width, c.height);
+    if (caption) {
+      const u = c.height / 1080;
+      ctx.save(); ctx.textBaseline = 'alphabetic';
+      ctx.font = `${Math.round(96 * u)}px "Bebas Neue", Impact, sans-serif`; ctx.fillStyle = 'rgba(244,240,232,.92)';
+      ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 18 * u;
+      ctx.fillText(caption.toUpperCase(), 56 * u, c.height - 70 * u);
+      ctx.fillStyle = '#E65837'; ctx.fillRect(56 * u, c.height - 58 * u, 120 * u, 6 * u);
+      ctx.restore();
+    }
     badge(ctx, c.width, c.height);
   }
 
@@ -2692,7 +3069,7 @@ const Stage = (() => {
 
   /* Render final: acumula muchas pasadas moviendo un poco la luz y el encuadre
      (sombras suaves, bordes limpios, sin dientes de sierra). */
-  let hq = false;
+  let hq = false, beatFn = null, caption = '';
   const nextFrame = () => new Promise(r => requestAnimationFrame(() => r()));
   async function renderHQ(opt, progress) {
     const o = Object.assign({ w: 1920, h: 1080, mark: true, samples: 24 }, opt);
@@ -2734,7 +3111,8 @@ const Stage = (() => {
       if (!inited) return reject(new Error('El escenario 3D no está listo.'));
       const c = document.createElement('canvas'); c.width = o.w; c.height = o.h;
       if (!window.MediaRecorder || !c.captureStream) return reject(new Error('Este navegador no permite grabar vídeo. Prueba con Chrome, Edge o Safari actualizados.'));
-      const type = ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm'].find(t => MediaRecorder.isTypeSupported(t));
+      const types = o.audio ? ['video/mp4;codecs=avc1,mp4a.40.2', 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'] : ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm'];
+      const type = types.find(t => MediaRecorder.isTypeSupported(t));
       if (!type) return reject(new Error('Este navegador no permite grabar vídeo. Prueba con Chrome, Edge o Safari actualizados.'));
       const saved = camera.position.clone();
       const off = new THREE.Vector3().subVectors(saved, controls.target);
@@ -2743,7 +3121,9 @@ const Stage = (() => {
       rec = { start: performance.now(), dur: seconds, sweep, r: bgImg ? Math.hypot(off.x, off.z) : Math.max(8, Math.hypot(off.x, off.z)), h: bgImg ? saved.y : Math.max(2.4, saved.y), a0: Math.atan2(off.x, off.z), ctx: c.getContext('2d'), mark: o.mark };
       const restore = hiRes(o.w, o.h);
       const chunks = [];
-      const mr = new MediaRecorder(c.captureStream(30), { mimeType: type, videoBitsPerSecond: o.w > 1920 ? 30e6 : 12e6 });
+      const stream = c.captureStream(o.fps || 30);
+      if (o.audio) stream.addTrack(o.audio);
+      const mr = new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: (o.w > 1920 ? 30e6 : 12e6) * ((o.fps || 30) > 30 ? 1.6 : 1) });
       mr.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
       mr.onstop = () => {
         rec = null; restore();
@@ -2804,6 +3184,10 @@ const Stage = (() => {
     get recording() { return !!rec; },
     getLayout() { return inited ? getLayout() : null; },
     exportGLB,
+    planData() { return inited ? planData() : null; },
+    autoForeground(r) { return inited ? autoForeground(r) : { ok: false, n: 0 }; },
+    setBeat(fn) { beatFn = fn || null; if (!fn && bloom) bloom.strength = bloomOn; if (!fn && cfg && lastState) update(lastState); },
+    setCaption(t) { caption = t || ''; },
     ready() { return readyP; },
     setLayout(L) { setLayout(L); hist.past = []; hist.future = []; commit(); },
     undo, redo,
@@ -2842,6 +3226,9 @@ const Stage = (() => {
   setupProject();
   setupHQ();
   setupShare();
+  setupDossier();
+  setupShow();
+  setupAI();
   window.addEventListener('msb:ready', () => render());
   if (D.models3d) Stage.setModels(D.models3d);
   if (S.pro) document.querySelectorAll('.pro-only').forEach(el => { el.hidden = false; });
