@@ -56,11 +56,17 @@ add_action(
 		wp_enqueue_style( 'msb-app', MSB_URL . 'assets/msb.css', array(), MSB_VERSION );
 		wp_enqueue_script( 'msb-three', 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js', array(), 'r128', true );
 		wp_enqueue_script( 'msb-orbit', 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js', array( 'msb-three' ), '0.128.0', true );
-		wp_enqueue_script( 'msb-app', MSB_URL . 'assets/msb.js', array( 'msb-orbit' ), MSB_VERSION, true );
+		$deps = array( 'msb-orbit' );
+		$cat  = msb_catalog();
+		if ( ! empty( $cat['models3d'] ) ) {
+			wp_enqueue_script( 'msb-gltf', 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js', array( 'msb-three' ), '0.128.0', true );
+			$deps[] = 'msb-gltf';
+		}
+		wp_enqueue_script( 'msb-app', MSB_URL . 'assets/msb.js', $deps, MSB_VERSION, true );
 
 		$links = msb_legal_links();
 		$data  = array_merge(
-			msb_catalog(),
+			$cat,
 			array(
 				'settings' => array(
 					'whatsapp'      => msb_opt( 'whatsapp' ),

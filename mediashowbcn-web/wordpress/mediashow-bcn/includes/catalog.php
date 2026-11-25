@@ -32,6 +32,10 @@ function msb_models() {
 		'booth'     => 'Cabina DJ',
 		'dj'        => 'DJ (figura en la cabina)',
 		'spk'       => 'Altavoz adicional RCF EVOX 12',
+		'tarima'    => 'Tarima (precio por m²)',
+		'rcf'       => 'Pieza: altavoz RCF EVOX 12 (solo modelo .glb)',
+		'trx'       => 'Pieza: altavoz Alto TRX315 (solo modelo .glb)',
+		'foh'       => 'Pieza: mesa de control (solo modelo .glb)',
 		'mic'       => 'Micrófono adicional',
 		'lectern'   => 'Atril con micrófono',
 		'stream'    => 'Cámaras de streaming',
@@ -59,6 +63,15 @@ add_action(
 				'options'     => msb_models(),
 				'desc_tip'    => true,
 				'description' => 'Qué se dibuja en el escenario 3D. En los packs, elige un escenario. En los extras, el equipo que se añade. Los tres kits de pantalla LED se muestran juntos y el cliente elige uno. Deja el precio vacío para mostrar «A consultar».',
+			)
+		);
+		woocommerce_wp_text_input(
+			array(
+				'id'          => '_msb_glb',
+				'label'       => 'Modelo 3D real (.glb)',
+				'placeholder' => 'https://…/equipo.glb',
+				'desc_tip'    => true,
+				'description' => 'Sube el archivo .glb a Medios y pega aquí su URL. Sustituye al dibujo del «Modelo 3D» elegido arriba. Medidas en metros y el frente mirando hacia +Z (formato glTF estándar).',
 			)
 		);
 		woocommerce_wp_text_input(
@@ -109,6 +122,8 @@ add_action(
 			$product->update_meta_data( $key, '' === $val ? '' : absint( $val ) );
 		}
 		$product->update_meta_data( '_msb_desde', isset( $_POST['_msb_desde'] ) ? 'yes' : 'no' );
+		$glb = isset( $_POST['_msb_glb'] ) ? esc_url_raw( trim( wp_unslash( $_POST['_msb_glb'] ) ), array( 'https', 'http' ) ) : '';
+		$product->update_meta_data( '_msb_glb', preg_match( '/\.glb(\?.*)?$/i', $glb ) ? $glb : '' );
 		// phpcs:enable
 	}
 );
@@ -374,5 +389,55 @@ function msb_catalog() {
 			'stock' => $p->managing_stock() ? (int) $p->get_stock_quantity() : null,
 		);
 	}
-	return apply_filters( 'msb_catalog', array( 'packs' => $packs, 'extras' => $extras, 'equipos' => $equipos ) );
+	return apply_filters( 'msb_catalog', array( 'packs' => $packs, 'extras' => $extras, 'equipos' => $equipos, 'models3d' => msb_models3d() ) );
 }
+
+/** Modelos .glb por pieza del escenario: { "spk": "https://…/rcf.glb", … }. */
+function msb_models3d() {
+	$out = array();
+	$ids = get_posts(
+		array(
+			'post_type'      => 'product',
+			'post_status'    => 'publish',
+			'posts_per_page' => 100,
+			'fields'         => 'ids',
+			'meta_query'     => array( array( 'key' => '_msb_glb', 'value' => '', 'compare' => '!=' ) ), // phpcs:ignore WordPress.DB.SlowDBQuery
+		)
+	);
+	foreach ( $ids as $id ) {
+		$model = (string) get_post_meta( $id, '_msb_modelo', true );
+		if ( '' !== $model && ! isset( $out[ $model ] ) ) {
+			$out[ $model ] = (string) get_post_meta( $id, '_msb_glb', true );
+		}
+	}
+	return $out;
+}
+
+/* Permite subir modelos .glb a la biblioteca de medios (solo administradores de la tienda). */
+add_filter(
+	'upload_mimes',
+	function ( $m ) {
+		if ( current_user_can( 'manage_woocommerce' ) ) {
+			$m['glb'] = 'model/gltf-binary';
+		}
+		return $m;
+	}
+);
+add_filter(
+	'wp_check_filetype_and_ext',
+	function ( $data, $file, $filename ) {
+		if ( current_user_can( 'manage_woocommerce' ) && preg_match( '/\.glb$/i', $filename ) ) {
+			$fh   = fopen( $file, 'rb' ); // phpcs:ignore WordPress.WP.AlternativeFunctions
+			$head = $fh ? fread( $fh, 4 ) : ''; // phpcs:ignore WordPress.WP.AlternativeFunctions
+			if ( $fh ) {
+				fclose( $fh ); // phpcs:ignore WordPress.WP.AlternativeFunctions
+			}
+			if ( 'glTF' === $head ) {
+				return array( 'ext' => 'glb', 'type' => 'model/gltf-binary', 'proper_filename' => false );
+			}
+		}
+		return $data;
+	},
+	10,
+	3
+);

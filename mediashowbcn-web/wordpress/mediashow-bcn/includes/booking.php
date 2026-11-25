@@ -103,6 +103,7 @@ function msb_build_quote( $in ) {
 		'name'     => mb_substr( sanitize_text_field( wp_unslash( $in['name'] ?? '' ) ), 0, 120 ),
 		'phone'    => mb_substr( sanitize_text_field( wp_unslash( $in['phone'] ?? '' ) ), 0, 40 ),
 		'scene'    => mb_substr( sanitize_text_field( wp_unslash( $in['scene'] ?? '' ) ), 0, 60 ),
+		'montaje'  => mb_substr( sanitize_text_field( wp_unslash( $in['montaje'] ?? '' ) ), 0, 400 ),
 	);
 }
 
@@ -228,6 +229,9 @@ function msb_quote_rows( $q, $logo = '' ) {
 	}
 	if ( $q['extras'] ) {
 		$rows['Extras'] = implode( ', ', $q['extras'] );
+	}
+	if ( ! empty( $q['montaje'] ) ) {
+		$rows['Medidas del montaje'] = $q['montaje'];
 	}
 	if ( $q['name'] ) {
 		$rows['Cliente'] = $q['name'] . ( $q['phone'] ? ' · ' . $q['phone'] : '' );

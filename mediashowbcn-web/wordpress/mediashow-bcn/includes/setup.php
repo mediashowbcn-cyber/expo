@@ -227,6 +227,7 @@ function msb_setup_products() {
 		array( 'MSB-TRUSS', 'Truss de escenario 6 × 4 m', '', 1, 'truss', 'Estructura de truss de aluminio para colgar iluminación.' ),
 		array( 'MSB-BOOTH', 'Cabina DJ (DJ booth)', '', 1, 'booth', 'Cabina DJ con frontal iluminado.' ),
 		array( 'MSB-DJ', 'DJ profesional', '', 1, 'dj', 'DJ profesional durante el evento.' ),
+		array( 'MSB-TARIMA', 'Tarima de escenario (por m²)', '', 200, 'tarima', 'Tarima modular a medida. La cantidad son los m²: ancho × fondo.' ),
 		array( 'MSB-SPK', 'Altavoz adicional RCF EVOX 12', '', 20, 'spk', 'Altavoz activo extra con subgrave para cubrir más espacio.' ),
 		array( 'MSB-MIC', 'Micrófono inalámbrico adicional', '', 20, 'mic', 'Micrófono inalámbrico con pie.' ),
 		array( 'MSB-LECTERN', 'Atril con micrófono', '', 1, 'lectern', 'Atril de conferencia con micrófono de cuello de cisne.' ),

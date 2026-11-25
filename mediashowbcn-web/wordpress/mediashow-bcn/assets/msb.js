@@ -9,6 +9,10 @@
   const packById = id => PACKS.find(p => p.id === Number(id));
   const isLed = ex => /^led_/.test(ex.model);
   const LEDS = EXTRAS.filter(isLed);
+  const TARIMA = EXTRAS.find(ex => ex.model === 'tarima');
+  const isSpecial = ex => isLed(ex) || ex === TARIMA;
+  const dec = v => String(+Number(v).toFixed(2)).replace('.', ',');
+  const tarimaM2 = t => Math.ceil(t.w * t.d);
   const priceTxt = (price, max) => price === null ? 'A consultar' : '+' + eur0(price) + (max > 1 ? ' / ud.' + (max < 10 ? ' (máx. ' + max + ')' : '') : '');
 
   const ICONS = {
@@ -25,6 +29,7 @@
     spk: '<rect x="6" y="2" width="12" height="20" rx="2"/><circle cx="12" cy="14" r="4"/><circle cx="12" cy="6.5" r="1.5"/>',
     mic: '<rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v4"/>',
     lectern: '<path d="M6 7h12l-2 4H8z"/><path d="M9 11v9M15 11v9M7 20h10"/>',
+    tarima: '<path d="M2 12h20v4H2z"/><path d="M4 16v5M20 16v5M15 12V9h5"/>',
     '': '<path d="M4 7l8-4 8 4v10l-8 4-8-4z"/><path d="M4 7l8 4 8-4M12 11v10"/>'
   };
 
@@ -190,10 +195,15 @@
 
   function buildExtrasList() {
     if (!EXTRAS.length) { $('extras-list').innerHTML = '<p class="msg">No hay extras publicados.</p>'; return; }
-    $('extras-list').innerHTML = ledRow() + EXTRAS.filter(ex => !isLed(ex)).map(extraRow).join('');
+    $('extras-list').innerHTML = ledRow() + tarimaRow() + EXTRAS.filter(ex => !isSpecial(ex)).map(extraRow).join('');
     $('extras-list').addEventListener('click', e => {
       const ph = e.target.closest('[data-photo]');
       if (ph) { openPhoto(EXTRAS.find(x => x.id === Number(ph.dataset.photo))); return; }
+      const tb = e.target.closest('button[data-tarima]');
+      if (tb) {
+        if (tb.dataset.tarima === 'edit') { editTarima(); return; }
+        setTarimaOn(tb.dataset.tarima === '1'); return;
+      }
       const l = e.target.closest('button[data-led]');
       if (l) { LEDS.forEach(ex => { state.extras[ex.id] = String(ex.id) === l.dataset.led ? 1 : 0; }); render(); return; }
       const b = e.target.closest('button[data-id]');
@@ -202,6 +212,35 @@
       state.extras[ex.id] = Math.max(0, Math.min(ex.max, state.extras[ex.id] + Number(b.dataset.d)));
       render();
     });
+  }
+
+  function tarimaRow() {
+    if (!TARIMA) return '';
+    return `
+      <div class="extra-row extra-choice" id="row-tarima">
+        <div class="extra-meta">
+          <div class="extra-ico"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONS.tarima}</svg></div>
+          <div>
+            <div style="font-weight:600;font-size:13.5px;">${esc(TARIMA.name)}</div>
+            <div style="font-size:12px;color:var(--gray);" id="sub-tarima"></div>
+          </div>
+        </div>
+        <div class="seg" role="radiogroup" aria-label="Tarima">
+          <button type="button" role="radio" data-tarima="0">Sin tarima</button>
+          <button type="button" role="radio" data-tarima="1">Con tarima</button>
+          <button type="button" data-tarima="edit">Medidas</button>
+        </div>
+      </div>`;
+  }
+  function syncTarima() {
+    if (!TARIMA) return;
+    if (state.extras[TARIMA.id] > 0) state.extras[TARIMA.id] = Math.min(TARIMA.max, tarimaM2(Stage.tarima()));
+  }
+  function setTarimaOn(on) { if (TARIMA) state.extras[TARIMA.id] = on ? 1 : 0; render(); }
+  function editTarima() {
+    if (!(state.extras[TARIMA.id] > 0)) setTarimaOn(true);
+    $('canvas-3d').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    Stage.select('tarima');
   }
 
   function openPhoto(ex) {
@@ -239,6 +278,7 @@
       const q = state.extras[ex.id];
       if (!q) return;
       if (ex.model === 'led_s' && pack && pack.preset === 'integral') { lines.push({ label: `${ex.name} (incluida en el pack)`, cents: 0 }); return; }
+      if (ex === TARIMA) { const t = Stage.tarima(); lines.push({ label: `Tarima ${dec(t.w)} × ${dec(t.d)} m (${q} m²) · ${dec(t.h)} m de alto`, cents: ex.price === null ? null : q * Math.round(ex.price * 100) }); return; }
       lines.push({ label: `${ex.name}${q > 1 ? ' × ' + q : ''}`, cents: ex.price === null ? null : q * Math.round(ex.price * 100) });
     });
     const pending = lines.filter(l => l.cents === null).length;
@@ -257,13 +297,20 @@
 
   function render() {
     readInputs();
+    syncTarima();
     state.pack = state.packMode === 'auto' ? recommendPack(state.guests) : Number(state.packMode);
     $('guests-val').textContent = state.guests >= 300 ? '300+' : state.guests;
     $('space-note').textContent = state.space === 'Exterior'
       ? 'Exterior: revisamos protección contra lluvia y viento, lastres, punto de corriente y normativa del recinto antes del montaje.'
       : 'Interior: configuración acústica y lumínica adaptada a sala, hotel o local.';
 
-    EXTRAS.filter(ex => !isLed(ex)).forEach(ex => {
+    if (TARIMA) {
+      const t = Stage.tarima(), on = state.extras[TARIMA.id] > 0;
+      $('row-tarima').classList.toggle('on', on);
+      $('row-tarima').querySelectorAll('[data-tarima="0"],[data-tarima="1"]').forEach(b => b.setAttribute('aria-checked', (b.dataset.tarima === '1') === on ? 'true' : 'false'));
+      $('sub-tarima').textContent = `${dec(t.w)} × ${dec(t.d)} m · ${tarimaM2(t)} m² · ${dec(t.h)} m de alto · ` + (TARIMA.price === null ? 'a consultar' : '+' + eur0(TARIMA.price) + '/m²');
+    }
+    EXTRAS.filter(ex => !isSpecial(ex)).forEach(ex => {
       $('qty-' + ex.id).textContent = state.extras[ex.id];
       $('row-' + ex.id).classList.toggle('on', state.extras[ex.id] > 0);
     });
@@ -327,7 +374,7 @@
     $('reserve-btn').hidden = !(D.shop && pk);
     $('reserve-btn').setAttribute('aria-disabled', ok ? 'false' : 'true');
 
-    Stage.update({ preset: pk ? pk.preset : 'corporate', models, dm: state.dm, guests: state.guests });
+    Stage.update({ preset: pk ? pk.preset : 'corporate', models, dm: state.dm, guests: state.guests, tarimaKnown: !!TARIMA });
   }
 
   function toggleProposal() {
@@ -413,6 +460,9 @@
     fd.append('name', $('client-name').value.trim());
     fd.append('phone', $('client-phone').value.trim());
     fd.append('extras', JSON.stringify(state.extras));
+    const sizes = Stage.describe();
+    if (TARIMA && state.extras[TARIMA.id]) { const t = Stage.tarima(); sizes.unshift(`Tarima ${dec(t.w)} × ${dec(t.d)} m, ${dec(t.h)} m de alto`); }
+    fd.append('montaje', sizes.join('; '));
     const blob = await logoBlob();
     if (blob) fd.append('logo', blob, 'logo.png');
     try {
@@ -490,20 +540,21 @@
   }
 
   /* Encaje de la cámara con la foto del espacio */
-  const FIT = { height: ['fit-height', 1, ' m'], dist: ['fit-dist', 1, ' m'], fov: ['fit-fov', 0, '°'], aim: ['fit-aim', 1, ' m'], shadow: ['fit-shadow', 0, ' %'] };
+  const FIT = { height: ['fit-height', 1, ' m'], dist: ['fit-dist', 1, ' m'], fov: ['fit-fov', 0, '°'], aim: ['fit-aim', 1, ' m'], shadow: ['fit-shadow', 0, ' %'], light: ['fit-light', 0, ' %'], warm: ['fit-warm', 0, ''], dir: ['fit-dir', 0, '°'] };
+  const PCT = { shadow: 1, light: 1 };
   function syncView() {
     const v = Stage.getView();
     if (!v) return;
     Object.keys(FIT).forEach(k => {
       const [id, d, u] = FIT[k];
       $(id).value = v[k];
-      $(id + '-val').textContent = k === 'shadow' ? Math.round(v[k] * 100) + u : Number(v[k]).toFixed(d).replace('.', ',') + u;
+      $(id + '-val').textContent = PCT[k] ? Math.round(v[k] * 100) + u : k === 'warm' ? (v[k] > 0.05 ? 'cálida' : v[k] < -0.05 ? 'fría' : 'neutra') : Number(v[k]).toFixed(d).replace('.', ',') + u;
     });
-    $('fit-tarima').checked = v.tarima;
+    $('fit-grid').checked = v.grid;
   }
   function setupFit() {
     Object.keys(FIT).forEach(k => $(FIT[k][0]).addEventListener('input', e => { Stage.setView({ [k]: Number(e.target.value) }); syncView(); }));
-    $('fit-tarima').addEventListener('change', e => { Stage.setView({ tarima: e.target.checked }); render(); });
+    $('fit-grid').addEventListener('change', e => Stage.setView({ grid: e.target.checked }));
     window.addEventListener('msb:camera', () => { if (!$('fit-panel').hidden) syncView(); });
   }
 
@@ -513,6 +564,17 @@
     $('insp').hidden = !d;
     if (!d) return;
     $('insp-title').textContent = d.label;
+    const tar = d.kind === 'tarima';
+    $('insp-tarima-row').hidden = !tar;
+    $('insp-lift-row').hidden = tar;
+    $('insp-rot').hidden = tar;
+    $('insp-real').hidden = !d.real;
+    if (tar) {
+      $('insp-inch-row').hidden = true; $('insp-dims-row').hidden = true; $('insp-size-row').hidden = true;
+      $('insp-tw').value = d.tarima.w; $('insp-td').value = d.tarima.d; $('insp-th').value = d.tarima.h;
+      $('insp-tm2').textContent = dec(d.tarima.w * d.tarima.d) + ' m²';
+      return;
+    }
     const inch = d.kind === 'screen' || d.kind === 'totem', wall = d.kind === 'wall';
     $('insp-inch-row').hidden = !inch;
     $('insp-dims-row').hidden = !wall;
@@ -526,7 +588,12 @@
   }
   function setupInspector() {
     window.addEventListener('msb:select', e => showInspector(e.detail));
-    window.addEventListener('msb:montage', () => render());
+    window.addEventListener('msb:montage', () => { syncTarima(); render(); });
+    const tdims = () => {
+      const r = v => Math.round(Number(v) * 10) / 10;
+      set('tarima', { w: r($('insp-tw').value), d: r($('insp-td').value), h: r($('insp-th').value) });
+    };
+    ['insp-tw', 'insp-td', 'insp-th'].forEach(id => $(id).addEventListener('change', tdims));
     const set = (p, v) => showInspector(Stage.adjust(p, v));
     $('insp-size').addEventListener('input', e => set('size', e.target.value / 100));
     $('insp-inch').addEventListener('change', e => set('inch', Number(e.target.value)));
@@ -542,6 +609,24 @@
     $('insp-close').addEventListener('click', () => Stage.select(null));
   }
 
+
+  /* Botones para sumar equipos desde el propio render (suman también al presupuesto). */
+  const ADD = [['spk', '+ Altavoz'], ['heads', '+ 6 cabezas'], ['bars', '+ 4 barras'], ['totem', '+ Tótem'], ['screen55', '+ Pantalla'], ['mic', '+ Micro'], ['tarima', '+ Tarima']];
+  function setupAddBar() {
+    const bar = $('add-bar');
+    const items = ADD.map(([m, label]) => [EXTRAS.find(ex => ex.model === m), label]).filter(x => x[0]);
+    if (!items.length) { bar.hidden = true; return; }
+    bar.innerHTML = '<span>Añadir al render:</span>' + items.map(([ex, label]) => `<button type="button" class="btn btn-sm" data-add="${ex.id}">${esc(label)}</button>`).join('');
+    bar.addEventListener('click', e => {
+      const b = e.target.closest('[data-add]');
+      if (!b) return;
+      const ex = EXTRAS.find(x => x.id === Number(b.dataset.add));
+      if (ex === TARIMA) { editTarima(); render(); return; }
+      if (state.extras[ex.id] >= ex.max) { $('export-msg').textContent = `Máximo ${ex.max} de ${ex.name}.`; return; }
+      state.extras[ex.id]++;
+      render();
+    });
+  }
 /* ===================== ESCENARIO 3D (Three.js r128) ===================== */
 const Stage = (() => {
   let inited = false, active = false, failed = false;
@@ -935,21 +1020,109 @@ const Stage = (() => {
   }
 
   /* ---------- Montaje: altura de tarima, colecciones que crecen y ajustes por equipo ---------- */
-  let SH = 0.4;
+  const TAR0 = { on: true, w: 7.2, d: 4.2, h: 0.4 }, TAR = Object.assign({}, TAR0), BACK = -2.6;
+  let SH = 0.4, trussY = 0.4;
   const CAP = { heads: 48, bars: 24, speakers: 24, mics: 24, screens: 24, totems: 24 };
   const KIND = { trx: 'Altavoz Alto TRX315', speaker: 'Altavoz RCF EVOX 12', totem: 'Tótem', screen: 'Pantalla', mic: 'Micrófono', cam: 'Cámara', wall: 'Pantalla LED', booth: 'Cabina DJ', lectern: 'Atril', foh: 'Control de sonido', head: 'Cabeza móvil' };
   let draggables = [], dragObj = null, selected = null, selBox = null;
-  let stageMeshes = [];
+  const LOOK = { light: 1, warm: 0, dir: 27 };
+  const glb = {};
+  const KIND_MODEL = { speaker: ['rcf', 'spk'], trx: ['trx'], totem: ['totem'], screen: ['screen55'], booth: ['booth'], lectern: ['lectern'], mic: ['mic'], cam: ['stream'], foh: ['foh'] };
 
   function tag(o, kind) { o.userData.kind = kind; o.userData.lift = 0; o.userData.size = 1; o.userData.inch = 55; return o; }
   function addDraggable(o, kind) { tag(o, kind); scene.add(o); draggables.push(o); return o; }
-  function place(o, x, z, onStage, ry) {
-    o.userData.onStage = !!onStage && SH > 0;
+  const onStageAt = (x, z) => TAR.on && Math.abs(x) < TAR.w / 2 + 0.02 && z > BACK - 0.02 && z < BACK + TAR.d + 0.02;
+  function place(o, x, z, _legacy, ry) {
+    o.userData.onStage = onStageAt(x, z);
     o.position.set(x, (o.userData.onStage ? SH : 0) + o.userData.lift, z);
     if (ry !== undefined) o.rotation.y = ry;
   }
   const fill = (list, n, make) => { while (list.length < n) list.push(make(list.length)); return list; };
   const notify = () => window.dispatchEvent(new CustomEvent('msb:montage'));
+
+  /* Modelos 3D reales (.glb) subidos en WooCommerce: sustituyen al modelo dibujado. */
+  function make(kind, fallback) {
+    const key = (KIND_MODEL[kind] || []).find(k => glb[k] && glb[k].scene);
+    if (!key) return fallback ? fallback() : null;
+    const g = new THREE.Group(); g.add(glb[key].scene.clone(true)); g.userData.real = true;
+    return g;
+  }
+  function setModels(map) {
+    if (!map || !window.THREE || !THREE.GLTFLoader) return;
+    const loader = new THREE.GLTFLoader();
+    Object.keys(map).forEach(k => {
+      if (!map[k] || glb[k]) return;
+      glb[k] = { scene: null };
+      loader.load(map[k], g => {
+        const sc = g.scene, bb = new THREE.Box3().setFromObject(sc), c = bb.getCenter(new THREE.Vector3());
+        sc.position.set(-c.x, -bb.min.y, -c.z);
+        sc.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+        glb[k].scene = sc;
+        if (inited) swapModels();
+      }, undefined, () => { delete glb[k]; });
+    });
+  }
+  function swapModels() {
+    draggables.slice().forEach(o => {
+      const kind = o.userData.kind;
+      if (o.userData.real || !KIND_MODEL[kind]) return;
+      const n = make(kind);
+      if (!n) return;
+      n.position.copy(o.position); n.rotation.copy(o.rotation); n.scale.copy(o.scale);
+      n.userData = Object.assign({}, o.userData, { real: true }); n.visible = o.visible;
+      if (kind === 'booth') n.add(rig.dj.g);
+      scene.remove(o); scene.add(n);
+      draggables[draggables.indexOf(o)] = n;
+      ['speakers', 'totems', 'screens', 'mics', 'cams', 'trx'].forEach(k => { const j = (rig[k] || []).indexOf(o); if (j >= 0) rig[k][j] = n; });
+      ['booth', 'lectern', 'foh'].forEach(k => { if (rig[k] === o) rig[k] = n; });
+      if (selected === o) select(n);
+    });
+  }
+
+  /* Tarima con medidas reales: el fondo queda fijo y crece hacia el público. */
+  function buildTarima() {
+    if (rig.tarima) scene.remove(rig.tarima);
+    const g = new THREE.Group(), { w, d, h } = TAR, front = BACK + d;
+    const top = box(w, h, d, M.stage); top.position.set(0, h / 2, BACK + d / 2); top.castShadow = true; top.receiveShadow = true; g.add(top);
+    const skirt = box(w + 0.02, Math.max(0.02, h - 0.02), 0.02, M.skirt); skirt.position.set(0, h / 2 - 0.01, front + 0.01); g.add(skirt);
+    const n = Math.max(1, Math.round(h / 0.2)), sx = Math.min(w / 2 - 0.6, 3);
+    for (let i = 1; i < n + (n === 1 ? 1 : 0); i++) {
+      const sh = n === 1 ? h / 2 : i * h / n, st = box(0.9, sh, 0.3, M.stage);
+      st.position.set(sx, sh / 2, front + (n - i) * 0.3 - 0.15 + (n === 1 ? 0.3 : 0)); st.castShadow = true; st.receiveShadow = true; g.add(st);
+    }
+    tag(g, 'tarima'); g.userData.fixed = true; g.visible = TAR.on;
+    rig.tarima = g; scene.add(g);
+    return g;
+  }
+  function relevel() {
+    SH = TAR.on ? TAR.h : 0;
+    rig.tarima.visible = TAR.on;
+    trussY = onStageAt(3.2, -2.1) ? SH : 0;
+    rig.truss.position.y = trussY - 0.4;
+    rig.pars.forEach(p => { p.g.position.y = trussY + 2.3; });
+    draggables.forEach(o => place(o, o.position.x, o.position.z));
+  }
+  function setTarima(o) {
+    if (o.w !== undefined) TAR.w = Math.max(1, Math.min(20, o.w));
+    if (o.d !== undefined) TAR.d = Math.max(1, Math.min(12, o.d));
+    if (o.h !== undefined) TAR.h = Math.max(0.2, Math.min(1.5, o.h));
+    const was = selected === rig.tarima;
+    buildTarima(); relevel();
+    if (was) { selected = rig.tarima; selBox.setFromObject(selected); }
+    update(lastState);
+  }
+
+  /* Luz para igualar la foto: intensidad, tono (cálido/frío) y dirección de la luz principal. */
+  function applyLook() {
+    const L = lights, k = LOOK.light, warm = new THREE.Color(0xffc98f), cool = new THREE.Color(0xc4d8ff), white = new THREE.Color(0xfff4ea);
+    const tint = LOOK.warm >= 0 ? white.clone().lerp(warm, LOOK.warm) : white.clone().lerp(cool, -LOOK.warm);
+    L.key.intensity = 0.95 * k; L.key.color.copy(tint);
+    L.hemi.intensity = 0.6 * k; L.hemi.color.copy(tint).lerp(new THREE.Color(0xffffff), 0.4);
+    L.front.intensity = 0.35 * k; L.backKey.intensity = 0.45 * k;
+    const a = THREE.MathUtils.degToRad(LOOK.dir);
+    L.key.position.set(Math.sin(a) * 10.6, 9, Math.cos(a) * 10.6);
+  }
+
 
   function init() {
     if (inited || failed) return;
@@ -978,27 +1151,26 @@ const Stage = (() => {
 
     makeTextures(); makeMaterials();
 
-    scene.add(new THREE.HemisphereLight(0xdbe4f0, 0x1a1e28, 0.6));
-    const key = new THREE.DirectionalLight(0xfff4ea, 0.95);
+    lights.hemi = new THREE.HemisphereLight(0xdbe4f0, 0x1a1e28, 0.6); scene.add(lights.hemi);
+    const key = new THREE.DirectionalLight(0xfff4ea, 0.95); lights.key = key;
     key.position.set(4, 9, 8); key.castShadow = true;
-    key.shadow.mapSize.set(1024, 1024);
-    Object.assign(key.shadow.camera, { left: -9, right: 9, top: 9, bottom: -4, near: 1, far: 34 });
+    key.shadow.mapSize.set(2048, 2048); key.shadow.bias = -0.0004; key.shadow.radius = 3;
+    Object.assign(key.shadow.camera, { left: -12, right: 12, top: 12, bottom: -12, near: 1, far: 40 });
     key.shadow.camera.updateProjectionMatrix();
     scene.add(key);
-    const frontFill = new THREE.DirectionalLight(0xbcd2ff, 0.35); frontFill.position.set(-6, 4, 7); scene.add(frontFill);
+    const frontFill = new THREE.DirectionalLight(0xbcd2ff, 0.35); frontFill.position.set(-6, 4, 7); scene.add(frontFill); lights.front = frontFill;
     lights.rim = new THREE.DirectionalLight(pal.rim, 1.0); lights.rim.position.set(0, 7, -10); scene.add(lights.rim);
     lights.backFill = new THREE.PointLight(0x22d3ee, 1.1, 24); lights.backFill.position.set(-4, 4.5, -6); scene.add(lights.backFill);
-    const backKey = new THREE.DirectionalLight(0xffffff, 0.45); backKey.position.set(3, 5, -9); scene.add(backKey);
+    const backKey = new THREE.DirectionalLight(0xffffff, 0.45); backKey.position.set(3, 5, -9); scene.add(backKey); lights.backKey = backKey;
     lights.a = new THREE.PointLight(pal.a, 1.8, 11); lights.a.position.set(-1.8, 3.3, -1.4); scene.add(lights.a);
     lights.b = new THREE.PointLight(pal.b, 1.6, 11); lights.b.position.set(1.8, 3.3, -1.4); scene.add(lights.b);
 
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), M.floor); rig.floor = floor;
     floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
 
-    const stage = box(7.2, 0.4, 4.2, M.stage); stage.position.set(0, 0.2, -0.5); stage.receiveShadow = true; stage.castShadow = true; scene.add(stage);
-    const skirt = box(7.22, 0.38, 0.02, M.skirt); skirt.position.set(0, 0.19, 1.61); scene.add(skirt);
-    const steps = box(0.9, 0.2, 0.4, M.stage); steps.position.set(3.0, 0.1, 1.85); scene.add(steps);
-    stageMeshes = [stage, skirt, steps];
+    buildTarima();
+    rig.grid = new THREE.GridHelper(30, 30, 0xe65837, 0xf4f0e8);
+    rig.grid.material.transparent = true; rig.grid.material.opacity = 0.35; rig.grid.position.y = 0.004; rig.grid.visible = false; scene.add(rig.grid);
 
     const drape = new THREE.Mesh(new THREE.PlaneGeometry(9, 5), M.drape); drape.position.set(0, 2.5, -2.75); scene.add(drape); rig.drape = drape;
 
@@ -1008,16 +1180,18 @@ const Stage = (() => {
     trussRun(new THREE.Vector3(-3.35, 3.8, -2.1), new THREE.Vector3(3.35, 3.8, -2.1), M.alu, rig.truss);
     [-3.2, 3.2].forEach(x => { const p = box(0.6, 0.02, 0.6, M.alu); p.position.set(x, 0.41, -2.1); rig.truss.add(p); });
 
-    rig.trx = [0, 1].map(() => addDraggable(buildTrx(), 'trx'));
+    rig.trx = [0, 1].map(() => addDraggable(make('trx', buildTrx), 'trx'));
     rig.speakers = []; rig.heads = []; rig.bars = []; rig.mics = []; rig.screens = []; rig.totems = []; rig.cams = [];
 
     rig.pars = [];
     [-1, 1].forEach(sx => { const p = buildPar(); p.g.position.set(sx * 2.95, 2.7, -1.85); p.g.lookAt(sx * 0.6, 0.9, 0.6); scene.add(p.g); rig.pars.push(p); });
 
-    rig.booth = addDraggable(buildBooth(), 'booth');
+    const boothStripHolder = buildBooth();
+    rig.booth = addDraggable(make('booth', () => boothStripHolder), 'booth');
     rig.dj = buildDJ(); rig.dj.g.position.set(0, 0, -0.62); rig.booth.add(rig.dj.g);
-    rig.lectern = addDraggable(buildLectern(), 'lectern');
-    rig.foh = addDraggable(buildFoh(), 'foh');
+    const lecternHolder = buildLectern();
+    rig.lectern = addDraggable(make('lectern', () => lecternHolder), 'lectern');
+    rig.foh = addDraggable(make('foh', buildFoh), 'foh');
     rig.walls = {};
     [['S', 2, 1.5], ['M', 3, 2], ['L', 4, 2.5]].forEach(([k, w, h]) => {
       const wall = addDraggable(buildLedWall(w, h), 'wall');
@@ -1056,10 +1230,12 @@ const Stage = (() => {
     };
     const pick = e => {
       aim(e);
-      const hits = ray.intersectObjects(draggables.filter(o => o.visible), true);
+      const all = draggables.filter(o => o.visible);
+      if (rig.tarima.visible) all.push(rig.tarima);
+      const hits = ray.intersectObjects(all, true);
       if (!hits.length) return null;
       let o = hits[0].object;
-      while (o && !draggables.includes(o)) o = o.parent;
+      while (o && !all.includes(o)) o = o.parent;
       return o;
     };
     // Va en fase de captura para adelantarse a OrbitControls y no girar la cámara al arrastrar.
@@ -1068,6 +1244,7 @@ const Stage = (() => {
       down = { x: e.clientX, y: e.clientY, moved: false };
       const o = pick(e);
       if (!o) return;
+      if (o.userData.fixed) { down.target = o; return; }
       dragObj = o;
       controls.enabled = false;
       plane.constant = -o.position.y;
@@ -1082,13 +1259,13 @@ const Stage = (() => {
       aim(e);
       if (!ray.ray.intersectPlane(plane, hit)) return;
       const x = Math.max(-14, Math.min(14, hit.x + off.x)), z = Math.max(-6, Math.min(16, hit.z + off.z));
-      place(dragObj, x, z, Math.abs(x) < 3.55 && z > -2.55 && z < 1.55);
+      place(dragObj, x, z);
       plane.constant = -dragObj.position.y;
       dragObj.userData.moved = true;
     });
     const end = e => {
       const tap = down && !down.moved;
-      if (tap) select(dragObj || (e.type === 'pointerup' ? pick(e) : null));
+      if (tap) select(dragObj || down.target || (e.type === 'pointerup' ? pick(e) : null));
       else if (dragObj && dragObj === selected) notify();
       down = null;
       if (!dragObj) return;
@@ -1098,14 +1275,15 @@ const Stage = (() => {
     canvas.addEventListener('pointercancel', end);
     canvas.addEventListener('dblclick', e => {
       const o = pick(e);
-      if (o) { o.rotation.y += Math.PI / 4; o.userData.moved = true; }
+      if (o && !o.userData.fixed) { o.rotation.y += Math.PI / 4; o.userData.moved = true; }
     });
   }
 
   function info(o) {
     if (!o) return null;
     const u = o.userData;
-    return { kind: u.kind, label: KIND[u.kind] || 'Equipo', size: u.size, inch: u.inch, lift: u.lift, dims: u.dims ? u.dims.slice() : null, rot: Math.round(THREE.MathUtils.radToDeg(o.rotation.y)) };
+    if (u.kind === 'tarima') return { kind: 'tarima', label: 'Tarima', tarima: Object.assign({}, TAR) };
+    return { kind: u.kind, label: KIND[u.kind] || 'Equipo', size: u.size, inch: u.inch, lift: u.lift, dims: u.dims ? u.dims.slice() : null, rot: Math.round(THREE.MathUtils.radToDeg(o.rotation.y)), real: !!u.real };
   }
 
   function select(o) {
@@ -1134,9 +1312,11 @@ const Stage = (() => {
     let t = o;
     if (prop === 'size') { u.size = Math.max(0.3, Math.min(3, v)); o.scale.setScalar(u.size); }
     else if (prop === 'inch') { u.inch = v; u.size = v / 55; o.scale.setScalar(u.size); }
-    else if (prop === 'lift') { u.lift = Math.max(0, Math.min(6, v)); place(o, o.position.x, o.position.z, u.onStage); }
+    else if (prop === 'tarima') { setTarima(v); notify(); return info(rig.tarima); }
+    else if (prop === 'lift') { u.lift = Math.max(0, Math.min(6, v)); place(o, o.position.x, o.position.z); }
     else if (prop === 'rot') o.rotation.y += THREE.MathUtils.degToRad(v);
     else if (prop === 'dims' && u.kind === 'wall') t = rebuildWall(o, Math.max(1, Math.min(16, v[0])), Math.max(0.5, Math.min(8, v[1])));
+    else if (prop === 'reset' && u.kind === 'tarima') { setTarima(TAR0); notify(); return info(rig.tarima); }
     else if (prop === 'reset') {
       if (u.kind === 'wall' && (u.dims[0] !== u.base[0] || u.dims[1] !== u.base[1])) t = rebuildWall(o, u.base[0], u.base[1]);
       Object.assign(t.userData, { size: 1, inch: 55, lift: 0, moved: false });
@@ -1150,24 +1330,13 @@ const Stage = (() => {
     return info(t);
   }
 
-  function setTarima(on) {
-    const d = (on ? 0.4 : 0) - SH;
-    if (!d) return;
-    if (!on) draggables.forEach(o => { o.userData.wasOnStage = o.userData.onStage; });
-    SH += d;
-    stageMeshes.forEach(m => { m.visible = on; });
-    rig.truss.position.y += d;
-    rig.pars.forEach(p => { p.g.position.y += d; });
-    draggables.forEach(o => place(o, o.position.x, o.position.z, on ? !!o.userData.wasOnStage : false));
-    update(lastState);
-  }
-
   function resetLayout() {
     draggables.forEach(o => {
       const u = o.userData;
       if (u.kind === 'wall' && (u.dims[0] !== u.base[0] || u.dims[1] !== u.base[1])) rebuildWall(o, u.base[0], u.base[1]);
     });
     draggables.forEach(o => { Object.assign(o.userData, { moved: false, lift: 0, size: 1, inch: 55 }); o.scale.setScalar(1); });
+    Object.assign(TAR, { w: TAR0.w, d: TAR0.d, h: TAR0.h }); buildTarima(); relevel();
     select(null);
     update(lastState);
     notify();
@@ -1205,6 +1374,8 @@ const Stage = (() => {
     lastState = s;
     mode = s.dm; pal = PAL[mode];
     const p = s.preset, x = s.models;
+    const tOn = s.tarimaKnown ? (x.tarima || 0) > 0 : true;
+    if (tOn !== TAR.on) { TAR.on = tOn; relevel(); }
     const full = p === 'premium' || p === 'integral';
     const led = x.led_s ? 'S' : x.led_m ? 'M' : x.led_l ? 'L' : '';
     cfg = {
@@ -1236,7 +1407,7 @@ const Stage = (() => {
     });
 
     const xs = { 0: [], 2: [-2.9, 2.9], 4: [-3.3, -2.6, 2.6, 3.3], 6: [-4.3, -3.4, -2.6, 2.6, 3.4, 4.3] }[cfg.rcfBase];
-    fill(rig.speakers, vis(cfg.speakers, 'speakers'), () => addDraggable(buildRcf(), 'speaker'));
+    fill(rig.speakers, vis(cfg.speakers, 'speakers'), () => addDraggable(make('speaker', buildRcf), 'speaker'));
     rig.speakers.forEach((sp, i) => {
       sp.visible = i < vis(cfg.speakers, 'speakers');
       if (!sp.visible || sp.userData.moved) return;
@@ -1251,7 +1422,7 @@ const Stage = (() => {
     rig.heads.forEach((h, i) => {
       h.g.visible = i < nh;
       if (!h.g.visible) return;
-      if (i < 12) { h.g.rotation.x = 0; h.g.position.set(onTruss === 1 ? 0 : -2.85 + i * (5.7 / (onTruss - 1)), SH + 3.22, -2.1); return; }
+      if (i < 12) { h.g.rotation.x = 0; h.g.position.set(onTruss === 1 ? 0 : -2.85 + i * (5.7 / (onTruss - 1)), trussY + 3.22, -2.1); return; }
       const k = i - 12, side = k % 2 ? 1 : -1, col = Math.floor(k / 2);
       h.g.rotation.x = Math.PI;
       h.g.position.set(side * (3.95 + Math.floor(col / 6) * 0.6), 0, -2.2 + (col % 6) * 0.75);
@@ -1264,14 +1435,14 @@ const Stage = (() => {
       if (!b.g.visible) return;
       const row = Math.floor(i / 6), inRow = Math.min(6, nb - row * 6), j = i % 6;
       const px = inRow === 1 ? 0 : -2.7 + j * (5.4 / (inRow - 1));
-      if (row === 0) b.g.position.set(px, SH + 0.035, 1.4);
+      if (row === 0) b.g.position.set(px, (onStageAt(px, 1.4) ? SH : 0) + 0.035, 1.4);
       else b.g.position.set(px * 1.25, 0.035, 1.9 + row * 0.5);
     });
     rig.pars.forEach(pr => { pr.g.visible = cfg.pars > 0; });
 
     const micPos = [[0, 0.95], [-1.2, 0.85], [1.2, 0.85], [-2.2, 0.6], [2.2, 0.6], [-0.6, 0.3], [0.6, 0.3], [-1.8, -0.2]];
     const nm = vis(cfg.mics, 'mics');
-    fill(rig.mics, nm, () => addDraggable(buildMic(), 'mic'));
+    fill(rig.mics, nm, () => addDraggable(make('mic', buildMic), 'mic'));
     rig.mics.forEach((m, i) => {
       m.visible = i < nm;
       if (!m.visible || m.userData.moved) return;
@@ -1294,7 +1465,7 @@ const Stage = (() => {
 
     const scrPos = [[-4.7, 3.2, 0.5], [4.7, 3.2, -0.5], [-5.2, 0.4, 0.9], [5.2, 0.4, -0.9]];
     const ns = vis(cfg.screens, 'screens');
-    fill(rig.screens, ns, () => addDraggable(buildScreen55(), 'screen'));
+    fill(rig.screens, ns, () => addDraggable(make('screen', buildScreen55), 'screen'));
     rig.screens.forEach((sc, i) => {
       sc.visible = i < ns;
       if (!sc.visible || sc.userData.moved) return;
@@ -1304,7 +1475,7 @@ const Stage = (() => {
     });
 
     const nc = cfg.cams;
-    fill(rig.cams, nc, () => addDraggable(buildCam(), 'cam'));
+    fill(rig.cams, nc, () => addDraggable(make('cam', buildCam), 'cam'));
     rig.cams.forEach((c, i) => {
       c.visible = i < nc;
       if (!c.visible || c.userData.moved) return;
@@ -1313,7 +1484,7 @@ const Stage = (() => {
     rig.haze.visible = cfg.haze;
 
     const nt = vis(cfg.totems, 'totems');
-    fill(rig.totems, nt, () => addDraggable(buildTotem(), 'totem'));
+    fill(rig.totems, nt, () => addDraggable(make('totem', buildTotem), 'totem'));
     rig.totems.forEach((t, i) => {
       t.visible = i < nt;
       if (!t.visible || t.userData.moved) return;
@@ -1338,6 +1509,7 @@ const Stage = (() => {
     if (cfg.speakers) leg.push(`${cfg.speakers} × RCF EVOX 12`);
     if (cfg.heads) leg.push(`${cfg.heads} cabezas móviles`);
     if (cfg.bars) leg.push(`${cfg.bars} barras LED`);
+    if (TAR.on && s.tarimaKnown) leg.push(`Tarima ${String(TAR.w).replace('.', ',')} × ${String(TAR.d).replace('.', ',')} m`);
     if (cfg.wall) { const d = rig.walls[cfg.wall].userData.dims; leg.push(`LED ${String(d[0]).replace('.', ',')} × ${String(d[1]).replace('.', ',')} m`); }
     if (cfg.totems) leg.push(`${cfg.totems} tótem${cfg.totems > 1 ? 's' : ''}`);
     if (cfg.screens) leg.push(`${cfg.screens} pantalla${cfg.screens > 1 ? 's' : ''}`);
@@ -1412,8 +1584,18 @@ const Stage = (() => {
       rig.floor.material = new THREE.ShadowMaterial({ opacity: 0.45 });
       rig.drape.visible = false;
       fitBg(camera.aspect);
+      // La propia foto se usa como entorno: el metal y las pantallas reflejan los colores de la sala.
+      try {
+        const pm = new THREE.PMREMGenerator(renderer);
+        if (scene.environment) scene.environment.dispose();
+        scene.environment = pm.fromEquirectangular(t).texture;
+        pm.dispose();
+      } catch (e) { scene.environment = null; }
+      setView({ height: 1.6, aim: 1.3, fov: 55, dist: 12 });
     } else {
       scene.background = new THREE.Color(0x08090c); scene.fog = new THREE.FogExp2(0x08090c, 0.032);
+      if (scene.environment) { scene.environment.dispose(); scene.environment = null; }
+      Object.assign(LOOK, { light: 1, warm: 0, dir: 27 }); applyLook(); rig.grid.visible = false;
       rig.floor.material = M.floor;
       rig.drape.visible = true;
     }
@@ -1422,7 +1604,7 @@ const Stage = (() => {
   /* Encaje de la cámara con la foto: altura, distancia, lente y punto de mira. */
   function getView() {
     const off = new THREE.Vector3().subVectors(camera.position, controls.target);
-    return { height: +camera.position.y.toFixed(2), dist: +Math.hypot(off.x, off.z).toFixed(2), fov: Math.round(camera.fov), aim: +controls.target.y.toFixed(2), shadow: rig.floor.material.isShadowMaterial ? rig.floor.material.opacity : 0.45, tarima: SH > 0 };
+    return { height: +camera.position.y.toFixed(2), dist: +Math.hypot(off.x, off.z).toFixed(2), fov: Math.round(camera.fov), aim: +controls.target.y.toFixed(2), shadow: rig.floor.material.isShadowMaterial ? rig.floor.material.opacity : 0.45, light: LOOK.light, warm: LOOK.warm, dir: LOOK.dir, grid: rig.grid.visible };
   }
   function setView(v) {
     if (!inited) return;
@@ -1434,7 +1616,11 @@ const Stage = (() => {
     camera.position.set(controls.target.x + Math.sin(ang) * dist, height, controls.target.z + Math.cos(ang) * dist);
     if (v.fov !== undefined) { camera.fov = v.fov; camera.updateProjectionMatrix(); }
     if (v.shadow !== undefined && rig.floor.material.isShadowMaterial) rig.floor.material.opacity = v.shadow;
-    if (v.tarima !== undefined) setTarima(v.tarima);
+    if (v.light !== undefined || v.warm !== undefined || v.dir !== undefined) {
+      ['light', 'warm', 'dir'].forEach(k => { if (v[k] !== undefined) LOOK[k] = v[k]; });
+      applyLook();
+    }
+    if (v.grid !== undefined) rig.grid.visible = !!v.grid;
     controls.update();
   }
 
@@ -1446,8 +1632,8 @@ const Stage = (() => {
     renderer.setPixelRatio(1); renderer.setSize(w, h, false);
     camera.aspect = w / h; camera.updateProjectionMatrix();
     fitBg(w / h);
-    const selVis = selBox.visible; selBox.visible = false;
-    return () => { exporting = false; selBox.visible = selVis; renderer.setPixelRatio(prevPR); resize(); };
+    const selVis = selBox.visible, gridVis = rig.grid.visible; selBox.visible = false; rig.grid.visible = false;
+    return () => { exporting = false; selBox.visible = selVis; rig.grid.visible = gridVis; renderer.setPixelRatio(prevPR); resize(); };
   }
 
   function watermark(g, w, h) {
@@ -1539,7 +1725,9 @@ const Stage = (() => {
     getView() { return inited ? getView() : null; },
     setView,
     adjust,
-    select(o) { if (inited && !o) select(null); },
+    select(o) { if (!inited) return; if (o === 'tarima') { if (rig.tarima.visible) select(rig.tarima); } else if (!o) select(null); },
+    tarima() { return Object.assign({}, TAR); },
+    setModels(map) { setModels(map); },
     describe() { return inited ? describe() : []; },
     snapshot,
     record,
@@ -1563,6 +1751,8 @@ const Stage = (() => {
   setupExport();
   setupFit();
   setupInspector();
+  setupAddBar();
+  if (D.models3d) Stage.setModels(D.models3d);
   if (S.pro) document.querySelectorAll('.pro-only').forEach(el => { el.hidden = false; });
   else $('export-note').hidden = false;
   syncInputs();

@@ -209,8 +209,12 @@ $msb_ld = array(
 							<select id="insp-inch"><?php foreach ( array( 32, 43, 50, 55, 65, 75, 86, 98 ) as $in ) : ?><option value="<?php echo (int) $in; ?>"><?php echo (int) $in; ?>"</option><?php endforeach; ?></select></label>
 						<div class="fit-row" id="insp-dims-row"><span>Medidas (ancho × alto, m) <output id="insp-m2"></output></span>
 							<div class="insp-dims"><input type="number" id="insp-w" min="1" max="16" step="0.5" aria-label="Ancho en metros" /> × <input type="number" id="insp-h" min="0.5" max="8" step="0.5" aria-label="Alto en metros" /></div></div>
-						<label class="fit-row" for="insp-lift"><span>Altura sobre el suelo <output id="insp-lift-val"></output></span><input type="range" id="insp-lift" min="0" max="400" step="5" /></label>
-						<div class="insp-btns"><button type="button" class="btn btn-sm" data-rot="-15">↺ 15°</button><button type="button" class="btn btn-sm" data-rot="15">↻ 15°</button><button type="button" class="btn btn-sm" id="insp-reset">Restablecer</button></div>
+						<div class="fit-row" id="insp-tarima-row"><span>Ancho × fondo × alto (m) <output id="insp-tm2"></output></span>
+							<div class="insp-dims"><input type="number" id="insp-tw" min="1" max="20" step="0.5" aria-label="Ancho de la tarima en metros" /> × <input type="number" id="insp-td" min="1" max="12" step="0.5" aria-label="Fondo de la tarima en metros" /> × <input type="number" id="insp-th" min="0.2" max="1.5" step="0.1" aria-label="Alto de la tarima en metros" /></div>
+							<small>El precio se calcula por m².</small></div>
+						<label class="fit-row" id="insp-lift-row" for="insp-lift"><span>Altura sobre el suelo <output id="insp-lift-val"></output></span><input type="range" id="insp-lift" min="0" max="400" step="5" /></label>
+						<p class="insp-real" id="insp-real" hidden>Modelo 3D real del equipo</p>
+						<div class="insp-btns"><span id="insp-rot" class="insp-btns"><button type="button" class="btn btn-sm" data-rot="-15">↺ 15°</button><button type="button" class="btn btn-sm" data-rot="15">↻ 15°</button></span><button type="button" class="btn btn-sm" id="insp-reset">Restablecer</button></div>
 					</div>
 				      <details class="fit-panel" id="fit-panel" hidden open>
 				        <summary>Encajar con la foto</summary>
@@ -219,7 +223,10 @@ $msb_ld = array(
 				        <label class="fit-row" for="fit-fov"><span>Lente (ángulo) <output id="fit-fov-val"></output></span><input type="range" id="fit-fov" min="20" max="90" step="1" /></label>
 				        <label class="fit-row" for="fit-aim"><span>Punto de mira <output id="fit-aim-val"></output></span><input type="range" id="fit-aim" min="0" max="4" step="0.05" /></label>
 				        <label class="fit-row" for="fit-shadow"><span>Sombras en el suelo <output id="fit-shadow-val"></output></span><input type="range" id="fit-shadow" min="0" max="0.9" step="0.05" /></label>
-				        <label class="fit-check"><input type="checkbox" id="fit-tarima" checked /> Mostrar tarima</label>
+				        <label class="fit-row" for="fit-light"><span>Intensidad de la luz <output id="fit-light-val"></output></span><input type="range" id="fit-light" min="0.2" max="2.5" step="0.05" /></label>
+				        <label class="fit-row" for="fit-warm"><span>Tono de la luz <output id="fit-warm-val"></output></span><input type="range" id="fit-warm" min="-1" max="1" step="0.05" /></label>
+				        <label class="fit-row" for="fit-dir"><span>Dirección de la luz <output id="fit-dir-val"></output></span><input type="range" id="fit-dir" min="0" max="360" step="5" /></label>
+				        <label class="fit-check"><input type="checkbox" id="fit-grid" /> Cuadrícula de 1 m para la escala</label>
 				      </details>
 					<div class="stage-fallback" id="stage-fallback" hidden>Tu navegador no puede mostrar el escenario 3D. El cálculo del presupuesto funciona igualmente.</div>
 					<div class="stage-bar">
@@ -233,6 +240,7 @@ $msb_ld = array(
 					</div>
 				</div>
 
+				<div class="add-bar" id="add-bar"></div>
 				<div class="panel-box export-box" style="margin-top:16px;">
 				  <h3>Tu espacio · imagen y vídeo</h3>
 				  <div class="export-grid">
