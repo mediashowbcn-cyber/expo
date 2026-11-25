@@ -9,6 +9,11 @@ function msb_is_app() {
 	return is_singular( 'page' ) && get_page_template_slug( get_queried_object_id() ) === MSB_TEMPLATE;
 }
 
+/* Otra plantilla puede sustituir a la nuestra (p. ej. el modo «Próximamente» de WooCommerce): solo actuamos si se pinta la nuestra. */
+function msb_rendering() {
+	return ! empty( $GLOBALS['msb_rendering'] );
+}
+
 add_filter(
 	'theme_page_templates',
 	function ( $templates ) {
@@ -40,7 +45,7 @@ add_action(
 		if ( msb_opt( 'ionos_widget' ) && msb_opt( 'ionos_agent' ) ) {
 			wp_enqueue_script( 'msb-ionos', 'https://ionos.ai-voicereceptionist.com/widget/v1/embed.js', array(), null, true ); // phpcs:ignore WordPress.WP.EnqueuedResourceParameters.MissingVersion
 		}
-		if ( ! msb_is_app() ) {
+		if ( ! msb_rendering() ) {
 			return;
 		}
 		wp_enqueue_style( 'msb-fonts', 'https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Work+Sans:wght@400;500;600;700&display=swap', array(), null ); // phpcs:ignore WordPress.WP.EnqueuedResourceParameters.MissingVersion
@@ -75,7 +80,7 @@ add_action(
 add_action(
 	'wp_print_styles',
 	function () {
-		if ( ! msb_is_app() ) {
+		if ( ! msb_rendering() ) {
 			return;
 		}
 		$keep = array( 'msb-app', 'msb-fonts', 'admin-bar', 'dashicons', 'wp-block-library' );

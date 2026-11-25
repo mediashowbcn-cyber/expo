@@ -5,6 +5,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
+$GLOBALS['msb_rendering'] = true;
 $msb_cat   = msb_catalog();
 $msb_links = msb_legal_links();
 $msb_wa    = 'https://wa.me/' . msb_opt( 'whatsapp' );

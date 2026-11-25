@@ -1,6 +1,7 @@
 /* Media Show BCN — cotizador 3D. Los packs y extras llegan de WooCommerce en window.MSB. */
 (function () {
   'use strict';
+  if (!document.getElementById('view-quoter')) return;
   const D = window.MSB || { packs: [], extras: [], settings: {} };
   const S = Object.assign({ whatsapp: '34615782087', iva: 21, deposit: 50, includedHours: 6, extraHour: 75 }, D.settings);
   const PACKS = D.packs || [];
