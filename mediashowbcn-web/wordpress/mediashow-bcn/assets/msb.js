@@ -29,6 +29,8 @@
     spk: '<rect x="6" y="2" width="12" height="20" rx="2"/><circle cx="12" cy="14" r="4"/><circle cx="12" cy="6.5" r="1.5"/>',
     mic: '<rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v4"/>',
     lectern: '<path d="M6 7h12l-2 4H8z"/><path d="M9 11v9M15 11v9M7 20h10"/>',
+    trx_extra: '<path d="M8 3h8l-1 9H9z"/><path d="M12 12v4M12 16l-5 6M12 16l5 6M12 16v6"/>',
+    tower: '<path d="M10 2h4v18h-4zM10 6l4 3M14 9l-4 3M10 12l4 3M7 20h10"/><circle cx="12" cy="2" r="1.5"/>',
     tarima: '<path d="M2 12h20v4H2z"/><path d="M4 16v5M20 16v5M15 12V9h5"/>',
     '': '<path d="M4 7l8-4 8 4v10l-8 4-8-4z"/><path d="M4 7l8 4 8-4M12 11v10"/>'
   };
@@ -564,8 +566,16 @@
     $('insp').hidden = !d;
     if (!d) return;
     $('insp-title').textContent = d.label;
-    const tar = d.kind === 'tarima';
+    const tar = d.kind === 'tarima', tow = d.kind === 'tower';
     $('insp-tarima-row').hidden = !tar;
+    $('insp-tower-row').hidden = !tow;
+    if (tow) {
+      $('insp-towh').value = d.towerH; $('insp-towhead').checked = d.head;
+      $('insp-inch-row').hidden = true; $('insp-dims-row').hidden = true; $('insp-size-row').hidden = true;
+      $('insp-lift-row').hidden = false; $('insp-rot').hidden = false; $('insp-real').hidden = true;
+      $('insp-lift').value = Math.round(d.lift * 100); $('insp-lift-val').textContent = num(d.lift) + ' m';
+      return;
+    }
     $('insp-lift-row').hidden = tar;
     $('insp-rot').hidden = tar;
     $('insp-real').hidden = !d.real;
@@ -594,6 +604,9 @@
       set('tarima', { w: r($('insp-tw').value), d: r($('insp-td').value), h: r($('insp-th').value) });
     };
     ['insp-tw', 'insp-td', 'insp-th'].forEach(id => $(id).addEventListener('change', tdims));
+    const tow = () => { const h = Math.round(Number($('insp-towh').value) * 4) / 4; if (h >= 1) set('tower', { h, head: $('insp-towhead').checked }); };
+    $('insp-towh').addEventListener('change', tow);
+    $('insp-towhead').addEventListener('change', tow);
     const set = (p, v) => showInspector(Stage.adjust(p, v));
     $('insp-size').addEventListener('input', e => set('size', e.target.value / 100));
     $('insp-inch').addEventListener('change', e => set('inch', Number(e.target.value)));
@@ -611,7 +624,7 @@
 
 
   /* Botones para sumar equipos desde el propio render (suman también al presupuesto). */
-  const ADD = [['spk', '+ Altavoz'], ['heads', '+ 6 cabezas'], ['bars', '+ 4 barras'], ['totem', '+ Tótem'], ['screen55', '+ Pantalla'], ['mic', '+ Micro'], ['tarima', '+ Tarima']];
+  const ADD = [['trx_extra', '+ Altavoz TRX315'], ['spk', '+ Torre de sonido RCF'], ['tower', '+ Torre truss con cabeza'], ['heads', '+ 6 cabezas'], ['bars', '+ 4 barras'], ['totem', '+ Tótem'], ['screen55', '+ Pantalla'], ['mic', '+ Micro'], ['tarima', '+ Tarima']];
   function setupAddBar() {
     const bar = $('add-bar');
     const items = ADD.map(([m, label]) => [EXTRAS.find(ex => ex.model === m), label]).filter(x => x[0]);
@@ -1066,12 +1079,12 @@ const Stage = (() => {
   /* ---------- Montaje: altura de tarima, colecciones que crecen y ajustes por equipo ---------- */
   const TAR0 = { on: true, w: 7.2, d: 4.2, h: 0.4 }, TAR = Object.assign({}, TAR0), BACK = -2.6;
   let SH = 0.4, trussY = 0.4;
-  const CAP = { heads: 48, bars: 24, speakers: 24, mics: 24, screens: 24, totems: 24 };
-  const KIND = { trx: 'Altavoz Alto TRX315', speaker: 'Altavoz RCF EVOX 12', totem: 'Tótem', screen: 'Pantalla', mic: 'Micrófono', cam: 'Cámara', wall: 'Pantalla LED', booth: 'Cabina DJ', lectern: 'Atril', foh: 'Control de sonido', head: 'Cabeza móvil' };
+  const CAP = { towers: 24, trx: 26, heads: 48, bars: 24, speakers: 24, mics: 24, screens: 24, totems: 24 };
+  const KIND = { trx: 'Altavoz Alto TRX315', speaker: 'Altavoz RCF EVOX 12', totem: 'Tótem', screen: 'Pantalla', mic: 'Micrófono', cam: 'Cámara', wall: 'Pantalla LED', booth: 'Cabina DJ', lectern: 'Atril', foh: 'Control de sonido', head: 'Cabeza móvil', tower: 'Torre de truss' };
   let draggables = [], dragObj = null, selected = null, selBox = null;
   const LOOK = { light: 1, warm: 0, dir: 27 };
   const glb = {};
-  const KIND_MODEL = { speaker: ['rcf', 'spk'], trx: ['trx'], totem: ['totem'], screen: ['screen55'], booth: ['booth'], lectern: ['lectern'], mic: ['mic'], cam: ['stream'], foh: ['foh'] };
+  const KIND_MODEL = { speaker: ['rcf', 'spk'], trx: ['trx', 'trx_extra'], totem: ['totem'], screen: ['screen55'], booth: ['booth'], lectern: ['lectern'], mic: ['mic'], cam: ['stream'], foh: ['foh'] };
 
   function tag(o, kind) { o.userData.kind = kind; o.userData.lift = 0; o.userData.size = 1; o.userData.inch = 55; return o; }
   function addDraggable(o, kind) { tag(o, kind); scene.add(o); draggables.push(o); return o; }
@@ -1121,6 +1134,31 @@ const Stage = (() => {
       ['booth', 'lectern', 'foh'].forEach(k => { if (rig[k] === o) rig[k] = n; });
       if (selected === o) select(n);
     });
+  }
+
+  /* Torre de truss vertical con base, opcionalmente con una cabeza móvil arriba. */
+  function buildTower(h, withHead) {
+    const g = new THREE.Group();
+    const base = box(0.6, 0.02, 0.6, M.alu); base.position.y = 0.01; g.add(base);
+    trussRun(new THREE.Vector3(0, 0.02, 0), new THREE.Vector3(0, h, 0), M.alu, g);
+    const top = box(0.36, 0.02, 0.36, M.alu); top.position.y = h + 0.01; g.add(top);
+    g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+    g.userData.towerH = h; g.userData.head = !!withHead;
+    if (withHead) {
+      const hd = buildHead(); hd.g.rotation.x = Math.PI; hd.g.position.y = h + 0.02; hd.phase = Math.random() * 6;
+      g.add(hd.g); g.userData.rigHead = hd;
+    }
+    return g;
+  }
+  function rebuildTower(o, h, withHead) {
+    const n = buildTower(h, withHead);
+    n.position.copy(o.position); n.rotation.copy(o.rotation); n.scale.copy(o.scale);
+    n.userData = Object.assign({}, o.userData, { towerH: h, head: withHead, rigHead: n.userData.rigHead });
+    n.visible = o.visible;
+    scene.remove(o); scene.add(n);
+    draggables[draggables.indexOf(o)] = n;
+    rig.towers[rig.towers.indexOf(o)] = n;
+    return n;
   }
 
   /* Tarima con medidas reales: el fondo queda fijo y crece hacia el público. */
@@ -1224,7 +1262,7 @@ const Stage = (() => {
     trussRun(new THREE.Vector3(-3.35, 3.8, -2.1), new THREE.Vector3(3.35, 3.8, -2.1), M.alu, rig.truss);
     [-3.2, 3.2].forEach(x => { const p = box(0.6, 0.02, 0.6, M.alu); p.position.set(x, 0.41, -2.1); rig.truss.add(p); });
 
-    rig.trx = [0, 1].map(() => addDraggable(make('trx', buildTrx), 'trx'));
+    rig.trx = []; rig.towers = [];
     rig.speakers = []; rig.heads = []; rig.bars = []; rig.mics = []; rig.screens = []; rig.totems = []; rig.cams = [];
 
     rig.pars = [];
@@ -1329,6 +1367,7 @@ const Stage = (() => {
     if (!o) return null;
     const u = o.userData;
     if (u.kind === 'tarima') return { kind: 'tarima', label: 'Tarima', tarima: Object.assign({}, TAR) };
+    if (u.kind === 'tower') return { kind: 'tower', label: KIND.tower, towerH: u.towerH, head: u.head, lift: u.lift, size: u.size };
     return { kind: u.kind, label: KIND[u.kind] || 'Equipo', size: u.size, inch: u.inch, lift: u.lift, dims: u.dims ? u.dims.slice() : null, rot: Math.round(THREE.MathUtils.radToDeg(o.rotation.y)), real: !!u.real };
   }
 
@@ -1361,10 +1400,12 @@ const Stage = (() => {
     else if (prop === 'tarima') { setTarima(v); notify(); return info(rig.tarima); }
     else if (prop === 'lift') { u.lift = Math.max(0, Math.min(6, v)); place(o, o.position.x, o.position.z); }
     else if (prop === 'rot') o.rotation.y += THREE.MathUtils.degToRad(v);
+    else if (prop === 'tower' && u.kind === 'tower') t = rebuildTower(o, Math.max(1, Math.min(6, v.h)), !!v.head);
     else if (prop === 'dims' && u.kind === 'wall') t = rebuildWall(o, Math.max(1, Math.min(16, v[0])), Math.max(0.5, Math.min(8, v[1])));
     else if (prop === 'reset' && u.kind === 'tarima') { setTarima(TAR0); notify(); return info(rig.tarima); }
     else if (prop === 'reset') {
       if (u.kind === 'wall' && (u.dims[0] !== u.base[0] || u.dims[1] !== u.base[1])) t = rebuildWall(o, u.base[0], u.base[1]);
+      if (u.kind === 'tower' && (u.towerH !== 2.5 || !u.head)) t = rebuildTower(o, 2.5, true);
       Object.assign(t.userData, { size: 1, inch: 55, lift: 0, moved: false });
       t.scale.setScalar(1);
       update(lastState);
@@ -1380,6 +1421,7 @@ const Stage = (() => {
     draggables.forEach(o => {
       const u = o.userData;
       if (u.kind === 'wall' && (u.dims[0] !== u.base[0] || u.dims[1] !== u.base[1])) rebuildWall(o, u.base[0], u.base[1]);
+      if (u.kind === 'tower' && (u.towerH !== 2.5 || !u.head)) rebuildTower(o, 2.5, true);
     });
     draggables.forEach(o => { Object.assign(o.userData, { moved: false, lift: 0, size: 1, inch: 55 }); o.scale.setScalar(1); });
     Object.assign(TAR, { w: TAR0.w, d: TAR0.d, h: TAR0.h }); buildTarima(); relevel();
@@ -1401,6 +1443,9 @@ const Stage = (() => {
       (rig[k] || []).filter(o => o.visible && o.userData.inch !== 55).forEach(o => { sizes[o.userData.inch] = (sizes[o.userData.inch] || 0) + 1; });
       Object.keys(sizes).forEach(i => out.push(`${sizes[i]} ${name}${sizes[i] > 1 ? (name === 'tótem' ? 's' : 's') : ''} de ${i}"`));
     });
+    const th = {};
+    (rig.towers || []).filter(o => o.visible && (o.userData.towerH !== 2.5 || !o.userData.head)).forEach(o => { const k = String(o.userData.towerH).replace('.', ',') + ' m' + (o.userData.head ? ' con cabeza móvil' : ' sin cabeza'); th[k] = (th[k] || 0) + 1; });
+    Object.keys(th).forEach(k => out.push(`${th[k]} torre${th[k] > 1 ? 's' : ''} de truss de ${k}`));
     return out;
   }
 
@@ -1448,9 +1493,25 @@ const Stage = (() => {
     cfg.speakers = cfg.rcfBase + cfg.extraSpk;
     const vis = (n, k) => Math.min(n, CAP[k]);
 
+    cfg.trxN = (cfg.trx ? 2 : 0) + (x.trx_extra || 0);
+    const ntx = vis(cfg.trxN, 'trx');
+    fill(rig.trx, ntx, () => addDraggable(make('trx', buildTrx), 'trx'));
     rig.trx.forEach((t, i) => {
-      t.visible = cfg.trx;
-      if (t.visible && !t.userData.moved) { const px = i ? 2.9 : -2.9; place(t, px, 1.0, true, -px * 0.06); }
+      t.visible = i < ntx;
+      if (!t.visible || t.userData.moved) return;
+      const side = i % 2 ? 1 : -1, j = Math.floor(i / 2);
+      const px = side * (j === 0 ? 2.9 : 3.8 + 0.9 * (j - 1));
+      place(t, px, j === 0 ? 1.0 : 1.6, true, -px * 0.06);
+    });
+
+    const nw = vis(x.tower || 0, 'towers');
+    cfg.towers = x.tower || 0;
+    fill(rig.towers, nw, () => addDraggable(buildTower(2.5, true), 'tower'));
+    rig.towers.forEach((o, i) => {
+      o.visible = i < nw;
+      if (!o.visible || o.userData.moved) return;
+      const side = i % 2 ? 1 : -1, j = Math.floor(i / 2);
+      place(o, side * (4.3 + 1.2 * j), -1.4 + (j % 2) * 0.6, false, 0);
     });
 
     const xs = { 0: [], 2: [-2.9, 2.9], 4: [-3.3, -2.6, 2.6, 3.3], 6: [-4.3, -3.4, -2.6, 2.6, 3.4, 4.3] }[cfg.rcfBase];
@@ -1545,6 +1606,7 @@ const Stage = (() => {
     lights.backFill.color.setHex(mode === 'corp' ? 0xcfe0ff : 0x22d3ee);
     const beamOp = cfg.haze ? 0.2 : 0.09;
     rig.heads.forEach((h, i) => { const c = i % 2 ? pal.b : pal.a; h.lensMat.color.setHex(c); h.beamMat.color.setHex(c); h.beamMat.opacity = beamOp; });
+    rig.towers.forEach((o, i) => { const h = o.userData.rigHead; if (!h) return; const c = i % 2 ? pal.a : pal.b; h.lensMat.color.setHex(c); h.beamMat.color.setHex(c); h.beamMat.opacity = beamOp; });
     rig.pars.forEach(pr => { pr.lensMat.color.setHex(pal.b); pr.beamMat.color.setHex(pal.b); pr.beamMat.opacity = cfg.haze ? 0.12 : 0.06; });
     rig.bars.forEach(b => { b.glowMat.color.setHex(pal.a); b.glowMat.opacity = cfg.haze ? 0.14 : 0.07; });
     rig.boothStrip.color.setHex(pal.a);
@@ -1552,7 +1614,8 @@ const Stage = (() => {
     drawLed(clock.getElapsedTime());
 
     const leg = [];
-    if (cfg.trx) leg.push('2 × Alto TRX315');
+    if (cfg.trxN) leg.push(`${cfg.trxN} × Alto TRX315`);
+    if (cfg.towers) leg.push(`${cfg.towers} torre${cfg.towers > 1 ? 's' : ''} de truss`);
     if (cfg.speakers) leg.push(`${cfg.speakers} × RCF EVOX 12`);
     if (cfg.heads) leg.push(`${cfg.heads} cabezas móviles`);
     if (cfg.bars) leg.push(`${cfg.bars} barras LED`);
@@ -1569,7 +1632,8 @@ const Stage = (() => {
   function animateRig(t) {
     if (!cfg) return;
     const speed = mode === 'corp' ? 0.25 : mode === 'amber' ? 0.45 : 0.8;
-    rig.heads.forEach((h, i) => {
+    const towerHeads = rig.towers.filter(o => o.visible && o.userData.rigHead).map(o => o.userData.rigHead);
+    rig.heads.concat(towerHeads).forEach((h, i) => {
       if (!h.g.visible) return;
       if (reduce) { h.pan.rotation.y = (i % 2 ? 0.25 : -0.25); h.tilt.rotation.x = -0.45; return; }
       h.pan.rotation.y = Math.sin(t * speed + h.phase) * 0.7;

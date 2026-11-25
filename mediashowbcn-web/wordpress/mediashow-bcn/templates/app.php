@@ -212,6 +212,9 @@ $msb_ld = array(
 						<div class="fit-row" id="insp-tarima-row"><span>Ancho × fondo × alto (m) <output id="insp-tm2"></output></span>
 							<div class="insp-dims"><input type="number" id="insp-tw" min="1" max="20" step="0.5" aria-label="Ancho de la tarima en metros" /> × <input type="number" id="insp-td" min="1" max="12" step="0.5" aria-label="Fondo de la tarima en metros" /> × <input type="number" id="insp-th" min="0.2" max="1.5" step="0.1" aria-label="Alto de la tarima en metros" /></div>
 							<small>El precio se calcula por m².</small></div>
+						<div class="fit-row" id="insp-tower-row"><span>Altura de la torre (m)</span>
+							<div class="insp-dims"><input type="number" id="insp-towh" min="1" max="6" step="0.25" aria-label="Altura de la torre en metros" /></div>
+							<label class="fit-check"><input type="checkbox" id="insp-towhead" /> Cabeza móvil arriba</label></div>
 						<label class="fit-row" id="insp-lift-row" for="insp-lift"><span>Altura sobre el suelo <output id="insp-lift-val"></output></span><input type="range" id="insp-lift" min="0" max="400" step="5" /></label>
 						<p class="insp-real" id="insp-real" hidden>Modelo 3D real del equipo</p>
 						<div class="insp-btns"><span id="insp-rot" class="insp-btns"><button type="button" class="btn btn-sm" data-rot="-15">↺ 15°</button><button type="button" class="btn btn-sm" data-rot="15">↻ 15°</button></span><button type="button" class="btn btn-sm" id="insp-reset">Restablecer</button></div>

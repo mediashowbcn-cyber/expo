@@ -33,6 +33,8 @@ function msb_models() {
 		'dj'        => 'DJ (figura en la cabina)',
 		'spk'       => 'Altavoz adicional RCF EVOX 12',
 		'tarima'    => 'Tarima (precio por m²)',
+		'trx_extra' => 'Altavoz adicional Alto TRX315 (trípode)',
+		'tower'     => 'Torre de truss con cabeza móvil',
 		'rcf'       => 'Pieza: altavoz RCF EVOX 12 (solo modelo .glb)',
 		'trx'       => 'Pieza: altavoz Alto TRX315 (solo modelo .glb)',
 		'foh'       => 'Pieza: mesa de control (solo modelo .glb)',

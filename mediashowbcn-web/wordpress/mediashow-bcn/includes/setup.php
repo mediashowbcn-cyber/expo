@@ -234,6 +234,8 @@ function msb_setup_products() {
 		array( 'MSB-BOOTH', 'Cabina DJ (DJ booth)', '', 1, 'booth', 'Cabina DJ con frontal iluminado.' ),
 		array( 'MSB-DJ', 'DJ profesional', '', 1, 'dj', 'DJ profesional durante el evento.' ),
 		array( 'MSB-TARIMA', 'Tarima de escenario (por m²)', '', 200, 'tarima', 'Tarima modular a medida. La cantidad son los m²: ancho × fondo.' ),
+		array( 'MSB-TRX', 'Altavoz adicional Alto TRX315', '', 20, 'trx_extra', 'Altavoz activo de 15" sobre trípode para reforzar o cubrir otra zona.' ),
+		array( 'MSB-TOWER', 'Torre de truss con cabeza móvil', '', 20, 'tower', 'Torre de truss de 2,5 m con base y una cabeza móvil arriba. Altura ajustable.' ),
 		array( 'MSB-SPK', 'Altavoz adicional RCF EVOX 12', '', 20, 'spk', 'Altavoz activo extra con subgrave para cubrir más espacio.' ),
 		array( 'MSB-MIC', 'Micrófono inalámbrico adicional', '', 20, 'mic', 'Micrófono inalámbrico con pie.' ),
 		array( 'MSB-LECTERN', 'Atril con micrófono', '', 1, 'lectern', 'Atril de conferencia con micrófono de cuello de cisne.' ),
