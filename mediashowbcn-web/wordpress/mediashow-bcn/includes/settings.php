@@ -20,6 +20,11 @@ function msb_defaults() {
 		'extra_hour'     => 75,
 		'ionos_agent'    => 'ebc6fb14-da07-4847-b119-e3212e99dabb',
 		'ionos_widget'   => 1,
+		'chat_enabled'     => 0,
+		'chat_model'       => 'claude-opus-5-5',
+		'chat_ip_limit'    => 20,
+		'chat_daily_limit' => 300,
+		'chat_greeting'    => '¡Hola! Soy el asistente de Media Show BCN. Cuéntame tu evento (tipo, fecha y personas) y te preparo el montaje en 3D.',
 	);
 }
 
@@ -44,6 +49,11 @@ function msb_sanitize_settings( $in ) {
 	$out['extra_hour']     = isset( $in['extra_hour'] ) ? max( 0, (float) $in['extra_hour'] ) : $d['extra_hour'];
 	$out['ionos_agent']    = isset( $in['ionos_agent'] ) ? preg_replace( '/[^a-f0-9-]/i', '', $in['ionos_agent'] ) : $d['ionos_agent'];
 	$out['ionos_widget']   = empty( $in['ionos_widget'] ) ? 0 : 1;
+	$out['chat_enabled']     = empty( $in['chat_enabled'] ) ? 0 : 1;
+	$out['chat_model']       = isset( $in['chat_model'] ) && array_key_exists( $in['chat_model'], msb_chat_models() ) ? $in['chat_model'] : $d['chat_model'];
+	$out['chat_ip_limit']    = isset( $in['chat_ip_limit'] ) ? min( 500, max( 1, (int) $in['chat_ip_limit'] ) ) : $d['chat_ip_limit'];
+	$out['chat_daily_limit'] = isset( $in['chat_daily_limit'] ) ? min( 100000, max( 1, (int) $in['chat_daily_limit'] ) ) : $d['chat_daily_limit'];
+	$out['chat_greeting']    = isset( $in['chat_greeting'] ) ? mb_substr( sanitize_text_field( $in['chat_greeting'] ), 0, 300 ) : $d['chat_greeting'];
 	return $out;
 }
 
@@ -51,6 +61,20 @@ add_action(
 	'admin_init',
 	function () {
 		register_setting( 'msb', 'msb_settings', array( 'sanitize_callback' => 'msb_sanitize_settings' ) );
+		// La clave no se muestra nunca; un campo vacío conserva la guardada.
+		register_setting(
+			'msb',
+			'msb_anthropic_key',
+			array(
+				'sanitize_callback' => function ( $v ) {
+					$v = trim( (string) $v );
+					if ( '' === $v ) {
+						return (string) get_option( 'msb_anthropic_key', '' );
+					}
+					return 'borrar' === $v ? '' : preg_replace( '/[^A-Za-z0-9_\-]/', '', $v );
+				},
+			)
+		);
 	}
 );
 
@@ -119,6 +143,46 @@ function msb_settings_page() {
 				<tr>
 					<th scope="row">Widget de voz y chat IONOS</th>
 					<td><label><input type="checkbox" name="msb_settings[ionos_widget]" value="1" <?php checked( $o['ionos_widget'], 1 ); ?> /> Mostrar en toda la web</label></td>
+				</tr>
+			</table>
+			<h2>Asistente de chat con Claude</h2>
+			<table class="form-table" role="presentation">
+				<tr>
+					<th scope="row">Chat en la web</th>
+					<td><label><input type="checkbox" name="msb_settings[chat_enabled]" value="1" <?php checked( $o['chat_enabled'], 1 ); ?> /> Activar el asistente</label>
+					<p class="description">Necesita una clave de la API de Anthropic (console.anthropic.com → API Keys). Cada conversación se paga por uso en esa cuenta.</p></td>
+				</tr>
+				<tr>
+					<th scope="row"><label for="msb-key">Clave de la API de Anthropic</label></th>
+					<td>
+						<?php if ( defined( 'MSB_ANTHROPIC_KEY' ) && MSB_ANTHROPIC_KEY ) : ?>
+							<p>Definida en <code>wp-config.php</code>.</p>
+						<?php else : ?>
+							<input class="regular-text" id="msb-key" type="password" autocomplete="off" name="msb_anthropic_key" value="" placeholder="<?php echo esc_attr( get_option( 'msb_anthropic_key' ) ? 'Guardada · escribe otra para cambiarla o «borrar»' : 'sk-ant-…' ); ?>" />
+							<p class="description">Más seguro: añádela a <code>wp-config.php</code> con <code>define( 'MSB_ANTHROPIC_KEY', 'sk-ant-…' );</code></p>
+						<?php endif; ?>
+					</td>
+				</tr>
+				<tr>
+					<th scope="row"><label for="msb-model">Modelo</label></th>
+					<td><select id="msb-model" name="msb_settings[chat_model]">
+						<?php foreach ( msb_chat_models() as $id => $label ) : ?>
+							<option value="<?php echo esc_attr( $id ); ?>" <?php selected( $o['chat_model'], $id ); ?>><?php echo esc_html( $label ); ?></option>
+						<?php endforeach; ?>
+					</select></td>
+				</tr>
+				<tr>
+					<th scope="row"><label for="msb-iplim">Mensajes por visitante y hora</label></th>
+					<td><input id="msb-iplim" type="number" min="1" name="msb_settings[chat_ip_limit]" value="<?php echo esc_attr( $o['chat_ip_limit'] ); ?>" /></td>
+				</tr>
+				<tr>
+					<th scope="row"><label for="msb-daylim">Mensajes al día (toda la web)</label></th>
+					<td><input id="msb-daylim" type="number" min="1" name="msb_settings[chat_daily_limit]" value="<?php echo esc_attr( $o['chat_daily_limit'] ); ?>" />
+					<p class="description">Tope de gasto: al llegar al límite, el chat invita a escribir por WhatsApp.</p></td>
+				</tr>
+				<tr>
+					<th scope="row"><label for="msb-greet">Saludo</label></th>
+					<td><input class="large-text" id="msb-greet" type="text" name="msb_settings[chat_greeting]" value="<?php echo esc_attr( $o['chat_greeting'] ); ?>" /></td>
 				</tr>
 			</table>
 			<?php submit_button(); ?>

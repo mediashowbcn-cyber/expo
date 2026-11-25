@@ -83,7 +83,7 @@ add_action(
 		if ( ! msb_rendering() ) {
 			return;
 		}
-		$keep = array( 'msb-app', 'msb-fonts', 'admin-bar', 'dashicons', 'wp-block-library' );
+		$keep = apply_filters( 'msb_keep_styles', array( 'msb-app', 'msb-fonts', 'admin-bar', 'dashicons', 'wp-block-library' ) );
 		foreach ( wp_styles()->queue as $handle ) {
 			if ( ! in_array( $handle, $keep, true ) ) {
 				wp_dequeue_style( $handle );

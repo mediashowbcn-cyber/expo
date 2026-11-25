@@ -99,6 +99,24 @@
     switchView('quoter');
   }
 
+  /* Configuración que llega del asistente de chat: pack, extras y aforo. */
+  function applyConfig(cfg) {
+    if (!cfg) return;
+    const pk = packById(cfg.pack);
+    state.packMode = pk ? String(pk.id) : 'auto';
+    if (cfg.asistentes) state.guests = Math.max(30, Math.min(300, Math.round(Number(cfg.asistentes) / 10) * 10 || 100));
+    EXTRAS.forEach(ex => { state.extras[ex.id] = 0; });
+    let led = false;
+    (cfg.extras || []).forEach(e => {
+      const ex = EXTRAS.find(x => x.id === Number(e.id));
+      if (!ex) return;
+      if (isLed(ex)) { if (led) return; led = true; state.extras[ex.id] = 1; return; }
+      state.extras[ex.id] = Math.max(0, Math.min(ex.max, Number(e.cantidad) || 1));
+    });
+    syncInputs();
+    switchView('quoter');
+  }
+
   function openQuoterWithPack(id) {
     const pk = packById(id);
     if (!pk) return;
@@ -1228,7 +1246,7 @@ const Stage = (() => {
 
   function resetLayout() { Stage.resetLayout(); render(); }
 
-  Object.assign(window, { switchView, goHome, selectPillar, openQuoterWithPreset, openQuoterWithPack, toggleProposal, printProposal, setCamPreset, resetLayout });
+  Object.assign(window, { switchView, goHome, selectPillar, openQuoterWithPreset, openQuoterWithPack, toggleProposal, printProposal, setCamPreset, resetLayout, msbApplyConfig: applyConfig });
 
   buildSelects();
   buildExtrasList();
@@ -1249,7 +1267,11 @@ const Stage = (() => {
   $('date-input').min = new Date().toISOString().slice(0, 10);
   render();
 
-  const packParam = new URLSearchParams(location.search).get('msb_pack');
-  if (packParam && packById(packParam)) openQuoterWithPack(packParam);
+  const params = new URLSearchParams(location.search);
+  const packParam = params.get('msb_pack');
+  let cfgParam = null;
+  try { cfgParam = JSON.parse(params.get('msb_cfg') || 'null'); } catch (e) { cfgParam = null; }
+  if (cfgParam) applyConfig(cfgParam);
+  else if (packParam && packById(packParam)) openQuoterWithPack(packParam);
   else if (location.hash === '#cotizador') switchView('quoter', false);
 })();
