@@ -275,3 +275,30 @@ footer.site { padding: 36px 0 24px; color: var(--gray); font-size: 13px; }
 .svc-strip span { display: block; color: var(--gray); font-size: 13.5px; }
 @media (max-width: 860px) { .teaser-in { grid-template-columns: 1fr; padding-block: 44px; } .teaser-art { height: 220px; } }
 @media (prefers-reduced-motion: reduce) { .teaser-art .beam { animation: none; } }
+
+/* CTA de llamada */
+.call-cta { position: relative; overflow: hidden; border-bottom: 1px solid var(--line); background: radial-gradient(circle at 18% 50%, rgba(230,88,55,.25), transparent 45%), #0b0b0c; }
+.call-in { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 44px; align-items: center; padding-block: 64px; }
+.call-orb { position: relative; width: 150px; height: 150px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: var(--on-accent); text-decoration: none; box-shadow: 0 10px 40px rgba(230,88,55,.45); }
+.call-orb svg { width: 58px; height: 58px; animation: ring-shake 2.4s ease-in-out infinite; }
+.call-orb .ring { position: absolute; inset: 0; border-radius: 50%; border: 2px solid var(--accent); animation: ripple 2.4s ease-out infinite; }
+.call-orb .r2 { animation-delay: .8s; } .call-orb .r3 { animation-delay: 1.6s; }
+@keyframes ripple { from { transform: scale(1); opacity: .8; } to { transform: scale(1.9); opacity: 0; } }
+@keyframes ring-shake { 0%, 60%, 100% { transform: rotate(0); } 64%, 72%, 80% { transform: rotate(-14deg); } 68%, 76% { transform: rotate(14deg); } }
+.call-title { font-family: 'Bebas Neue', sans-serif; font-weight: 400; font-size: clamp(40px, 6vw, 72px); line-height: .95; text-transform: uppercase; }
+.call-title em { font-style: normal; color: var(--accent); }
+.call-sub { color: var(--gray); font-size: 16px; max-width: 52ch; margin: 12px 0 22px; }
+.call-btns { display: flex; gap: 10px; flex-wrap: wrap; }
+.call-btn svg, .mb-call svg { width: 18px; height: 18px; }
+.live-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #22c55e; margin-right: 6px; box-shadow: 0 0 0 0 rgba(34,197,94,.7); animation: live 1.6s infinite; vertical-align: 1px; }
+@keyframes live { 70% { box-shadow: 0 0 0 8px rgba(34,197,94,0); } 100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); } }
+.mb-call { background: #16a34a; border-color: #16a34a; color: #fff; position: relative; }
+.mb-call::after { content: ""; position: absolute; inset: -3px; border-radius: 10px; border: 2px solid #22c55e; animation: ripple-sm 2s ease-out infinite; pointer-events: none; }
+@keyframes ripple-sm { from { opacity: .9; transform: scale(1); } to { opacity: 0; transform: scale(1.12); } }
+@media (max-width: 680px) {
+  .call-in { grid-template-columns: 1fr; justify-items: center; text-align: center; gap: 28px; padding-block: 48px; }
+  .call-orb { width: 120px; height: 120px; }
+  .call-btns { justify-content: center; }
+  .call-btns .btn { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) { .call-orb svg, .call-orb .ring, .live-dot, .mb-call::after { animation: none; } }

@@ -163,6 +163,24 @@ $msb_ld = array(
 		</section>
 		<?php endif; ?>
 
+		<section class="call-cta" aria-labelledby="call-t">
+			<div class="container call-in">
+				<a class="call-orb" href="<?php echo esc_url( $msb_tel ); ?>" aria-label="Llamar ahora al <?php echo esc_attr( msb_opt( 'phone_label' ) ); ?>">
+					<span class="ring r1"></span><span class="ring r2"></span><span class="ring r3"></span>
+					<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 10.8a15.1 15.1 0 006.6 6.6l2.2-2.2a1 1 0 011-.25 11.4 11.4 0 003.6.57 1 1 0 011 1V20a1 1 0 01-1 1A17 17 0 013 4a1 1 0 011-1h3.5a1 1 0 011 1c0 1.25.2 2.45.57 3.57a1 1 0 01-.25 1z" fill="currentColor"/></svg>
+				</a>
+				<div class="call-copy">
+					<div class="eyebrow"><span class="live-dot"></span> Línea abierta 24/7</div>
+					<h2 class="call-title" id="call-t">¿Tu evento es pronto? <em>Llama ahora.</em></h2>
+					<p class="call-sub">Te atiende nuestra asistente de voz al instante, de día o de noche: precio, disponibilidad y siguiente paso en una llamada.</p>
+					<div class="call-btns">
+						<a class="btn btn-pri btn-lg call-btn" href="<?php echo esc_url( $msb_tel ); ?>"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 10.8a15.1 15.1 0 006.6 6.6l2.2-2.2a1 1 0 011-.25 11.4 11.4 0 003.6.57 1 1 0 011 1V20a1 1 0 01-1 1A17 17 0 013 4a1 1 0 011-1h3.5a1 1 0 011 1c0 1.25.2 2.45.57 3.57a1 1 0 01-.25 1z" fill="currentColor"/></svg> Llamar al <?php echo esc_html( msb_opt( 'phone_label' ) ); ?></a>
+						<a class="btn btn-lg" href="<?php echo esc_url( $msb_wa . '?text=' . rawurlencode( 'Hola Media Show BCN, quiero precio y disponibilidad para un evento.' ) ); ?>" target="_blank" rel="noopener">Prefiero WhatsApp</a>
+					</div>
+				</div>
+			</div>
+		</section>
+
 		<section class="sec-block" id="contacto" aria-labelledby="contacto-t">
 			<div class="container">
 				<div class="eyebrow">Contacto directo</div>
@@ -310,7 +328,7 @@ $msb_ld = array(
 	<div class="mobile-bar">
 		<button type="button" class="btn btn-pri" onclick="switchView('quoter')">Cotizar 3D</button>
 		<a class="btn" href="<?php echo esc_url( $msb_wa ); ?>" target="_blank" rel="noopener">WhatsApp</a>
-		<a class="btn" href="<?php echo esc_url( $msb_tel ); ?>">Llamar 24/7</a>
+		<a class="btn mb-call" href="<?php echo esc_url( $msb_tel ); ?>"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 10.8a15.1 15.1 0 006.6 6.6l2.2-2.2a1 1 0 011-.25 11.4 11.4 0 003.6.57 1 1 0 011 1V20a1 1 0 01-1 1A17 17 0 013 4a1 1 0 011-1h3.5a1 1 0 011 1c0 1.25.2 2.45.57 3.57a1 1 0 01-.25 1z" fill="currentColor"/></svg> Llamar</a>
 	</div>
 <?php wp_footer(); ?>
 </body>
