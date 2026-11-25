@@ -843,6 +843,25 @@
     $('extras-list').addEventListener('click', autosave);
     $('fit-lock').addEventListener('change', e => Stage.lockCam(e.target.checked));
   }
+
+  /* Render final de alta calidad y brillo (bloom) */
+  function setupHQ() {
+    const msg = $('export-msg'), btn = $('hq-btn');
+    const showBloom = v => { $('bloom-val').textContent = Math.round(v * 100) + ' %'; };
+    showBloom(Number($('bloom-range').value));
+    $('bloom-range').addEventListener('input', e => { Stage.setBloom(Number(e.target.value)); showBloom(Number(e.target.value)); });
+    btn.addEventListener('click', async () => {
+      if (btn.getAttribute('aria-disabled') === 'true') return;
+      const o = exportOpts();
+      btn.setAttribute('aria-disabled', 'true');
+      try {
+        const blob = await Stage.renderHQ(Object.assign({ samples: 24 }, o), k => { msg.textContent = `Calculando render final ${o.label}… ${Math.round(k * 100)} %`; });
+        download(blob, `mediashowbcn-render-final-${o.h}p.png`);
+        msg.textContent = `Render final ${o.label} descargado.`;
+      } catch (e) { msg.textContent = e.message; }
+      btn.removeAttribute('aria-disabled');
+    });
+  }
 /* ===================== ESCENARIO 3D (Three.js r128) ===================== */
 const Stage = (() => {
   let inited = false, active = false, failed = false;
@@ -932,6 +951,7 @@ const Stage = (() => {
     tex.totem = new THREE.CanvasTexture(tex.totemCanvas);
     tex.ledCanvas = document.createElement('canvas'); tex.ledCanvas.width = 640; tex.ledCanvas.height = 480;
     tex.led = new THREE.CanvasTexture(tex.ledCanvas);
+    ['grille', 'rcf', 'alto', 'drape', 'totem', 'led'].forEach(k => { if (tex[k]) tex[k].colorSpace = THREE.SRGBColorSpace; });
   }
 
   function drawContain(g, img, x, y, w, h) {
@@ -1253,13 +1273,46 @@ const Stage = (() => {
   const KIND_MODEL = { speaker: ['rcf', 'spk'], trx: ['trx', 'trx_extra'], totem: ['totem'], screen: ['screen55'], booth: ['booth'], lectern: ['lectern'], mic: ['mic'], cam: ['stream'], foh: ['foh'] };
 
   function tag(o, kind) { o.userData.kind = kind; o.userData.lift = 0; o.userData.size = 1; o.userData.inch = 55; return o; }
-  function addDraggable(o, kind) { tag(o, kind); scene.add(o); draggables.push(o); return o; }
+  function addDraggable(o, kind) { tag(o, kind); scene.add(o); draggables.push(o); contact(o); return o; }
+
+  /* Sombra de contacto: oscurece el suelo justo debajo de cada equipo para que «pise» el suelo. */
+  let blobTex = null;
+  function contact(o) {
+    if (o.userData.kind === 'truss' || !THREE.CanvasTexture) return;
+    if (!blobTex) {
+      const c = document.createElement('canvas'); c.width = c.height = 128;
+      const g = c.getContext('2d'), gr = g.createRadialGradient(64, 64, 4, 64, 64, 64);
+      gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(0.55, 'rgba(0,0,0,.45)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
+      blobTex = new THREE.CanvasTexture(c);
+    }
+    if (o.userData.blob) o.remove(o.userData.blob);
+    const bb = new THREE.Box3();
+    o.updateMatrixWorld(true);
+    o.traverse(m => { if (m.isMesh && !(m.material && m.material.blending === THREE.AdditiveBlending)) bb.expandByObject(m); });
+    if (bb.isEmpty()) return;
+    const sz = bb.getSize(V3(0, 0, 0)), sc = o.scale.x || 1;
+    const blob = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: blobTex, color: 0x000000, transparent: true, opacity: 0.5, depthWrite: false, toneMapped: false }));
+    blob.rotation.x = -Math.PI / 2; blob.scale.set(Math.max(0.3, sz.x / sc * 1.25), Math.max(0.3, sz.z / sc * 1.25), 1);
+    blob.position.y = 0.006; blob.renderOrder = 1; blob.userData.isBlob = true;
+    o.add(blob); o.userData.blob = blob;
+    blobLift(o);
+  }
+  function blobLift(o) {
+    const b = o.userData.blob;
+    if (!b) return;
+    const lift = o.userData.lift || 0;
+    b.visible = !o.userData.hung && lift < 2.5;
+    b.position.y = (-lift + 0.006) / (o.scale.y || 1);
+    b.material.opacity = 0.5 * Math.max(0, 1 - lift / 2.5);
+  }
   const onStageAt = (x, z) => TAR.on && Math.abs(x) < TAR.w / 2 + 0.02 && z > BACK - 0.02 && z < BACK + TAR.d + 0.02;
   function place(o, x, z, _legacy, ry) {
     if (o.userData.hung) return;
     o.userData.onStage = o.userData.kind === 'truss' ? onStageAt(x - TR.w / 2, z) && onStageAt(x + TR.w / 2, z) : onStageAt(x, z);
     o.position.set(x, (o.userData.onStage ? SH : 0) + o.userData.lift, z);
     if (ry !== undefined) o.rotation.y = ry;
+    blobLift(o);
   }
   const fill = (list, n, make) => { while (list.length < n) list.push(make(list.length)); return list; };
   const notify = () => { window.dispatchEvent(new CustomEvent('msb:montage')); queueCommit(); };
@@ -1272,7 +1325,8 @@ const Stage = (() => {
     return g;
   }
   function setModels(map) {
-    if (!map || !window.THREE || !THREE.GLTFLoader) return;
+    if (!map) return;
+    if (!window.THREE || !THREE.GLTFLoader) { window.addEventListener('msb:three', () => setModels(map), { once: true }); return; }
     const loader = new THREE.GLTFLoader();
     Object.keys(map).forEach(k => {
       if (!map[k] || glb[k]) return;
@@ -1295,7 +1349,7 @@ const Stage = (() => {
       n.position.copy(o.position); n.rotation.copy(o.rotation); n.scale.copy(o.scale);
       n.userData = Object.assign({}, o.userData, { real: true }); n.visible = o.visible;
       if (kind === 'booth') n.add(rig.dj.g);
-      scene.remove(o); scene.add(n);
+      scene.remove(o); scene.add(n); n.userData.blob = null; contact(n);
       draggables[draggables.indexOf(o)] = n;
       ['speakers', 'totems', 'screens', 'mics', 'cams', 'trx'].forEach(k => { const j = (rig[k] || []).indexOf(o); if (j >= 0) rig[k][j] = n; });
       ['booth', 'lectern', 'foh'].forEach(k => { if (rig[k] === o) rig[k] = n; });
@@ -1355,6 +1409,7 @@ const Stage = (() => {
     }
     draggables[draggables.indexOf(o)] = n;
     if (u.kind === 'wall') rig.walls[u.key] = n; else rig.screens[rig.screens.indexOf(o)] = n;
+    n.userData.blob = null; contact(n);
     if (selected === o) select(n);
     return n;
   }
@@ -1381,6 +1436,7 @@ const Stage = (() => {
     scene.remove(o); scene.add(n);
     draggables[draggables.indexOf(o)] = n;
     rig.towers[rig.towers.indexOf(o)] = n;
+    n.userData.blob = null; contact(n);
     return n;
   }
 
@@ -1437,6 +1493,9 @@ const Stage = (() => {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    if ('useLegacyLights' in renderer) renderer.useLegacyLights = true;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.15;
 
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x08090c);
@@ -1466,6 +1525,7 @@ const Stage = (() => {
     const backKey = new THREE.DirectionalLight(0xffffff, 0.45); backKey.position.set(3, 5, -9); scene.add(backKey); lights.backKey = backKey;
     lights.a = new THREE.PointLight(pal.a, 1.8, 11); lights.a.position.set(-1.8, 3.3, -1.4); scene.add(lights.a);
     lights.b = new THREE.PointLight(pal.b, 1.6, 11); lights.b.position.set(1.8, 3.3, -1.4); scene.add(lights.b);
+    [lights.a, lights.b, lights.backFill].forEach(l => { l.decay = 1; });
 
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), M.floor); rig.floor = floor;
     floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
@@ -1513,6 +1573,7 @@ const Stage = (() => {
 
     setupDrag(canvas);
     setupFg(canvas);
+    setupPost();
 
     const ro = new ResizeObserver(resize); ro.observe(canvas);
     resize();
@@ -1621,6 +1682,7 @@ const Stage = (() => {
     n.visible = o.visible;
     const parent = o.parent; parent.remove(o); parent.add(n);
     if (n.userData.hung) hungLayout(n);
+    n.userData.blob = null; contact(n);
     draggables[draggables.indexOf(o)] = n;
     rig.walls[o.userData.key] = n;
     return n;
@@ -1697,11 +1759,33 @@ const Stage = (() => {
     return out;
   }
 
+  /* Posproducción: brillo real (bloom) en haces, LED y pantallas. */
+  let composer = null, bloom = null, bloomOn = 0.5;
+  function setupPost() {
+    if (!THREE.EffectComposer || !THREE.UnrealBloomPass) return;
+    try {
+      const rt = new THREE.WebGLRenderTarget(2, 2, { type: THREE.HalfFloatType, samples: renderer.capabilities.isWebGL2 ? 4 : 0 });
+      composer = new THREE.EffectComposer(renderer, rt);
+      composer.addPass(new THREE.RenderPass(scene, camera));
+      bloom = new THREE.UnrealBloomPass(new THREE.Vector2(256, 256), bloomOn, 0.45, 0.92);
+      composer.addPass(bloom);
+      composer.addPass(new THREE.OutputPass());
+    } catch (e) { composer = null; }
+  }
+  function draw() {
+    if (composer && bloom.strength > 0.01) composer.render(); else renderer.render(scene, camera);
+  }
+  function sizePost(w, h) {
+    if (!composer) return;
+    composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(w, h);
+  }
+
   function resize() {
     if (!renderer || exporting) return;
     const c = renderer.domElement, w = c.clientWidth, h = c.clientHeight;
     if (!w || !h) return;
     renderer.setSize(w, h, false);
+    sizePost(w, h);
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
     fitBg(w / h);
@@ -1930,8 +2014,9 @@ const Stage = (() => {
       camera.position.set(Math.sin(a) * rec.r, rec.h, Math.cos(a) * rec.r);
       camera.lookAt(controls.target);
     } else controls.update();
+    if (hq) return;
     if (selected && selBox.visible) selFit(selected);
-    renderer.render(scene, camera);
+    draw();
     if (rec) compose(rec.ctx, rec.mark);
   }
 
@@ -2169,11 +2254,12 @@ const Stage = (() => {
   }
 
   /* Contorno del espacio dibujado sobre el suelo de la foto, con medidas de cada lado. */
-  const floorPlane = new THREE.Plane(V3(0, 1, 0), 0);
+  let floorPlane = null;
   function floorAt(e) {
     const r = renderer.domElement.getBoundingClientRect(), ray = new THREE.Raycaster();
     ray.setFromCamera(new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), camera);
     const p = V3(0, 0, 0);
+    floorPlane = floorPlane || new THREE.Plane(V3(0, 1, 0), 0);
     return ray.ray.intersectPlane(floorPlane, p) ? [p.x, p.z] : null;
   }
   function label(text) {
@@ -2182,7 +2268,8 @@ const Stage = (() => {
     g.fillStyle = 'rgba(10,10,10,.82)'; g.fillRect(0, 14, 256, 68);
     g.fillStyle = '#E65837'; g.fillRect(0, 14, 8, 68);
     g.fillStyle = '#F4F0E8'; g.font = '600 44px "Work Sans", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, 132, 50);
-    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: false, transparent: true }));
+    const lt = new THREE.CanvasTexture(c); lt.colorSpace = THREE.SRGBColorSpace;
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: lt, depthTest: false, transparent: true }));
     sp.scale.set(0.9, 0.34, 1); sp.renderOrder = 10;
     return sp;
   }
@@ -2379,7 +2466,7 @@ const Stage = (() => {
     fg.calib = null; fg.mode = null; fg.corners = null; fg.editing = false; SPACE = null; if (rig.space) drawSpace();
     if (img) {
       initFgPhoto(img);
-      const t = new THREE.Texture(img); t.needsUpdate = true;
+      const t = new THREE.Texture(img); t.colorSpace = THREE.SRGBColorSpace; t.needsUpdate = true;
       scene.background = t; scene.fog = null;
       rig.floor.material = new THREE.ShadowMaterial({ opacity: 0.45 });
       rig.drape.visible = false;
@@ -2436,7 +2523,7 @@ const Stage = (() => {
   function hiRes(w, h) {
     exporting = true;
     const prevPR = renderer.getPixelRatio();
-    renderer.setPixelRatio(1); renderer.setSize(w, h, false);
+    renderer.setPixelRatio(1); renderer.setSize(w, h, false); sizePost(w, h);
     camera.aspect = w / h; camera.updateProjectionMatrix();
     fitBg(w / h);
     const selVis = selBox.visible, gridVis = rig.grid.visible, spVis = rig.space.visible;
@@ -2468,9 +2555,9 @@ const Stage = (() => {
     g.font = fb; g.fillStyle = '#A6A49E'; g.fillText(b2, x + 26 * u + wa + 20 * u, y + ph / 2);
     g.restore();
   }
-  function compose(ctx, mark) {
+  function compose(ctx, mark, src) {
     const c = ctx.canvas;
-    ctx.drawImage(renderer.domElement, 0, 0, c.width, c.height);
+    if (src !== false) ctx.drawImage(src || renderer.domElement, 0, 0, c.width, c.height);
     if (bgImg && fg.has) { const k = crop(fg.cut.width, fg.cut.height, c.width / c.height); ctx.drawImage(fg.cut, k.sx, k.sy, k.sw, k.sh, 0, 0, c.width, c.height); }
     if (mark) watermark(ctx, c.width, c.height);
     badge(ctx, c.width, c.height);
@@ -2481,12 +2568,49 @@ const Stage = (() => {
     return new Promise((resolve, reject) => {
       if (!inited) return reject(new Error('El escenario 3D no está listo.'));
       const restore = hiRes(o.w, o.h);
-      renderer.render(scene, camera);
+      draw();
       const c = document.createElement('canvas'); c.width = o.w; c.height = o.h;
       compose(c.getContext('2d'), o.mark);
       restore();
       c.toBlob(b => { b ? resolve(b) : reject(new Error('No se ha podido crear la imagen.')); }, 'image/png');
     });
+  }
+
+  /* Render final: acumula muchas pasadas moviendo un poco la luz y el encuadre
+     (sombras suaves, bordes limpios, sin dientes de sierra). */
+  let hq = false;
+  const nextFrame = () => new Promise(r => requestAnimationFrame(() => r()));
+  async function renderHQ(opt, progress) {
+    const o = Object.assign({ w: 1920, h: 1080, mark: true, samples: 24 }, opt);
+    if (!inited) throw new Error('El escenario 3D no está listo.');
+    if (hq || rec) throw new Error('Ya hay una exportación en curso.');
+    hq = true;
+    const restore = hiRes(o.w, o.h);
+    const key = lights.key, base = key.position.clone(), prevMap = key.shadow.mapSize.x;
+    key.shadow.mapSize.set(4096, 4096); if (key.shadow.map) { key.shadow.map.dispose(); key.shadow.map = null; }
+    const acc = document.createElement('canvas'); acc.width = o.w; acc.height = o.h;
+    const g = acc.getContext('2d');
+    try {
+      for (let i = 0; i < o.samples; i++) {
+        const a = i * 2.39996, r = 0.5 * Math.sqrt((i + 0.5) / o.samples);
+        key.position.set(base.x + Math.cos(a) * r, base.y, base.z + Math.sin(a) * r);
+        camera.setViewOffset(o.w, o.h, (((i * 7) % 9) / 9 - 0.5), (((i * 4) % 9) / 9 - 0.5), o.w, o.h);
+        draw();
+        g.globalAlpha = 1 / (i + 1);
+        g.drawImage(renderer.domElement, 0, 0, o.w, o.h);
+        if (progress) progress((i + 1) / o.samples);
+        await nextFrame();
+      }
+      g.globalAlpha = 1;
+      compose(g, o.mark, false);
+    } finally {
+      camera.clearViewOffset();
+      key.position.copy(base);
+      key.shadow.mapSize.set(prevMap, prevMap); if (key.shadow.map) { key.shadow.map.dispose(); key.shadow.map = null; }
+      restore();
+      hq = false;
+    }
+    return new Promise((res, rej) => acc.toBlob(b => (b ? res(b) : rej(new Error('No se ha podido crear la imagen.'))), 'image/png'));
   }
 
   let rec = null;
@@ -2558,7 +2682,11 @@ const Stage = (() => {
     autoLook() { return inited ? autoLook() : null; },
     describe() { return inited ? describe() : []; },
     snapshot,
+    renderHQ,
     record,
+    setBloom(v) { bloomOn = v; if (bloom) bloom.strength = v; },
+    get bloom() { return bloomOn; },
+    get modern() { return !!composer; },
     get recording() { return !!rec; },
     getLayout() { return inited ? getLayout() : null; },
     setLayout(L) { setLayout(L); hist.past = []; hist.future = []; commit(); },
@@ -2596,6 +2724,7 @@ const Stage = (() => {
   setupAddBar();
   setupIntegrate();
   setupProject();
+  setupHQ();
   if (D.models3d) Stage.setModels(D.models3d);
   if (S.pro) document.querySelectorAll('.pro-only').forEach(el => { el.hidden = false; });
   else $('export-note').hidden = false;

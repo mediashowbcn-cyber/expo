@@ -303,7 +303,9 @@ $msb_ld = array(
 				      <div class="logo-actions" style="margin:0;">
 				        <button type="button" class="btn btn-sm" id="shot-btn">Imagen 1080p</button>
 				        <button type="button" class="btn btn-sm" id="video-btn">Vídeo 1080p · 10 s</button>
+				        <button type="button" class="btn btn-sm btn-pri" id="hq-btn">Render final HQ</button>
 				      </div>
+				      <label class="fit-row" for="bloom-range" style="margin-top:10px;"><span>Brillo de luces y pantallas <output id="bloom-val"></output></span><input type="range" id="bloom-range" min="0" max="1.5" step="0.05" value="0.5" /></label>
 				      <div class="pro-opts pro-only" hidden>
 				        <label for="export-res">Resolución</label>
 				        <select id="export-res"><option value="1080">1080p (Full HD)</option><option value="1440">1440p (2K)</option><option value="2160">4K (3840 × 2160)</option></select>

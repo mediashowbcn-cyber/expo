@@ -54,15 +54,8 @@ add_action(
 		}
 		wp_enqueue_style( 'msb-fonts', 'https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Work+Sans:wght@400;500;600;700&display=swap', array(), null ); // phpcs:ignore WordPress.WP.EnqueuedResourceParameters.MissingVersion
 		wp_enqueue_style( 'msb-app', MSB_URL . 'assets/msb.css', array(), MSB_VERSION );
-		wp_enqueue_script( 'msb-three', 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js', array(), 'r128', true );
-		wp_enqueue_script( 'msb-orbit', 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js', array( 'msb-three' ), '0.128.0', true );
-		$deps = array( 'msb-orbit' );
-		$cat  = msb_catalog();
-		if ( ! empty( $cat['models3d'] ) ) {
-			wp_enqueue_script( 'msb-gltf', 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js', array( 'msb-three' ), '0.128.0', true );
-			$deps[] = 'msb-gltf';
-		}
-		wp_enqueue_script( 'msb-app', MSB_URL . 'assets/msb.js', $deps, MSB_VERSION, true );
+		$cat = msb_catalog();
+		wp_enqueue_script( 'msb-app', MSB_URL . 'assets/msb.js', array(), MSB_VERSION, true );
 
 		$links = msb_legal_links();
 		$data  = array_merge(
@@ -114,4 +107,24 @@ add_filter(
 	},
 	10,
 	3
+);
+
+/* Three.js r160 se carga como módulo ES: mapa de importación y cargador, solo en la plantilla de la web. */
+define( 'MSB_THREE', 'https://cdn.jsdelivr.net/npm/three@0.160.0/' );
+add_action(
+	'wp_head',
+	function () {
+		if ( ! msb_rendering() ) {
+			return;
+		}
+		$map = array(
+			'imports' => array(
+				'three'         => MSB_THREE . 'build/three.module.min.js',
+				'three/addons/' => MSB_THREE . 'examples/jsm/',
+			),
+		);
+		echo '<script type="importmap">' . wp_json_encode( $map, JSON_UNESCAPED_SLASHES ) . "</script>\n"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+		echo '<script type="module" src="' . esc_url( MSB_URL . 'assets/three-loader.js?ver=' . MSB_VERSION ) . '"></script>' . "\n"; // phpcs:ignore WordPress.WP.EnqueuedResources.NonEnqueuedScript
+	},
+	1
 );
