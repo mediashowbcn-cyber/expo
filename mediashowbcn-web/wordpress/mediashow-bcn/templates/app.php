@@ -217,16 +217,36 @@ $msb_ld = array(
 						<div class="insp-btns"><span id="insp-rot" class="insp-btns"><button type="button" class="btn btn-sm" data-rot="-15">↺ 15°</button><button type="button" class="btn btn-sm" data-rot="15">↻ 15°</button></span><button type="button" class="btn btn-sm" id="insp-reset">Restablecer</button></div>
 					</div>
 				      <details class="fit-panel" id="fit-panel" hidden open>
-				        <summary>Encajar con la foto</summary>
-				        <label class="fit-row" for="fit-height"><span>Altura de la cámara <output id="fit-height-val"></output></span><input type="range" id="fit-height" min="0.5" max="8" step="0.1" /></label>
-				        <label class="fit-row" for="fit-dist"><span>Distancia <output id="fit-dist-val"></output></span><input type="range" id="fit-dist" min="2" max="22" step="0.1" /></label>
-				        <label class="fit-row" for="fit-fov"><span>Lente (ángulo) <output id="fit-fov-val"></output></span><input type="range" id="fit-fov" min="20" max="90" step="1" /></label>
-				        <label class="fit-row" for="fit-aim"><span>Punto de mira <output id="fit-aim-val"></output></span><input type="range" id="fit-aim" min="0" max="4" step="0.05" /></label>
-				        <label class="fit-row" for="fit-shadow"><span>Sombras en el suelo <output id="fit-shadow-val"></output></span><input type="range" id="fit-shadow" min="0" max="0.9" step="0.05" /></label>
-				        <label class="fit-row" for="fit-light"><span>Intensidad de la luz <output id="fit-light-val"></output></span><input type="range" id="fit-light" min="0.2" max="2.5" step="0.05" /></label>
-				        <label class="fit-row" for="fit-warm"><span>Tono de la luz <output id="fit-warm-val"></output></span><input type="range" id="fit-warm" min="-1" max="1" step="0.05" /></label>
-				        <label class="fit-row" for="fit-dir"><span>Dirección de la luz <output id="fit-dir-val"></output></span><input type="range" id="fit-dir" min="0" max="360" step="5" /></label>
-				        <label class="fit-check"><input type="checkbox" id="fit-grid" /> Cuadrícula de 1 m para la escala</label>
+				        <summary id="fit-sum">Encajar con la foto</summary>
+				        <div class="fit-sec">
+				          <strong>1 · Perspectiva exacta</strong>
+				          <p>Marca las 4 esquinas de algo rectangular del suelo cuyas medidas conozcas (baldosas, una alfombra, la zona del escenario). Empieza por la del fondo a la izquierda y sigue como las agujas del reloj.</p>
+				          <div class="insp-dims"><input type="number" id="cal-w" value="3" min="0.3" max="40" step="0.1" aria-label="Ancho del rectángulo en metros" /> × <input type="number" id="cal-d" value="3" min="0.3" max="40" step="0.1" aria-label="Fondo del rectángulo en metros" /> m</div>
+				          <button type="button" class="btn btn-sm btn-pri" id="cal-btn">Marcar 4 esquinas</button>
+				          <p class="fit-msg" id="cal-msg" role="status"></p>
+				        </div>
+				        <div class="fit-sec">
+				          <strong>2 · Primer plano</strong>
+				          <p>Pinta encima de lo que está delante del montaje (mesas, sillas, columnas) y quedará por delante de los equipos.</p>
+				          <div class="insp-btns"><button type="button" class="btn btn-sm" id="fg-paint" aria-pressed="false">Pintar</button><button type="button" class="btn btn-sm" id="fg-erase" aria-pressed="false">Borrar</button><button type="button" class="btn btn-sm" id="fg-clear">Limpiar</button></div>
+				          <label class="fit-row" for="fg-brush"><span>Tamaño del pincel</span><input type="range" id="fg-brush" min="6" max="120" step="2" value="40" /></label>
+				        </div>
+				        <div class="fit-sec">
+				          <strong>3 · Luz</strong>
+				          <button type="button" class="btn btn-sm" id="look-auto">Igualar la luz con la foto</button>
+				          <label class="fit-row" for="fit-light"><span>Intensidad <output id="fit-light-val"></output></span><input type="range" id="fit-light" min="0.2" max="2.5" step="0.05" /></label>
+				          <label class="fit-row" for="fit-warm"><span>Tono <output id="fit-warm-val"></output></span><input type="range" id="fit-warm" min="-1" max="1" step="0.05" /></label>
+				          <label class="fit-row" for="fit-dir"><span>Dirección <output id="fit-dir-val"></output></span><input type="range" id="fit-dir" min="0" max="360" step="5" /></label>
+				          <label class="fit-row" for="fit-shadow"><span>Sombras en el suelo <output id="fit-shadow-val"></output></span><input type="range" id="fit-shadow" min="0" max="0.9" step="0.05" /></label>
+				        </div>
+				        <details class="fit-sec">
+				          <summary>Ajuste manual de la cámara</summary>
+				          <label class="fit-row" for="fit-height"><span>Altura de la cámara <output id="fit-height-val"></output></span><input type="range" id="fit-height" min="0.5" max="8" step="0.05" /></label>
+				          <label class="fit-row" for="fit-dist"><span>Distancia <output id="fit-dist-val"></output></span><input type="range" id="fit-dist" min="2" max="40" step="0.1" /></label>
+				          <label class="fit-row" for="fit-fov"><span>Lente (ángulo vertical) <output id="fit-fov-val"></output></span><input type="range" id="fit-fov" min="15" max="100" step="1" /></label>
+				          <label class="fit-row" for="fit-aim"><span>Punto de mira <output id="fit-aim-val"></output></span><input type="range" id="fit-aim" min="0" max="4" step="0.05" /></label>
+				          <label class="fit-check"><input type="checkbox" id="fit-grid" /> Cuadrícula de 1 m para la escala</label>
+				        </details>
 				      </details>
 					<div class="stage-fallback" id="stage-fallback" hidden>Tu navegador no puede mostrar el escenario 3D. El cálculo del presupuesto funciona igualmente.</div>
 					<div class="stage-bar">

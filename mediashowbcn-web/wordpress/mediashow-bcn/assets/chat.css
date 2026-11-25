@@ -1,11 +1,11 @@
 /* Media Show BCN — asistente de chat (estilos aislados con el prefijo .msbc) */
-.msbc { --c-bg: #0A0A0A; --c-card: #161616; --c-line: #2a2a2a; --c-ink: #F4F0E8; --c-gray: #A6A49E; --c-acc: #E65837; --c-on: #0A0A0A; position: fixed; z-index: 9990; left: max(16px, env(safe-area-inset-left)); bottom: calc(18px + env(safe-area-inset-bottom)); font: 400 14.5px/1.45 'Work Sans', system-ui, -apple-system, sans-serif; color: var(--c-ink); }
+.msbc { --c-bg: #0A0A0A; --c-card: #161616; --c-line: #2a2a2a; --c-ink: #F4F0E8; --c-gray: #A6A49E; --c-acc: #E65837; --c-on: #0A0A0A; position: fixed; z-index: 9990; right: max(16px, env(safe-area-inset-right)); bottom: calc(18px + env(safe-area-inset-bottom)); font: 400 14.5px/1.45 'Work Sans', system-ui, -apple-system, sans-serif; color: var(--c-ink); }
 .msbc *, .msbc *::before, .msbc *::after { box-sizing: border-box; }
 .msbc-fab { display: flex; align-items: center; gap: 10px; border: 0; cursor: pointer; padding: 12px 18px 12px 14px; border-radius: 999px; background: var(--c-acc); color: var(--c-on); font: 700 14px/1 'Work Sans', system-ui, sans-serif; box-shadow: 0 10px 30px rgba(230, 88, 55, .45); position: relative; }
 .msbc-fab svg { width: 22px; height: 22px; }
 .msbc-fab-dot { position: absolute; top: 6px; left: 30px; width: 10px; height: 10px; border-radius: 50%; background: #22c55e; border: 2px solid var(--c-acc); }
 .msbc-open .msbc-fab { display: none; }
-.msbc-panel { width: min(380px, calc(100vw - 32px)); height: min(560px, calc(100vh - 120px)); display: flex; flex-direction: column; background: var(--c-bg); border: 1px solid var(--c-line); border-radius: 16px; overflow: hidden; box-shadow: 0 20px 60px rgba(0, 0, 0, .55); }
+.msbc-open .msbc-fab + .msbc-panel, .msbc-panel { margin-left: auto; } .msbc-panel { width: min(380px, calc(100vw - 32px)); height: min(560px, calc(100vh - 120px)); display: flex; flex-direction: column; background: var(--c-bg); border: 1px solid var(--c-line); border-radius: 16px; overflow: hidden; box-shadow: 0 20px 60px rgba(0, 0, 0, .55); }
 .msbc-panel[hidden] { display: none; }
 .msbc-head { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; background: linear-gradient(120deg, #1b120f, #0f0f10); border-bottom: 1px solid var(--c-line); }
 .msbc-head strong { display: block; font-size: 15px; }

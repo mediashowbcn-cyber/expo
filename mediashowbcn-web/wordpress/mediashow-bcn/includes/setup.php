@@ -29,6 +29,12 @@ add_action(
 		if ( version_compare( $from, '1.3.0', '<' ) ) {
 			msb_raise_limits();
 		}
+		if ( version_compare( $from, '1.5.0', '<' ) ) {
+			// El chat propio ocupa la esquina del widget de IONOS; la línea 24/7 sigue en el chat y en la web.
+			$o = wp_parse_args( (array) get_option( 'msb_settings', array() ), msb_defaults() );
+			$o['ionos_widget'] = 0;
+			update_option( 'msb_settings', $o );
+		}
 		update_option( 'msb_version', MSB_VERSION, false );
 		delete_transient( 'msb_upgrading' );
 	},

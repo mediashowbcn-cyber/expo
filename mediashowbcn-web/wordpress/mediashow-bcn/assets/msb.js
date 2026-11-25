@@ -627,6 +627,50 @@
       render();
     });
   }
+
+  /* Integración con la foto: calibración con 4 esquinas, primer plano y luz */
+  function setupIntegrate() {
+    const msg = $('cal-msg');
+    const STEPS = ['1 · fondo izquierda', '2 · fondo derecha', '3 · delante derecha', '4 · delante izquierda'];
+    $('cal-btn').addEventListener('click', () => {
+      const w = Number($('cal-w').value), d = Number($('cal-d').value);
+      if (!(w > 0.2 && d > 0.2)) { msg.textContent = 'Escribe el ancho y el fondo del rectángulo en metros.'; return; }
+      setPaint(null);
+      fold('Marcando esquinas… (toca aquí para cancelar)');
+      $('canvas-3d').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      Stage.calibrate(w, d);
+    });
+    window.addEventListener('msb:calib', e => {
+      const d = e.detail;
+      if (!d.done) { msg.textContent = 'Toca en la foto la esquina ' + STEPS[d.step] + '.'; $('fit-sum').textContent = 'Toca la esquina ' + STEPS[d.step] + ' (aquí para cancelar)'; return; }
+      unfold();
+      msg.textContent = d.ok
+        ? `Listo: cámara a ${String(d.height).replace('.', ',')} m de altura y lente de ${d.fov}°${d.estimated ? '' : ' (foto muy frontal: si no encaja, cambia la lente y repite)'}. Los equipos ya están a escala real.`
+        : d.msg;
+      syncView();
+    });
+    const panel = $('fit-panel'), sum = $('fit-sum'), title = sum.textContent;
+    let folded = false;
+    function fold(label) { folded = true; panel.open = false; sum.textContent = label; }
+    function unfold() { folded = false; sum.textContent = title; panel.open = true; }
+    panel.addEventListener('toggle', () => {
+      if (!panel.open || !folded) return;
+      Stage.cancelCalib(); setPaint(null); unfold();
+      if (/Toca|Marcando/.test(msg.textContent)) msg.textContent = 'Calibración cancelada.';
+    });
+    const setPaint = mode => {
+      Stage.paint(mode);
+      if (mode) fold(mode === 'paint' ? '✓ Terminar de pintar' : '✓ Terminar de borrar');
+      $('fg-paint').setAttribute('aria-pressed', mode === 'paint' ? 'true' : 'false');
+      $('fg-erase').setAttribute('aria-pressed', mode === 'erase' ? 'true' : 'false');
+    };
+    $('fg-paint').addEventListener('click', () => setPaint($('fg-paint').getAttribute('aria-pressed') === 'true' ? null : 'paint'));
+    $('fg-erase').addEventListener('click', () => setPaint($('fg-erase').getAttribute('aria-pressed') === 'true' ? null : 'erase'));
+    $('fg-clear').addEventListener('click', () => Stage.clearFg());
+    $('fg-brush').addEventListener('input', e => Stage.brush(Number(e.target.value)));
+    $('look-auto').addEventListener('click', () => { Stage.autoLook(); syncView(); });
+    $('venue-remove').addEventListener('click', () => { setPaint(null); msg.textContent = ''; });
+  }
 /* ===================== ESCENARIO 3D (Three.js r128) ===================== */
 const Stage = (() => {
   let inited = false, active = false, failed = false;
@@ -1211,6 +1255,7 @@ const Stage = (() => {
     if (document.fonts && document.fonts.load) document.fonts.load('60px "Bebas Neue"').then(() => { drawTotem(); drawLed(0); });
 
     setupDrag(canvas);
+    setupFg(canvas);
 
     const ro = new ResizeObserver(resize); ro.observe(canvas);
     resize();
@@ -1241,6 +1286,7 @@ const Stage = (() => {
     // Va en fase de captura para adelantarse a OrbitControls y no girar la cámara al arrastrar.
     canvas.addEventListener('pointerdown', e => {
       if (e.button !== 0) return;
+      if (fg.calib) { e.stopImmediatePropagation(); e.preventDefault(); calibClick(e); return; }
       down = { x: e.clientX, y: e.clientY, moved: false };
       const o = pick(e);
       if (!o) return;
@@ -1366,6 +1412,7 @@ const Stage = (() => {
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
     fitBg(w / h);
+    layoutFg();
   }
 
   let cfg = null, ledTick = 0, lastState = null;
@@ -1567,18 +1614,207 @@ const Stage = (() => {
     if (rec) compose(rec.ctx, rec.mark);
   }
 
-  /* Foto del espacio de fondo, recortada para llenar el encuadre sin deformarse. */
-  let bgImg = null;
+  /* Foto del espacio de fondo, recortada para llenar el encuadre sin deformarse.
+     El ángulo de la cámara se refiere a la altura completa de la foto, así el montaje
+     encaja igual en pantalla y en la exportación 16:9 aunque el recorte cambie. */
+  let bgImg = null, venueFov = 55;
+  const imgAspect = () => bgImg.naturalWidth / bgImg.naturalHeight;
+  function crop(iw, ih, aspect) {
+    return iw / ih > aspect ? { sw: ih * aspect, sh: ih, sx: (iw - ih * aspect) / 2, sy: 0 } : { sw: iw, sh: iw / aspect, sx: 0, sy: (ih - iw / aspect) / 2 };
+  }
   function fitBg(aspect) {
     if (!bgImg || !scene.background || !scene.background.isTexture) return;
-    const t = scene.background, ia = bgImg.naturalWidth / bgImg.naturalHeight;
+    const t = scene.background, ia = imgAspect();
     if (ia > aspect) { t.repeat.set(aspect / ia, 1); t.offset.set((1 - aspect / ia) / 2, 0); }
     else { t.repeat.set(1, ia / aspect); t.offset.set(0, (1 - ia / aspect) / 2); }
+    camera.fov = ia >= aspect ? venueFov : 2 * Math.atan(Math.tan(venueFov * Math.PI / 360) * ia / aspect) * 180 / Math.PI;
+    camera.updateProjectionMatrix();
+    drawFg();
+  }
+
+  /* Calibración: de 4 esquinas de un rectángulo del suelo (en coordenadas de la foto) a la cámara real. */
+  function gauss(A, b) {
+    const n = b.length, M = A.map((r, i) => r.concat(b[i]));
+    for (let c = 0; c < n; c++) {
+      let p = c;
+      for (let r = c + 1; r < n; r++) if (Math.abs(M[r][c]) > Math.abs(M[p][c])) p = r;
+      if (Math.abs(M[p][c]) < 1e-12) return null;
+      [M[c], M[p]] = [M[p], M[c]];
+      for (let r = 0; r < n; r++) {
+        if (r === c) continue;
+        const k = M[r][c] / M[c][c];
+        for (let j = c; j <= n; j++) M[r][j] -= k * M[c][j];
+      }
+    }
+    return M.map((r, i) => r[n] / r[i]);
+  }
+  // img: 4 puntos [x, y] con y hacia arriba, en unidades de la altura de la foto (y de -1 a 1, x de -aspecto a +aspecto).
+  // Orden: fondo-izquierda, fondo-derecha, delante-derecha, delante-izquierda. w × d en metros. fallbackFov en grados.
+  function solveCamera(img, w, d, fallbackFov) {
+    const src = [[-w / 2, -d / 2], [w / 2, -d / 2], [w / 2, d / 2], [-w / 2, d / 2]];
+    const dst = img.map(([x, y]) => [x, -y]);
+    const A = [], b = [];
+    for (let i = 0; i < 4; i++) {
+      const [X, Z] = src[i], [x, y] = dst[i];
+      A.push([X, Z, 1, 0, 0, 0, -x * X, -x * Z]); b.push(x);
+      A.push([0, 0, 0, X, Z, 1, -y * X, -y * Z]); b.push(y);
+    }
+    const h = gauss(A, b);
+    if (!h) return { ok: false, msg: 'Los 4 puntos están alineados. Marca las esquinas de un rectángulo.' };
+    const [h11, h12, h13, h21, h22, h23, h31, h32] = h, h33 = 1;
+    const f2 = -(h11 * h12 + h21 * h22) / (h31 * h32);
+    let f = 1 / Math.tan(fallbackFov * Math.PI / 360), estimated = false;
+    if (isFinite(f2) && f2 > 0) {
+      const fov = 2 * Math.atan(1 / Math.sqrt(f2)) * 180 / Math.PI;
+      if (fov > 15 && fov < 110) { f = Math.sqrt(f2); estimated = true; }
+    }
+    const v = (a, c, e) => [a, c, e];
+    const nrm = a => Math.hypot(a[0], a[1], a[2]);
+    const dot = (a, c) => a[0] * c[0] + a[1] * c[1] + a[2] * c[2];
+    const cross = (a, c) => [a[1] * c[2] - a[2] * c[1], a[2] * c[0] - a[0] * c[2], a[0] * c[1] - a[1] * c[0]];
+    const sc = (a, k) => a.map(q => q * k);
+    const b1 = v(h11 / f, h21 / f, h31), b2 = v(h12 / f, h22 / f, h32), b3 = v(h13 / f, h23 / f, h33);
+    let lam = 2 / (nrm(b1) + nrm(b2));
+    if (b3[2] * lam < 0) lam = -lam;
+    const r1 = sc(b1, lam / nrm(sc(b1, lam)) * 1);
+    let r2 = sc(b2, lam);
+    r2 = r2.map((q, i) => q - r1[i] * dot(r1, r2)); r2 = sc(r2, 1 / nrm(r2));
+    const ry = cross(r2, r1), t = sc(b3, lam);
+    // R (cámara ← mundo) con columnas X = r1, Y = r2 × r1, Z = r2. Filas = ejes de la cámara en el mundo.
+    const row = i => [r1[i], ry[i], r2[i]];
+    const right = row(0), down = row(1), fwd = row(2);
+    const C = [0, 1, 2].map(i => -(right[i] * t[0] + down[i] * t[1] + fwd[i] * t[2]));
+    if (C[1] < 0.2 || fwd[1] > 0.2) return { ok: false, msg: 'No encaja. Marca las esquinas en este orden: fondo izquierda, fondo derecha, delante derecha, delante izquierda.' };
+    const depth = -dot(C, fwd);
+    return { ok: true, pos: C, fwd, up: sc(down, -1), fov: 2 * Math.atan(1 / f) * 180 / Math.PI, estimated, depth };
+  }
+
+  /* Capa de primer plano: lo que se pinta sobre la foto queda por delante de los equipos. */
+  const fg = { el: null, ctx: null, photo: null, mask: null, cut: null, tint: null, mode: null, brush: 40, has: false, pts: null, calib: null };
+  function setupFg(canvas) {
+    const el = document.createElement('canvas');
+    el.className = 'fg-layer'; el.setAttribute('aria-hidden', 'true');
+    canvas.parentNode.insertBefore(el, canvas.nextSibling);
+    fg.el = el; fg.ctx = el.getContext('2d');
+    let painting = false;
+    const at = e => {
+      const r = el.getBoundingClientRect(), c = crop(fg.photo.width, fg.photo.height, r.width / r.height);
+      return [c.sx + (e.clientX - r.left) / r.width * c.sw, c.sy + (e.clientY - r.top) / r.height * c.sh, fg.brush * c.sw / r.width];
+    };
+    const dab = e => {
+      const [x, y, rad] = at(e), m = fg.mask.getContext('2d');
+      m.globalCompositeOperation = fg.mode === 'erase' ? 'destination-out' : 'source-over';
+      m.fillStyle = '#000'; m.beginPath(); m.arc(x, y, rad, 0, Math.PI * 2); m.fill();
+      fg.has = true; rebuildCut();
+    };
+    el.addEventListener('pointerdown', e => { if (!fg.mode) return; painting = true; el.setPointerCapture(e.pointerId); dab(e); });
+    el.addEventListener('pointermove', e => { if (painting) dab(e); });
+    const stop = () => { painting = false; };
+    el.addEventListener('pointerup', stop); el.addEventListener('pointercancel', stop);
+  }
+  function layoutFg() {
+    if (!fg.el) return;
+    const c = renderer.domElement, dpr = Math.min(window.devicePixelRatio, 2);
+    Object.assign(fg.el.style, { left: c.offsetLeft + 'px', top: c.offsetTop + 'px', width: c.clientWidth + 'px', height: c.clientHeight + 'px' });
+    fg.el.width = Math.round(c.clientWidth * dpr); fg.el.height = Math.round(c.clientHeight * dpr);
+    drawFg();
+  }
+  let cutQueued = false;
+  function rebuildCut() {
+    if (cutQueued) return;
+    cutQueued = true;
+    requestAnimationFrame(() => {
+      cutQueued = false;
+      const g = fg.cut.getContext('2d');
+      g.globalCompositeOperation = 'copy'; g.drawImage(fg.mask, 0, 0);
+      g.globalCompositeOperation = 'source-in'; g.drawImage(fg.photo, 0, 0);
+      const t = fg.tint.getContext('2d');
+      t.globalCompositeOperation = 'copy'; t.drawImage(fg.mask, 0, 0);
+      t.globalCompositeOperation = 'source-in'; t.fillStyle = 'rgba(230,88,55,.45)'; t.fillRect(0, 0, fg.tint.width, fg.tint.height);
+      drawFg();
+    });
+  }
+  function drawFg() {
+    if (!fg.el || exporting) return;
+    const g = fg.ctx, W = fg.el.width, H = fg.el.height;
+    g.clearRect(0, 0, W, H);
+    fg.el.style.pointerEvents = fg.mode ? 'auto' : 'none';
+    fg.el.style.cursor = fg.mode ? 'crosshair' : '';
+    if (!bgImg || !fg.photo) return;
+    const c = crop(fg.photo.width, fg.photo.height, W / H);
+    if (fg.has) {
+      g.drawImage(fg.cut, c.sx, c.sy, c.sw, c.sh, 0, 0, W, H);
+      if (fg.mode) g.drawImage(fg.tint, c.sx, c.sy, c.sw, c.sh, 0, 0, W, H);
+    }
+    if (fg.pts && fg.pts.length) {
+      const P = fg.pts.map(([nx, ny]) => [(nx + 1) / 2 * W, (1 - ny) / 2 * H]);
+      g.strokeStyle = '#E65837'; g.fillStyle = '#E65837'; g.lineWidth = 2 * W / fg.el.clientWidth;
+      g.beginPath(); P.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); if (P.length === 4) g.closePath(); g.stroke();
+      P.forEach(([x, y], i) => { g.beginPath(); g.arc(x, y, 7 * W / fg.el.clientWidth, 0, Math.PI * 2); g.fill(); g.fillStyle = '#0A0A0A'; g.font = `bold ${Math.round(11 * W / fg.el.clientWidth)}px sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(String(i + 1), x, y); g.fillStyle = '#E65837'; });
+    }
+  }
+  function initFgPhoto(img) {
+    const k = Math.min(1, 2560 / Math.max(img.naturalWidth, img.naturalHeight));
+    const mk = () => { const c = document.createElement('canvas'); c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k); return c; };
+    fg.photo = mk(); fg.photo.getContext('2d').drawImage(img, 0, 0, fg.photo.width, fg.photo.height);
+    fg.mask = mk(); fg.cut = mk(); fg.tint = mk(); fg.has = false; fg.pts = null;
+  }
+
+  /* Luz inicial a partir de la foto: brillo medio, tono y lado por el que entra la luz. */
+  function autoLook() {
+    if (!fg.photo) return null;
+    const c = document.createElement('canvas'); c.width = 48; c.height = 27;
+    const g = c.getContext('2d'); g.drawImage(fg.photo, 0, 0, 48, 27);
+    const d = g.getImageData(0, 0, 48, 27).data, cols = new Array(48).fill(0);
+    let R = 0, G = 0, B = 0, L = 0, L2 = 0;
+    for (let i = 0; i < d.length; i += 4) {
+      const l = (0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]) / 255;
+      R += d[i]; G += d[i + 1]; B += d[i + 2]; L += l; L2 += l * l; cols[(i / 4) % 48] += l;
+    }
+    const n = d.length / 4; L /= n; R /= n; G /= n; B /= n;
+    const sd = Math.sqrt(Math.max(0, L2 / n - L * L));
+    const peak = cols.indexOf(Math.max(...cols)), side = peak / 47 * 2 - 1;
+    const v = {
+      light: Math.max(0.4, Math.min(1.8, 0.45 + L * 1.4)),
+      warm: Math.max(-1, Math.min(1, (R - B) / (Math.max(R, G, B) + 1) * 3)),
+      dir: (360 + Math.round(side * 70)) % 360,
+      shadow: Math.max(0.25, Math.min(0.7, 0.2 + sd * 1.6))
+    };
+    setView(v);
+    return v;
+  }
+
+  function startCalib(w, d) {
+    if (!bgImg) return;
+    fg.calib = { w, d }; fg.pts = []; fg.mode = null; drawFg();
+    window.dispatchEvent(new CustomEvent('msb:calib', { detail: { step: 0 } }));
+  }
+  function calibClick(e) {
+    const r = renderer.domElement.getBoundingClientRect();
+    const nx = ((e.clientX - r.left) / r.width) * 2 - 1, ny = -((e.clientY - r.top) / r.height) * 2 + 1;
+    fg.pts.push([nx, ny]); drawFg();
+    if (fg.pts.length < 4) { window.dispatchEvent(new CustomEvent('msb:calib', { detail: { step: fg.pts.length } })); return; }
+    const a = camera.aspect, ia = imgAspect();
+    const img = fg.pts.map(([x, y]) => (ia >= a ? [x * a / ia, y] : [x, y * ia / a])).map(([u, v]) => [u * ia, v]);
+    const res = solveCamera(img, fg.calib.w, fg.calib.d, venueFov);
+    fg.calib = null;
+    if (res.ok) {
+      venueFov = res.fov;
+      controls.maxDistance = Math.max(22, res.depth * 1.5);
+      camera.position.set(...res.pos);
+      controls.target.set(res.pos[0] + res.fwd[0] * res.depth, res.pos[1] + res.fwd[1] * res.depth, res.pos[2] + res.fwd[2] * res.depth);
+      fitBg(camera.aspect);
+      controls.update();
+      setTimeout(() => { fg.pts = null; drawFg(); }, 1500);
+    } else { fg.pts = null; drawFg(); }
+    window.dispatchEvent(new CustomEvent('msb:calib', { detail: { done: true, ok: res.ok, msg: res.msg || '', fov: res.ok ? Math.round(res.fov) : 0, height: res.ok ? +res.pos[1].toFixed(2) : 0, estimated: !!res.estimated } }));
   }
   function setVenue(img) {
     if (!inited) return;
     bgImg = img || null;
+    fg.calib = null; fg.mode = null;
     if (img) {
+      initFgPhoto(img);
       const t = new THREE.Texture(img); t.needsUpdate = true;
       scene.background = t; scene.fog = null;
       rig.floor.material = new THREE.ShadowMaterial({ opacity: 0.45 });
@@ -1592,10 +1828,13 @@ const Stage = (() => {
         pm.dispose();
       } catch (e) { scene.environment = null; }
       setView({ height: 1.6, aim: 1.3, fov: 55, dist: 12 });
+      autoLook();
     } else {
       scene.background = new THREE.Color(0x08090c); scene.fog = new THREE.FogExp2(0x08090c, 0.032);
       if (scene.environment) { scene.environment.dispose(); scene.environment = null; }
       Object.assign(LOOK, { light: 1, warm: 0, dir: 27 }); applyLook(); rig.grid.visible = false;
+      fg.photo = null; fg.has = false; fg.pts = null; drawFg();
+      camera.fov = 42; camera.updateProjectionMatrix(); controls.maxDistance = 22;
       rig.floor.material = M.floor;
       rig.drape.visible = true;
     }
@@ -1604,7 +1843,7 @@ const Stage = (() => {
   /* Encaje de la cámara con la foto: altura, distancia, lente y punto de mira. */
   function getView() {
     const off = new THREE.Vector3().subVectors(camera.position, controls.target);
-    return { height: +camera.position.y.toFixed(2), dist: +Math.hypot(off.x, off.z).toFixed(2), fov: Math.round(camera.fov), aim: +controls.target.y.toFixed(2), shadow: rig.floor.material.isShadowMaterial ? rig.floor.material.opacity : 0.45, light: LOOK.light, warm: LOOK.warm, dir: LOOK.dir, grid: rig.grid.visible };
+    return { height: +camera.position.y.toFixed(2), dist: +Math.hypot(off.x, off.z).toFixed(2), fov: Math.round(bgImg ? venueFov : camera.fov), aim: +controls.target.y.toFixed(2), shadow: rig.floor.material.isShadowMaterial ? rig.floor.material.opacity : 0.45, light: LOOK.light, warm: LOOK.warm, dir: LOOK.dir, grid: rig.grid.visible };
   }
   function setView(v) {
     if (!inited) return;
@@ -1614,7 +1853,7 @@ const Stage = (() => {
     const dist = v.dist !== undefined ? v.dist : Math.hypot(off.x, off.z);
     const height = v.height !== undefined ? v.height : camera.position.y;
     camera.position.set(controls.target.x + Math.sin(ang) * dist, height, controls.target.z + Math.cos(ang) * dist);
-    if (v.fov !== undefined) { camera.fov = v.fov; camera.updateProjectionMatrix(); }
+    if (v.fov !== undefined) { if (bgImg) { venueFov = v.fov; fitBg(camera.aspect); } else { camera.fov = v.fov; camera.updateProjectionMatrix(); } }
     if (v.shadow !== undefined && rig.floor.material.isShadowMaterial) rig.floor.material.opacity = v.shadow;
     if (v.light !== undefined || v.warm !== undefined || v.dir !== undefined) {
       ['light', 'warm', 'dir'].forEach(k => { if (v[k] !== undefined) LOOK[k] = v[k]; });
@@ -1663,6 +1902,7 @@ const Stage = (() => {
   function compose(ctx, mark) {
     const c = ctx.canvas;
     ctx.drawImage(renderer.domElement, 0, 0, c.width, c.height);
+    if (bgImg && fg.has) { const k = crop(fg.cut.width, fg.cut.height, c.width / c.height); ctx.drawImage(fg.cut, k.sx, k.sy, k.sw, k.sh, 0, 0, c.width, c.height); }
     if (mark) watermark(ctx, c.width, c.height);
     badge(ctx, c.width, c.height);
   }
@@ -1728,6 +1968,12 @@ const Stage = (() => {
     select(o) { if (!inited) return; if (o === 'tarima') { if (rig.tarima.visible) select(rig.tarima); } else if (!o) select(null); },
     tarima() { return Object.assign({}, TAR); },
     setModels(map) { setModels(map); },
+    calibrate(w, d) { if (inited) startCalib(w, d); },
+    cancelCalib() { fg.calib = null; fg.pts = null; drawFg(); },
+    paint(mode) { fg.mode = mode || null; fg.calib = null; if (fg.mask) rebuildCut(); drawFg(); },
+    brush(px) { fg.brush = px; },
+    clearFg() { if (!fg.mask) return; fg.mask.getContext('2d').clearRect(0, 0, fg.mask.width, fg.mask.height); fg.has = false; rebuildCut(); },
+    autoLook() { return inited ? autoLook() : null; },
     describe() { return inited ? describe() : []; },
     snapshot,
     record,
@@ -1752,6 +1998,7 @@ const Stage = (() => {
   setupFit();
   setupInspector();
   setupAddBar();
+  setupIntegrate();
   if (D.models3d) Stage.setModels(D.models3d);
   if (S.pro) document.querySelectorAll('.pro-only').forEach(el => { el.hidden = false; });
   else $('export-note').hidden = false;

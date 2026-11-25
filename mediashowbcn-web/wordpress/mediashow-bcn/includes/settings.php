@@ -19,7 +19,7 @@ function msb_defaults() {
 		'included_hours' => 6,
 		'extra_hour'     => 75,
 		'ionos_agent'    => 'ebc6fb14-da07-4847-b119-e3212e99dabb',
-		'ionos_widget'   => 1,
+		'ionos_widget'   => 0,
 		'brand_style'      => 1,
 		'chat_enabled'     => 1,
 		'chat_model'       => 'claude-opus-5-5',
