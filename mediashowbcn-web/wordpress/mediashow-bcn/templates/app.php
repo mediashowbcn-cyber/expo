@@ -199,6 +199,11 @@ $msb_ld = array(
 			<div>
 				<h2 class="sec-title" style="margin-top:4px;">Cotizador técnico 3D</h2>
 				<p class="sec-sub" style="margin-bottom:14px;">Ajusta aforo, horas y extras. El escenario y el precio cambian al momento.</p>
+				<div class="restore-bar" id="restore-bar" hidden role="status">
+					<span id="restore-text"></span>
+					<button type="button" class="btn btn-sm btn-pri" id="restore-yes">Recuperar</button>
+					<button type="button" class="btn btn-sm" id="restore-no">Empezar de cero</button>
+				</div>
 				<div class="stage-box">
 					<canvas id="canvas-3d" aria-label="Escenario 3D con el equipo seleccionado" role="img"></canvas>
 					<div class="stage-legend" id="stage-legend" aria-hidden="true"></div>
@@ -263,15 +268,19 @@ $msb_ld = array(
 				          <label class="fit-row" for="fit-fov"><span>Lente (ángulo vertical) <output id="fit-fov-val"></output></span><input type="range" id="fit-fov" min="15" max="100" step="1" /></label>
 				          <label class="fit-row" for="fit-aim"><span>Punto de mira <output id="fit-aim-val"></output></span><input type="range" id="fit-aim" min="0" max="4" step="0.05" /></label>
 				          <label class="fit-check"><input type="checkbox" id="fit-grid" /> Cuadrícula de 1 m para la escala</label>
+				          <label class="fit-check"><input type="checkbox" id="fit-lock" checked /> Cámara fija a la foto (girar o hacer zoom la descuadra)</label>
 				        </details>
 				      </details>
 					<div class="stage-fallback" id="stage-fallback" hidden>Tu navegador no puede mostrar el escenario 3D. El cálculo del presupuesto funciona igualmente.</div>
 					<div class="stage-bar">
 						<span>Arrastra el fondo para girar 360° · Toca un equipo para ajustar tamaño y altura · Arrástralo para moverlo</span>
 						<div style="display:flex;gap:8px;flex-wrap:wrap;">
-							<button type="button" class="btn btn-sm" onclick="setCamPreset('front')">Frente</button>
-							<button type="button" class="btn btn-sm" onclick="setCamPreset('audience')">Público</button>
-							<button type="button" class="btn btn-sm" onclick="setCamPreset('back')">Trasera 360°</button>
+							<button type="button" class="btn btn-sm" id="undo-btn" disabled aria-label="Deshacer (Ctrl+Z)" title="Deshacer (Ctrl+Z)">↶ Deshacer</button>
+							<button type="button" class="btn btn-sm" id="redo-btn" disabled aria-label="Rehacer (Ctrl+Y)" title="Rehacer (Ctrl+Y)">↷ Rehacer</button>
+							<button type="button" class="btn btn-sm cam-preset" onclick="setCamPreset('front')">Frente</button>
+							<button type="button" class="btn btn-sm cam-preset" onclick="setCamPreset('audience')">Público</button>
+							<button type="button" class="btn btn-sm cam-preset" onclick="setCamPreset('back')">Trasera 360°</button>
+							<button type="button" class="btn btn-sm" id="cam-photo" hidden onclick="setCamPreset('photo')">Vista de la foto</button>
 							<button type="button" class="btn btn-sm" onclick="resetLayout()">Recolocar</button>
 						</div>
 					</div>
@@ -305,6 +314,14 @@ $msb_ld = array(
 				    </div>
 				  </div>
 				  <p class="msg" id="export-msg" role="status"></p>
+				  <div class="project-row">
+				    <strong>Proyecto</strong>
+				    <span class="msg" style="margin:0;">Se guarda solo en este navegador. Para guardarlo por cliente o pasarlo a otro equipo:</span>
+				    <button type="button" class="btn btn-sm" id="project-save">Guardar proyecto</button>
+				    <input class="file-input" id="project-input" type="file" accept=".json,application/json" />
+				    <label for="project-input" class="btn btn-sm" style="margin:0;">Abrir proyecto</label>
+				  </div>
+				  <p class="msg" id="project-msg" role="status"></p>
 				</div>
 
 				<div class="panel-box">

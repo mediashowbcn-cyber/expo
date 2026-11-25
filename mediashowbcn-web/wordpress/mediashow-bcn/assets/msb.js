@@ -485,24 +485,28 @@
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
   }
+  let useVenue = null, venueImg = null;
   function setupExport() {
     const msg = $('export-msg'), input = $('venue-input');
     let venueUrl = null;
+    useVenue = (img, text) => {
+      if (venueUrl && venueUrl !== img.src && venueUrl.startsWith('blob:')) URL.revokeObjectURL(venueUrl);
+      venueUrl = img.src; venueImg = img; photoCache = null;
+      Stage.setVenue(img);
+      $('venue-remove').hidden = false;
+      $('fit-panel').hidden = false;
+      document.querySelectorAll('.cam-preset').forEach(b => { b.hidden = true; });
+      $('cam-photo').hidden = false;
+      syncView();
+      msg.textContent = text;
+    };
     input.addEventListener('change', () => {
       const file = input.files && input.files[0];
       input.value = '';
       if (!file) return;
       if (!/^image\/(png|jpeg|webp)$/.test(file.type) || file.size > 15 * 1024 * 1024) { msg.textContent = 'Sube una foto JPG, PNG o WebP de hasta 15 MB.'; return; }
       const img = new Image();
-      img.onload = () => {
-        if (venueUrl) URL.revokeObjectURL(venueUrl);
-        venueUrl = img.src;
-        Stage.setVenue(img);
-        $('venue-remove').hidden = false;
-        $('fit-panel').hidden = false;
-        syncView();
-        msg.textContent = 'Foto cargada. Encaja la cámara con los controles de abajo y toca cada equipo para ajustar su tamaño.';
-      };
+      img.onload = () => useVenue(img, 'Foto cargada. Marca las 4 esquinas de algo rectangular del suelo para encajar la perspectiva.');
       img.onerror = () => { msg.textContent = 'No se ha podido leer la foto. Prueba con otra.'; };
       img.src = URL.createObjectURL(file);
     });
@@ -512,6 +516,9 @@
       venueUrl = null;
       $('venue-remove').hidden = true;
       $('fit-panel').hidden = true;
+      venueImg = null; photoCache = null;
+      document.querySelectorAll('.cam-preset').forEach(b => { b.hidden = false; });
+      $('cam-photo').hidden = true;
       Stage.setView({ tarima: true });
       msg.textContent = 'Foto quitada.';
     });
@@ -553,6 +560,7 @@
       $(id + '-val').textContent = PCT[k] ? Math.round(v[k] * 100) + u : k === 'warm' ? (v[k] > 0.05 ? 'cálida' : v[k] < -0.05 ? 'fría' : 'neutra') : Number(v[k]).toFixed(d).replace('.', ',') + u;
     });
     $('fit-grid').checked = v.grid;
+    $('fit-lock').checked = Stage.camLocked;
   }
   function setupFit() {
     Object.keys(FIT).forEach(k => $(FIT[k][0]).addEventListener('input', e => { Stage.setView({ [k]: Number(e.target.value) }); syncView(); }));
@@ -733,6 +741,107 @@
     $('fg-brush').addEventListener('input', e => Stage.brush(Number(e.target.value)));
     $('look-auto').addEventListener('click', () => { Stage.autoLook(); syncView(); });
     $('venue-remove').addEventListener('click', () => { setPaint(null); msg.textContent = ''; smsg.textContent = ''; $('cal-edit').hidden = true; ['space-undo', 'space-clear', 'space-adapt'].forEach(id => { $(id).hidden = true; }); });
+  }
+
+  /* Proyecto: guardado automático en este navegador, archivos de proyecto, deshacer y rehacer */
+  const IDB = {
+    open() {
+      return new Promise((res, rej) => {
+        try {
+          const r = indexedDB.open('msb-montaje', 1);
+          r.onupgradeneeded = () => r.result.createObjectStore('p');
+          r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+        } catch (e) { rej(e); }
+      });
+    },
+    async run(mode, fn) { const db = await IDB.open(); return new Promise((res, rej) => { const tx = db.transaction('p', mode), q = fn(tx.objectStore('p')); tx.oncomplete = () => res(q && q.result); tx.onerror = () => rej(tx.error); }); },
+    get: k => IDB.run('readonly', s => s.get(k)),
+    set: (k, v) => IDB.run('readwrite', s => s.put(v, k)),
+    del: k => IDB.run('readwrite', s => s.delete(k))
+  };
+  let photoCache = null, saveTimer = null, autosaveOn = false;
+  function project() {
+    const L = Stage.getLayout();
+    if (!L) return null;
+    if (venueImg && !photoCache) photoCache = Stage.photoData();
+    return {
+      app: 'msb', v: 1, savedAt: new Date().toISOString(),
+      ui: { packMode: state.packMode, guests: state.guests, hours: state.hours, space: state.space, zone: state.zone, dm: state.dm, date: state.date, extras: Object.assign({}, state.extras), name: $('client-name').value, phone: $('client-phone').value },
+      layout: L, photo: venueImg ? photoCache : null, mask: venueImg ? Stage.maskData() : null
+    };
+  }
+  function autosave() {
+    if (!autosaveOn) return;
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => { const P = project(); if (P) IDB.set('actual', P).catch(() => {}); }, 1200);
+  }
+  const loadImg = src => new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = src; });
+  async function loadProject(P) {
+    if (!P || P.app !== 'msb' || P.v !== 1) throw new Error('El archivo no es un proyecto de Media Show BCN.');
+    autosaveOn = false;
+    switchView('quoter');
+    const u = P.ui || {};
+    Object.assign(state, { packMode: u.packMode || 'auto', guests: u.guests || 100, hours: u.hours || S.includedHours, space: u.space || 'Interior', zone: u.zone || 'bcn', dm: u.dm || 'dm', date: u.date || '' });
+    EXTRAS.forEach(ex => { state.extras[ex.id] = Math.max(0, Math.min(ex.max, Number((u.extras || {})[ex.id]) || 0)); });
+    syncInputs();
+    $('space-select').value = state.space; $('zone-select').value = state.zone; $('date-input').value = state.date;
+    $('client-name').value = u.name || ''; $('client-phone').value = u.phone || '';
+    render();
+    if (P.photo) useVenue(await loadImg(P.photo), 'Proyecto recuperado con su foto.');
+    else if (venueImg) $('venue-remove').click();
+    photoCache = P.photo || null;
+    Stage.setLayout(P.layout);
+    if (P.mask) Stage.setMask(P.mask);
+    $('cal-edit').hidden = !Stage.hasCorners();
+    syncView(); render();
+    autosaveOn = true;
+  }
+  function setupProject() {
+    const msg = $('project-msg'), bar = $('restore-bar');
+    window.addEventListener('msb:history', e => {
+      $('undo-btn').disabled = !e.detail.undo; $('redo-btn').disabled = !e.detail.redo;
+      autosave();
+    });
+    $('undo-btn').addEventListener('click', () => Stage.undo());
+    $('redo-btn').addEventListener('click', () => Stage.redo());
+    document.addEventListener('keydown', e => {
+      if ($('view-quoter').hidden || !(e.ctrlKey || e.metaKey) || /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) return;
+      const k = e.key.toLowerCase();
+      if (k === 'z' && !e.shiftKey) { e.preventDefault(); Stage.undo(); }
+      else if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); Stage.redo(); }
+    });
+    $('project-save').addEventListener('click', () => {
+      const P = project();
+      if (!P) return;
+      const name = ($('client-name').value.trim() || 'montaje').toLowerCase().normalize('NFD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      download(new Blob([JSON.stringify(P)], { type: 'application/json' }), `mediashowbcn-${name}-${new Date().toISOString().slice(0, 10)}.msb.json`);
+      msg.textContent = 'Proyecto guardado. Ábrelo cuando quieras con «Abrir proyecto».';
+    });
+    $('project-input').addEventListener('change', async () => {
+      const file = $('project-input').files[0];
+      $('project-input').value = '';
+      if (!file) return;
+      try { await loadProject(JSON.parse(await file.text())); msg.textContent = 'Proyecto abierto: ' + file.name + '.'; }
+      catch (e) { msg.textContent = (e && e.message && /proyecto/.test(e.message)) ? e.message : 'No se ha podido abrir el archivo. Elige un archivo .msb.json guardado desde el cotizador.'; autosaveOn = true; }
+    });
+    $('restore-yes').addEventListener('click', async () => {
+      bar.hidden = true;
+      try { await loadProject(await IDB.get('actual')); msg.textContent = 'Montaje recuperado.'; }
+      catch (e) { msg.textContent = 'No se ha podido recuperar el montaje.'; autosaveOn = true; }
+    });
+    $('restore-no').addEventListener('click', () => { bar.hidden = true; IDB.del('actual').catch(() => {}); autosaveOn = true; });
+    // Al abrir el cotizador: si hay un montaje sin terminar, ofrece recuperarlo.
+    IDB.get('actual').then(P => {
+      if (P && P.savedAt && P.layout) {
+        const when = new Date(P.savedAt).toLocaleString('es-ES', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+        $('restore-text').textContent = `Tienes un montaje sin terminar del ${when}${P.ui && P.ui.name ? ' (' + P.ui.name + ')' : ''}${P.photo ? ', con la foto del espacio' : ''}.`;
+        bar.hidden = false;
+      } else autosaveOn = true;
+    }).catch(() => { autosaveOn = true; });
+    ['guests-range', 'pack-select', 'hours-select', 'space-select', 'zone-select', 'dm-select', 'date-input', 'client-name', 'client-phone']
+      .forEach(id => $(id).addEventListener('change', autosave));
+    $('extras-list').addEventListener('click', autosave);
+    $('fit-lock').addEventListener('change', e => Stage.lockCam(e.target.checked));
   }
 /* ===================== ESCENARIO 3D (Three.js r128) ===================== */
 const Stage = (() => {
@@ -1153,7 +1262,7 @@ const Stage = (() => {
     if (ry !== undefined) o.rotation.y = ry;
   }
   const fill = (list, n, make) => { while (list.length < n) list.push(make(list.length)); return list; };
-  const notify = () => window.dispatchEvent(new CustomEvent('msb:montage'));
+  const notify = () => { window.dispatchEvent(new CustomEvent('msb:montage')); queueCommit(); };
 
   /* Modelos 3D reales (.glb) subidos en WooCommerce: sustituyen al modelo dibujado. */
   function make(kind, fallback) {
@@ -1468,6 +1577,7 @@ const Stage = (() => {
       const tap = down && !down.moved;
       if (tap) select(dragObj || down.target || (e.type === 'pointerup' ? pick(e) : null));
       else if (dragObj && dragObj === selected) notify();
+      else if (dragObj) queueCommit();
       down = null;
       if (!dragObj) return;
       dragObj = null; controls.enabled = true; canvas.style.cursor = '';
@@ -1476,7 +1586,7 @@ const Stage = (() => {
     canvas.addEventListener('pointercancel', end);
     canvas.addEventListener('dblclick', e => {
       const o = pick(e);
-      if (o && !o.userData.fixed) { o.rotation.y += Math.PI / 4; o.userData.moved = true; }
+      if (o && !o.userData.fixed) { o.rotation.y += Math.PI / 4; o.userData.moved = true; queueCommit(); }
     });
   }
 
@@ -1773,6 +1883,7 @@ const Stage = (() => {
     if (cfg.lectern) leg.push('Atril');
     leg.push(pal.label);
     $('stage-legend').innerHTML = leg.map(t => `<span>${t}</span>`).join('');
+    queueCommit();
   }
 
   function animateRig(t) {
@@ -1919,7 +2030,7 @@ const Stage = (() => {
     };
     el.addEventListener('pointerdown', e => { if (fg.editing && !fg.mode) { cornerDown(e); return; } if (!fg.mode) return; painting = true; el.setPointerCapture(e.pointerId); dab(e); });
     el.addEventListener('pointermove', e => { if (fg.editing && !fg.mode) { cornerMove(e); return; } if (painting) dab(e); });
-    const stop = () => { painting = false; cornerDrag = -1; };
+    const stop = () => { if (cornerDrag >= 0) queueCommit(); painting = false; cornerDrag = -1; };
     el.addEventListener('pointerup', stop); el.addEventListener('pointercancel', stop);
   }
   function layoutFg() {
@@ -2020,6 +2131,7 @@ const Stage = (() => {
     controls.target.set(res.pos[0] + res.fwd[0] * res.depth, res.pos[1] + res.fwd[1] * res.depth, res.pos[2] + res.fwd[2] * res.depth);
     fitBg(camera.aspect);
     controls.update();
+    savePhotoCam();
     if (SPACE) SPACE = null, drawSpace();
   }
   const calibEvent = (res, live) => window.dispatchEvent(new CustomEvent('msb:calib', { detail: { done: true, live: !!live, ok: res.ok, msg: res.msg || '', fov: res.ok ? Math.round(res.fov) : 0, height: res.ok ? +res.pos[1].toFixed(2) : 0, estimated: !!res.estimated } }));
@@ -2029,7 +2141,7 @@ const Stage = (() => {
     const res = solveCamera(fg.pts, fg.calib.w, fg.calib.d, venueFov);
     fg.lastCalib = { w: fg.calib.w, d: fg.calib.d };
     fg.calib = null;
-    if (res.ok) { applySolve(res); fg.corners = fg.pts.map(p => p.slice()); editCorners(true); }
+    if (res.ok) { applySolve(res); fg.corners = fg.pts.map(p => p.slice()); editCorners(true); queueCommit(); }
     else { fg.pts = null; drawFg(); }
     calibEvent(res);
   }
@@ -2101,7 +2213,7 @@ const Stage = (() => {
     const p = floorAt(e);
     if (!p) return;
     const P = SPACE.pts;
-    if (P.length > 2 && Math.hypot(p[0] - P[0][0], p[1] - P[0][1]) < 0.35) { SPACE.closed = true; SPACE.drawing = false; }
+    if (P.length > 2 && Math.hypot(p[0] - P[0][0], p[1] - P[0][1]) < 0.35) { SPACE.closed = true; SPACE.drawing = false; queueCommit(); }
     else P.push(p);
     drawSpace(); spaceEvent();
   }
@@ -2151,20 +2263,116 @@ const Stage = (() => {
     controls.update();
     const Q = SPACE.pts, xs = Q.map(p => p[0]), zs = Q.map(p => p[1]);
     const depth = Math.max(...zs) - Math.min(...zs);
-    draggables.filter(o => o.userData.hung).forEach(o => hang(o, false));
-    draggables.forEach(o => { o.userData.moved = false; if (o.userData.kind !== 'truss') o.rotation.y = 0; });
-    rig.truss.rotation.y = 0;
-    Object.assign(TR, { w: Math.max(2, Math.min(TR0.w, len - 1)) }); buildTrussGeo(); layoutTruss();
-    Object.assign(TAR, { w: Math.max(1, Math.min(TAR.w, len - 0.4)), d: Math.max(1, Math.min(TAR.d, depth * 0.45)) }); buildTarima(); relevel();
+    // Lo que ya colocaste a mano se mantiene en el mismo sitio de la sala; el resto toma su sitio por defecto.
+    draggables.forEach(o => {
+      if (!o.userData.moved || o.userData.hung) return;
+      const v = o.position.clone().applyMatrix4(Mt);
+      o.rotation.y += yaw;
+      place(o, v.x, v.z);
+    });
+    if (TR.w > len - 1) { TR.w = Math.max(2, len - 1); buildTrussGeo(); layoutTruss(); }
+    if (TAR.w > len - 0.4 || TAR.d > depth * 0.45) { Object.assign(TAR, { w: Math.max(1, Math.min(TAR.w, len - 0.4)), d: Math.max(1, Math.min(TAR.d, depth * 0.45)) }); buildTarima(); relevel(); }
     update(lastState);
     draggables.forEach(o => {
       if (!o.visible || o.userData.hung) return;
       const [x, z] = pullInside(Q, o.position.x, o.position.z, 0.45);
       if (x !== o.position.x || z !== o.position.z) place(o, x, z);
     });
+    savePhotoCam();
     drawSpace(); spaceEvent(); notify();
     return { ok: true, back: +len.toFixed(1), depth: +depth.toFixed(1), area: +polyArea(Q).toFixed(1), minX: Math.min(...xs) };
   }
+  /* Con foto, la cámara queda fija para no descuadrar el montaje (se puede desbloquear). */
+  let camLock = false, photoCam = null;
+  function lockCam(v) {
+    camLock = !!v && !!bgImg;
+    controls.enableRotate = !camLock; controls.enableZoom = !camLock;
+  }
+  const savePhotoCam = () => { photoCam = { pos: camera.position.toArray(), target: controls.target.toArray(), fov: venueFov }; };
+  function photoView() {
+    if (!photoCam) return;
+    camera.position.fromArray(photoCam.pos); controls.target.fromArray(photoCam.target);
+    venueFov = photoCam.fov; fitBg(camera.aspect); controls.update();
+  }
+
+  /* ---------- Guardar, recuperar y deshacer el montaje ---------- */
+  const r3 = v => Math.round(v * 1000) / 1000;
+  const POOLS = ['speakers', 'trx', 'mics', 'screens', 'totems', 'cams', 'towers'], SINGLE = ['booth', 'lectern', 'foh'];
+  function itemState(o) {
+    const u = o.userData;
+    return { x: r3(o.position.x), y: r3(o.position.y), z: r3(o.position.z), ry: r3(o.rotation.y), s: r3(o.scale.x), lift: u.lift || 0, size: u.size || 1, inch: u.inch || 55, moved: !!u.moved, hung: !!u.hung, dims: u.dims, towerH: u.towerH, head: u.head };
+  }
+  function getLayout() {
+    const items = { walls: {} };
+    POOLS.forEach(k => { items[k] = (rig[k] || []).map(itemState); });
+    SINGLE.forEach(k => { items[k] = [itemState(rig[k])]; });
+    Object.keys(rig.walls).forEach(k => { items.walls[k] = itemState(rig.walls[k]); });
+    return {
+      v: 1, items, truss: Object.assign(itemState(rig.truss), { w: TR.w, h: TR.h }), tar: { w: TAR.w, d: TAR.d, h: TAR.h },
+      cam: { pos: camera.position.toArray().map(r3), target: controls.target.toArray().map(r3), fov: r3(bgImg ? venueFov : camera.fov) },
+      look: Object.assign({}, LOOK), shadow: rig.floor.material.isShadowMaterial ? rig.floor.material.opacity : null,
+      space: SPACE ? { pts: SPACE.pts.map(p => p.map(r3)), closed: !!SPACE.closed } : null,
+      corners: fg.corners ? fg.corners.map(p => p.slice()) : null, lastCalib: fg.lastCalib || null, photoCam, camLock, grid: rig.grid.visible
+    };
+  }
+  function applyItem(o, st) {
+    if (!o || !st) return o;
+    let t = o;
+    const u = o.userData;
+    if (u.kind === 'wall' && st.dims && (st.dims[0] !== u.dims[0] || st.dims[1] !== u.dims[1])) t = rebuildWall(t, st.dims[0], st.dims[1]);
+    if (u.kind === 'tower' && st.towerH && (st.towerH !== u.towerH || !!st.head !== !!u.head)) t = rebuildTower(t, st.towerH, !!st.head);
+    if (!!st.hung !== !!t.userData.hung) t = hang(t, !!st.hung);
+    Object.assign(t.userData, { lift: st.lift, size: st.size, inch: st.inch, moved: st.moved });
+    t.scale.setScalar(st.s || 1);
+    if (t.userData.hung) { t.position.x = st.x; hungLayout(t); }
+    else if (st.moved) { t.rotation.y = st.ry; place(t, st.x, st.z); }
+    return t;
+  }
+  function setLayout(L) {
+    if (!L || L.v !== 1 || !inited) return;
+    Object.assign(TR, { w: L.truss.w, h: L.truss.h }); buildTrussGeo(); layoutTruss();
+    Object.assign(TAR, L.tar); buildTarima(); relevel();
+    rig.truss.userData.moved = !!L.truss.moved;
+    if (L.truss.moved) { rig.truss.rotation.y = L.truss.ry; place(rig.truss, L.truss.x, L.truss.z); }
+    update(lastState);
+    POOLS.forEach(k => (L.items[k] || []).forEach((st, i) => { if (rig[k][i]) rig[k][i] = applyItem(rig[k][i], st); }));
+    SINGLE.forEach(k => { rig[k] = applyItem(rig[k], (L.items[k] || [])[0]); });
+    Object.keys(L.items.walls || {}).forEach(k => { if (rig.walls[k]) rig.walls[k] = applyItem(rig.walls[k], L.items.walls[k]); });
+    camera.position.fromArray(L.cam.pos); controls.target.fromArray(L.cam.target);
+    if (bgImg) { venueFov = L.cam.fov; fitBg(camera.aspect); } else { camera.fov = L.cam.fov; camera.updateProjectionMatrix(); }
+    Object.assign(LOOK, L.look); applyLook();
+    if (L.shadow !== null && rig.floor.material.isShadowMaterial) rig.floor.material.opacity = L.shadow;
+    SPACE = L.space ? { pts: L.space.pts.map(p => p.slice()), closed: L.space.closed, drawing: false } : null;
+    fg.corners = L.corners ? L.corners.map(p => p.slice()) : null; fg.lastCalib = L.lastCalib; fg.editing = false; fg.pts = null;
+    photoCam = L.photoCam || null; lockCam(L.camLock);
+    rig.grid.visible = !!L.grid;
+    drawSpace(); drawFg();
+    update(lastState);
+    controls.update();
+    select(null);
+    spaceEvent();
+  }
+  const hist = { past: [], future: [] };
+  let histLock = 0, commitTimer = null;
+  function queueCommit() { clearTimeout(commitTimer); commitTimer = setTimeout(commit, 250); }
+  function commit() {
+    if (!inited || performance.now() < histLock) return;
+    const snap = JSON.stringify(getLayout());
+    if (hist.past[hist.past.length - 1] === snap) return;
+    hist.past.push(snap); if (hist.past.length > 80) hist.past.shift();
+    hist.future = [];
+    histEvent();
+  }
+  const histEvent = () => window.dispatchEvent(new CustomEvent('msb:history', { detail: { undo: hist.past.length > 1, redo: hist.future.length > 0 } }));
+  function restore(snap) {
+    histLock = performance.now() + 800;
+    setLayout(JSON.parse(snap));
+    window.dispatchEvent(new CustomEvent('msb:montage'));
+    histEvent();
+  }
+  function undo() { if (hist.past.length < 2) return; hist.future.push(hist.past.pop()); restore(hist.past[hist.past.length - 1]); }
+  function redo() { if (!hist.future.length) return; const sn = hist.future.pop(); hist.past.push(sn); restore(sn); }
+
   function setVenue(img) {
     if (!inited) return;
     bgImg = img || null;
@@ -2185,12 +2393,14 @@ const Stage = (() => {
       } catch (e) { scene.environment = null; }
       setView({ height: 1.6, aim: 1.3, fov: 55, dist: 12 });
       autoLook();
+      savePhotoCam(); lockCam(true);
     } else {
       scene.background = new THREE.Color(0x08090c); scene.fog = new THREE.FogExp2(0x08090c, 0.032);
       if (scene.environment) { scene.environment.dispose(); scene.environment = null; }
       Object.assign(LOOK, { light: 1, warm: 0, dir: 27 }); applyLook(); rig.grid.visible = false;
       fg.photo = null; fg.has = false; fg.pts = null; drawFg();
       camera.fov = 42; camera.updateProjectionMatrix(); controls.maxDistance = 22;
+      photoCam = null; lockCam(false);
       rig.floor.material = M.floor;
       rig.drape.visible = true;
     }
@@ -2216,6 +2426,8 @@ const Stage = (() => {
       applyLook();
     }
     if (v.grid !== undefined) rig.grid.visible = !!v.grid;
+    if (bgImg && (v.height !== undefined || v.dist !== undefined || v.fov !== undefined || v.aim !== undefined)) savePhotoCam();
+    queueCommit();
     controls.update();
   }
 
@@ -2289,7 +2501,7 @@ const Stage = (() => {
       const saved = camera.position.clone();
       const off = new THREE.Vector3().subVectors(saved, controls.target);
       // Con foto de fondo la cámara apenas se mueve para que el montaje siga encajando.
-      const sweep = bgImg ? 0.12 : Math.PI * 0.9;
+      const sweep = bgImg ? 0 : Math.PI * 0.9;
       rec = { start: performance.now(), dur: seconds, sweep, r: bgImg ? Math.hypot(off.x, off.z) : Math.max(8, Math.hypot(off.x, off.z)), h: bgImg ? saved.y : Math.max(2.4, saved.y), a0: Math.atan2(off.x, off.z), ctx: c.getContext('2d'), mark: o.mark };
       const restore = hiRes(o.w, o.h);
       const chunks = [];
@@ -2315,7 +2527,7 @@ const Stage = (() => {
   return {
     init,
     update,
-    setActive(v) { active = v; if (v) resize(); },
+    setActive(v) { active = v; if (v) { resize(); queueCommit(); } },
     setLogo(img) { logoImg = img; if (inited) { drawTotem(); drawLed(clock.getElapsedTime()); } },
     resetLayout() { if (inited) resetLayout(); },
     setVenue,
@@ -2348,7 +2560,21 @@ const Stage = (() => {
     snapshot,
     record,
     get recording() { return !!rec; },
+    getLayout() { return inited ? getLayout() : null; },
+    setLayout(L) { setLayout(L); hist.past = []; hist.future = []; commit(); },
+    undo, redo,
+    lockCam(v) { lockCam(v); },
+    get camLocked() { return camLock; },
+    photoData() { return fg.photo ? fg.photo.toDataURL('image/jpeg', 0.88) : null; },
+    maskData() { return fg.has && fg.mask ? fg.mask.toDataURL('image/png') : null; },
+    setMask(url) {
+      if (!url || !fg.mask) return;
+      const im = new Image();
+      im.onload = () => { const g = fg.mask.getContext('2d'); g.clearRect(0, 0, fg.mask.width, fg.mask.height); g.drawImage(im, 0, 0, fg.mask.width, fg.mask.height); fg.has = true; rebuildCut(); };
+      im.src = url;
+    },
     cam(preset) {
+      if (preset === 'photo') { photoView(); return; }
       const presets = { front: [0, 3.4, 10], audience: [5.5, 2.2, 8.5], back: [0.8, 3.6, -9.5] };
       setCam(presets[preset] || presets.front);
     }
@@ -2369,6 +2595,7 @@ const Stage = (() => {
   setupInspector();
   setupAddBar();
   setupIntegrate();
+  setupProject();
   if (D.models3d) Stage.setModels(D.models3d);
   if (S.pro) document.querySelectorAll('.pro-only').forEach(el => { el.hidden = false; });
   else $('export-note').hidden = false;
