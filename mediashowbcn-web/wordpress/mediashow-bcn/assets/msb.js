@@ -780,6 +780,7 @@
     if (!P || P.app !== 'msb' || P.v !== 1) throw new Error('El archivo no es un proyecto de Media Show BCN.');
     autosaveOn = false;
     switchView('quoter');
+    if (!(await Stage.ready())) throw new Error('Tu navegador no puede mostrar el escenario 3D.');
     const u = P.ui || {};
     Object.assign(state, { packMode: u.packMode || 'auto', guests: u.guests || 100, hours: u.hours || S.includedHours, space: u.space || 'Interior', zone: u.zone || 'bcn', dm: u.dm || 'dm', date: u.date || '' });
     EXTRAS.forEach(ex => { state.extras[ex.id] = Math.max(0, Math.min(ex.max, Number((u.extras || {})[ex.id]) || 0)); });
@@ -832,6 +833,7 @@
     $('restore-no').addEventListener('click', () => { bar.hidden = true; IDB.del('actual').catch(() => {}); autosaveOn = true; });
     // Al abrir el cotizador: si hay un montaje sin terminar, ofrece recuperarlo.
     IDB.get('actual').then(P => {
+      if (D.share) return;
       if (P && P.savedAt && P.layout) {
         const when = new Date(P.savedAt).toLocaleString('es-ES', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
         $('restore-text').textContent = `Tienes un montaje sin terminar del ${when}${P.ui && P.ui.name ? ' (' + P.ui.name + ')' : ''}${P.photo ? ', con la foto del espacio' : ''}.`;
@@ -860,6 +862,98 @@
         msg.textContent = `Render final ${o.label} descargado.`;
       } catch (e) { msg.textContent = e.message; }
       btn.removeAttribute('aria-disabled');
+    });
+  }
+
+  /* Realidad aumentada: el montaje a escala real en la sala, desde el móvil */
+  const MV = 'https://cdn.jsdelivr.net/npm/@google/model-viewer@3.5.0/dist/model-viewer.min.js';
+  const QR = 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js';
+  const loadScript = src => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
+  let shareUrl = (D.share && location.href) || '';
+  async function drawQR(canvas, text) {
+    if (!window.qrcode) await loadScript(QR);
+    const q = window.qrcode(0, 'M'); q.addData(text); q.make();
+    const n = q.getModuleCount(), px = 6, m = 4, size = (n + m * 2) * px, g = canvas.getContext('2d');
+    canvas.width = canvas.height = size;
+    g.fillStyle = '#fff'; g.fillRect(0, 0, size, size); g.fillStyle = '#0A0A0A';
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (q.isDark(r, c)) g.fillRect((c + m) * px, (r + m) * px, px, px);
+  }
+  async function openAR() {
+    const dlg = $('ar-dialog'), msg = $('ar-msg');
+    msg.textContent = 'Preparando el modelo 3D de tu montaje…';
+    dlg.showModal();
+    try {
+      const [glb] = await Promise.all([Stage.exportGLB(), customElements.get('model-viewer') ? null : import(MV)]);
+      const mv = $('ar-view');
+      if (mv.dataset.url) URL.revokeObjectURL(mv.dataset.url);
+      mv.dataset.url = URL.createObjectURL(new Blob([glb], { type: 'model/gltf-binary' }));
+      mv.src = mv.dataset.url;
+      await customElements.whenDefined('model-viewer');
+      const can = mv.canActivateAR;
+      $('ar-go').hidden = !can;
+      $('ar-qr-box').hidden = can;
+      if (can) msg.textContent = 'Pulsa «Ver en tu espacio», apunta al suelo y toca donde quieras el escenario. Está a tamaño real.';
+      else if (shareUrl) { await drawQR($('ar-qr'), shareUrl); msg.textContent = 'Escanea el código con el móvil, abre el montaje y pulsa «Ver en tu espacio».'; }
+      else msg.textContent = 'Para verlo en tu sala, abre este montaje en un móvil (Android con Chrome o iPhone con Safari). Media Show BCN te puede enviar el enlace.';
+    } catch (e) { msg.textContent = 'No se ha podido preparar la vista AR. Inténtalo de nuevo en unos segundos.'; }
+  }
+
+  /* Enviar al cliente (equipo) y vista del cliente */
+  function setupShare() {
+    $('ar-btn').addEventListener('click', openAR);
+    $('ar-go').addEventListener('click', () => $('ar-view').activateAR());
+    $('ar-close').addEventListener('click', () => $('ar-dialog').close());
+    if (D.adminNonce) {
+      $('share-box').hidden = false;
+      $('share-btn').addEventListener('click', async () => {
+        const msg = $('share-msg'), P = project();
+        if (!P) return;
+        msg.textContent = 'Guardando la propuesta…';
+        const fd = new FormData();
+        fd.append('action', 'msb_share_save'); fd.append('nonce', D.adminNonce);
+        fd.append('project', JSON.stringify(P)); fd.append('total', $('quote-total').textContent);
+        try {
+          const json = await (await fetch(D.ajax, { method: 'POST', body: fd, credentials: 'same-origin' })).json();
+          if (!json.success) throw new Error((json.data && json.data.message) || 'No se ha podido guardar la propuesta.');
+          shareUrl = json.data.url;
+          $('share-link').value = shareUrl; $('share-out').hidden = false;
+          const name = $('client-name').value.trim();
+          $('share-wa').href = 'https://wa.me/?text=' + encodeURIComponent(`Hola${name ? ' ' + name : ''}, aquí tienes la propuesta de Media Show BCN para tu evento, en 3D y con presupuesto: ${shareUrl}`);
+          await drawQR($('share-qr'), shareUrl);
+          msg.textContent = 'Enlace listo. Verás en «Media Show BCN → Propuestas 3D» cuándo lo abre y si lo aprueba.';
+        } catch (e) { msg.textContent = e.message; }
+      });
+      $('share-copy').addEventListener('click', async () => {
+        try { await navigator.clipboard.writeText($('share-link').value); $('share-msg').textContent = 'Enlace copiado.'; }
+        catch (e) { $('share-link').select(); $('share-msg').textContent = 'Selecciona el enlace y cópialo.'; }
+      });
+    }
+    if (!D.share) return;
+    // Vista del cliente: carga la propuesta guardada.
+    const bar = $('share-bar');
+    (async () => {
+      try {
+        const P = await (await fetch(D.share.json, { credentials: 'same-origin' })).json();
+        await loadProject(P);
+        autosaveOn = false;
+        $('restore-bar').hidden = true;
+        bar.hidden = false;
+        $('share-title').textContent = 'Propuesta 3D' + (D.share.client ? ' para ' + D.share.client : '') + ' · Media Show BCN';
+        if (D.share.status === 'aprobada') { $('share-approve').hidden = true; $('share-state').textContent = 'Propuesta aprobada. ¡Gracias!'; }
+        const fd = new FormData(); fd.append('action', 'msb_share_seen'); fd.append('nonce', D.shareNonce); fd.append('token', D.share.token);
+        fetch(D.ajax, { method: 'POST', body: fd, credentials: 'same-origin' }).catch(() => {});
+      } catch (e) { bar.hidden = false; $('share-title').textContent = 'No se ha podido cargar la propuesta. Pide a Media Show BCN un enlace nuevo.'; }
+    })();
+    $('share-changes').href = `https://wa.me/${S.whatsapp}?text=` + encodeURIComponent('Hola Media Show BCN, he visto la propuesta 3D y me gustaría cambiar: ');
+    $('share-approve').addEventListener('click', async () => {
+      const fd = new FormData(); fd.append('action', 'msb_share_approve'); fd.append('nonce', D.shareNonce); fd.append('token', D.share.token);
+      try {
+        const json = await (await fetch(D.ajax, { method: 'POST', body: fd, credentials: 'same-origin' })).json();
+        if (!json.success) throw new Error(json.data && json.data.message);
+        $('share-approve').hidden = true;
+        $('share-state').textContent = D.shop ? 'Propuesta aprobada. Para confirmar la fecha, marca la casilla de privacidad y paga la reserva aquí abajo.' : 'Propuesta aprobada. Te escribimos enseguida para confirmar la fecha.';
+        if (D.shop) { $('consent-check').scrollIntoView({ behavior: 'smooth', block: 'center' }); $('consent-check').focus(); }
+      } catch (e) { $('share-state').textContent = (e && e.message) || 'No se ha podido aprobar. Escríbenos por WhatsApp.'; }
     });
   }
 /* ===================== ESCENARIO 3D (Three.js r128) ===================== */
@@ -1482,13 +1576,15 @@ const Stage = (() => {
   }
 
 
+  let readyResolve;
+  const readyP = new Promise(r => { readyResolve = r; });
   function init() {
     if (inited || failed) return;
     if (!window.THREE || !THREE.OrbitControls) { setTimeout(init, 150); return; }
     const canvas = $('canvas-3d');
     try {
       renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-    } catch (e) { failed = true; $('stage-fallback').hidden = false; return; }
+    } catch (e) { failed = true; $('stage-fallback').hidden = false; readyResolve(false); return; }
     inited = true;
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
@@ -1579,6 +1675,8 @@ const Stage = (() => {
     resize();
     setCamPreset('front');
     loop();
+    readyResolve(true);
+    window.dispatchEvent(new CustomEvent('msb:ready'));
   }
 
   /* Arrastrar mueve el equipo; un toque lo selecciona para ajustarlo; doble clic lo gira 45°. */
@@ -2382,6 +2480,22 @@ const Stage = (() => {
     venueFov = photoCam.fov; fitBg(camera.aspect); controls.update();
   }
 
+  /* Modelo .glb del montaje para la realidad aumentada (sin haces, humo, etiquetas ni sombras falsas). */
+  function exportGLB() {
+    return new Promise((res, rej) => {
+      if (!inited || !THREE.GLTFExporter) return rej(new Error('El visor 3D aún no está listo. Espera un momento y vuelve a intentarlo.'));
+      const hidden = [];
+      scene.traverse(o => {
+        const fx = (o.isMesh && o.material && (o.material.blending === THREE.AdditiveBlending || o.userData.isBlob)) || o.isPoints || o.isSprite || o.isLine;
+        if (fx && o.visible) { hidden.push(o); o.visible = false; }
+      });
+      const roots = [rig.truss, rig.tarima].concat(draggables, rig.heads.map(h => h.g), rig.bars.map(b => b.g))
+        .filter((o, i, a) => o && o.visible && o.parent === scene && a.indexOf(o) === i);
+      const back = () => hidden.forEach(o => { o.visible = true; });
+      new THREE.GLTFExporter().parse(roots, glb => { back(); res(glb); }, err => { back(); rej(err); }, { binary: true, onlyVisible: true });
+    });
+  }
+
   /* ---------- Guardar, recuperar y deshacer el montaje ---------- */
   const r3 = v => Math.round(v * 1000) / 1000;
   const POOLS = ['speakers', 'trx', 'mics', 'screens', 'totems', 'cams', 'towers'], SINGLE = ['booth', 'lectern', 'foh'];
@@ -2689,6 +2803,8 @@ const Stage = (() => {
     get modern() { return !!composer; },
     get recording() { return !!rec; },
     getLayout() { return inited ? getLayout() : null; },
+    exportGLB,
+    ready() { return readyP; },
     setLayout(L) { setLayout(L); hist.past = []; hist.future = []; commit(); },
     undo, redo,
     lockCam(v) { lockCam(v); },
@@ -2725,6 +2841,8 @@ const Stage = (() => {
   setupIntegrate();
   setupProject();
   setupHQ();
+  setupShare();
+  window.addEventListener('msb:ready', () => render());
   if (D.models3d) Stage.setModels(D.models3d);
   if (S.pro) document.querySelectorAll('.pro-only').forEach(el => { el.hidden = false; });
   else $('export-note').hidden = false;

@@ -199,6 +199,15 @@ $msb_ld = array(
 			<div>
 				<h2 class="sec-title" style="margin-top:4px;">Cotizador técnico 3D</h2>
 				<p class="sec-sub" style="margin-bottom:14px;">Ajusta aforo, horas y extras. El escenario y el precio cambian al momento.</p>
+				<div class="share-bar" id="share-bar" hidden role="region" aria-labelledby="share-title">
+					<strong id="share-title">Propuesta 3D</strong>
+					<span id="share-state">Revisa tu montaje: puedes girarlo, ver el presupuesto y verlo en tu sala con el móvil.</span>
+					<div class="insp-btns">
+						<button type="button" class="btn btn-sm btn-pri" id="share-approve">Aprobar propuesta</button>
+						<a class="btn btn-sm" id="share-changes" href="#" target="_blank" rel="noopener">Pedir cambios</a>
+						<button type="button" class="btn btn-sm" onclick="document.getElementById('ar-btn').click()">Ver en tu espacio (AR)</button>
+					</div>
+				</div>
 				<div class="restore-bar" id="restore-bar" hidden role="status">
 					<span id="restore-text"></span>
 					<button type="button" class="btn btn-sm btn-pri" id="restore-yes">Recuperar</button>
@@ -282,6 +291,7 @@ $msb_ld = array(
 							<button type="button" class="btn btn-sm cam-preset" onclick="setCamPreset('back')">Trasera 360°</button>
 							<button type="button" class="btn btn-sm" id="cam-photo" hidden onclick="setCamPreset('photo')">Vista de la foto</button>
 							<button type="button" class="btn btn-sm" onclick="resetLayout()">Recolocar</button>
+							<button type="button" class="btn btn-sm btn-pri" id="ar-btn">Ver en tu espacio (AR)</button>
 						</div>
 					</div>
 				</div>
@@ -324,7 +334,25 @@ $msb_ld = array(
 				    <label for="project-input" class="btn btn-sm" style="margin:0;">Abrir proyecto</label>
 				  </div>
 				  <p class="msg" id="project-msg" role="status"></p>
+				  <div class="share-box" id="share-box" hidden>
+				    <strong>Enviar al cliente</strong>
+				    <span class="msg" style="margin:0;">Crea un enlace privado: el cliente ve el montaje en 3D y en su sala (AR), el presupuesto, y puede aprobarlo y pagar la reserva.</span>
+				    <button type="button" class="btn btn-sm btn-pri" id="share-btn">Crear enlace para el cliente</button>
+				    <div class="share-out" id="share-out" hidden>
+				      <input type="text" id="share-link" readonly aria-label="Enlace para el cliente" />
+				      <div class="insp-btns"><button type="button" class="btn btn-sm" id="share-copy">Copiar</button><a class="btn btn-sm" id="share-wa" href="#" target="_blank" rel="noopener">Enviar por WhatsApp</a></div>
+				      <canvas id="share-qr" width="10" height="10" aria-label="Código QR del enlace"></canvas>
+				    </div>
+				    <p class="msg" id="share-msg" role="status"></p>
+				  </div>
 				</div>
+				<dialog class="ar-dialog" id="ar-dialog" aria-labelledby="ar-title">
+				  <div class="ar-head"><strong id="ar-title">Tu montaje en tu espacio</strong><button type="button" id="ar-close" aria-label="Cerrar">×</button></div>
+				  <model-viewer id="ar-view" ar ar-modes="webxr scene-viewer quick-look" ar-placement="floor" ar-scale="fixed" camera-controls shadow-intensity="1" exposure="1.1" alt="Montaje 3D de Media Show BCN" style="width:100%;height:min(60vh,520px);background:#111;"></model-viewer>
+				  <p class="msg" id="ar-msg" role="status"></p>
+				  <button type="button" class="btn btn-pri" id="ar-go" hidden>Ver en tu espacio</button>
+				  <div id="ar-qr-box" hidden><canvas id="ar-qr" width="10" height="10" aria-label="Código QR para abrir en el móvil"></canvas></div>
+				</dialog>
 
 				<div class="panel-box">
 					<h3>1. Pack, aforo y espacio</h3>

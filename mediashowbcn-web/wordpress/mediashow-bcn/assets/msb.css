@@ -356,3 +356,18 @@ details.fit-sec[open] { gap: 10px; }
 .project-row strong { font-size: 13px; }
 .project-row .msg { flex: 1 1 220px; font-size: 12px; }
 .btn:disabled { opacity: .45; cursor: not-allowed; }
+
+.share-bar { display: grid; gap: 8px; margin: 0 0 12px; padding: 14px; background: linear-gradient(120deg, #1b120f, #111); border: 1px solid #E65837; border-radius: 14px; }
+.share-bar[hidden], .share-box[hidden], .share-out[hidden], #ar-qr-box[hidden] { display: none; }
+.share-bar strong { font-family: 'Bebas Neue', sans-serif; font-size: 24px; letter-spacing: .5px; color: #F4F0E8; }
+.share-bar span { font-size: 13.5px; color: #A6A49E; }
+.share-box { display: grid; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid #222; }
+.share-out { display: grid; gap: 8px; }
+.share-out input { background: #0f0f10; color: #F4F0E8; border: 1px solid #2a2a2a; border-radius: 8px; padding: 8px 10px; font: inherit; font-size: 13px; }
+#share-qr, #ar-qr { width: 160px; height: 160px; image-rendering: pixelated; border-radius: 8px; }
+.ar-dialog { width: min(720px, calc(100vw - 24px)); background: #0A0A0A; color: #F4F0E8; border: 1px solid #2a2a2a; border-radius: 16px; padding: 14px; }
+.ar-dialog::backdrop { background: rgba(0,0,0,.7); }
+.ar-dialog[open] { display: grid; gap: 10px; }
+.ar-head { display: flex; justify-content: space-between; align-items: center; }
+.ar-head strong { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: .5px; }
+.ar-head button { background: none; border: 0; color: #F4F0E8; font-size: 26px; cursor: pointer; }

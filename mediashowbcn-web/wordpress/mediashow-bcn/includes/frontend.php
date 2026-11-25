@@ -74,6 +74,9 @@ add_action(
 				'nonce'    => wp_create_nonce( 'msb_reserve' ),
 				'privacy'  => $links['privacidad'],
 				'terms'    => $links['condiciones'],
+				'share'    => msb_share_for_request(),
+				'shareNonce' => wp_create_nonce( 'msb_share_view' ),
+				'adminNonce' => current_user_can( 'manage_woocommerce' ) ? wp_create_nonce( 'msb_share' ) : '',
 			)
 		);
 		wp_add_inline_script( 'msb-app', 'window.MSB = ' . wp_json_encode( $data ) . ';', 'before' );
