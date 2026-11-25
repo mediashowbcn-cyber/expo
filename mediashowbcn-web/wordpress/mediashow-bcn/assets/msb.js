@@ -566,7 +566,16 @@
     $('insp').hidden = !d;
     if (!d) return;
     $('insp-title').textContent = d.label;
-    const tar = d.kind === 'tarima', tow = d.kind === 'tower';
+    const tar = d.kind === 'tarima', tow = d.kind === 'tower', tru = d.kind === 'truss';
+    $('insp-truss-row').hidden = !tru;
+    $('insp-hang-row').hidden = !(d.kind === 'wall' || d.kind === 'screen');
+    if (d.kind === 'wall' || d.kind === 'screen') { $('insp-hang').checked = !!d.hung; $('insp-hang').disabled = !d.canHang && !d.hung; $('insp-hang-note').hidden = d.canHang || d.hung; }
+    if (tru) {
+      $('insp-trw').value = d.truss.w; $('insp-trh').value = d.truss.h;
+      ['insp-inch-row', 'insp-dims-row', 'insp-size-row', 'insp-lift-row', 'insp-tarima-row', 'insp-tower-row', 'insp-real'].forEach(id => { $(id).hidden = true; });
+      $('insp-rot').hidden = false;
+      return;
+    }
     $('insp-tarima-row').hidden = !tar;
     $('insp-tower-row').hidden = !tow;
     if (tow) {
@@ -595,6 +604,8 @@
     if (wall) { $('insp-w').value = d.dims[0]; $('insp-h').value = d.dims[1]; $('insp-m2').textContent = num(d.dims[0] * d.dims[1]) + ' m²'; }
     $('insp-lift').value = Math.round(d.lift * 100);
     $('insp-lift-val').textContent = num(d.lift) + ' m';
+    $('insp-lift-row').hidden = !!d.hung;
+    $('insp-rot').hidden = !!d.hung;
   }
   function setupInspector() {
     window.addEventListener('msb:select', e => showInspector(e.detail));
@@ -604,6 +615,9 @@
       set('tarima', { w: r($('insp-tw').value), d: r($('insp-td').value), h: r($('insp-th').value) });
     };
     ['insp-tw', 'insp-td', 'insp-th'].forEach(id => $(id).addEventListener('change', tdims));
+    const trs = () => { const r = v => Math.round(Number(v) * 4) / 4; set('truss', { w: r($('insp-trw').value), h: r($('insp-trh').value) }); };
+    $('insp-trw').addEventListener('change', trs); $('insp-trh').addEventListener('change', trs);
+    $('insp-hang').addEventListener('change', e => set('hang', e.target.checked));
     const tow = () => { const h = Math.round(Number($('insp-towh').value) * 4) / 4; if (h >= 1) set('tower', { h, head: $('insp-towhead').checked }); };
     $('insp-towh').addEventListener('change', tow);
     $('insp-towhead').addEventListener('change', tow);
@@ -641,39 +655,75 @@
     });
   }
 
-  /* Integración con la foto: calibración con 4 esquinas, primer plano y luz */
+  /* Integración con la foto: perspectiva (esquinas arrastrables), contorno del espacio, primer plano y luz */
   function setupIntegrate() {
-    const msg = $('cal-msg');
+    const msg = $('cal-msg'), smsg = $('space-msg');
     const STEPS = ['1 · fondo izquierda', '2 · fondo derecha', '3 · delante derecha', '4 · delante izquierda'];
+    const panel = $('fit-panel'), sum = $('fit-sum'), title = sum.textContent;
+    let onEnd = null;
+    // Mientras se marca en la foto, el panel se pliega para no tapar la imagen.
+    function fold(label, end) { onEnd = end || null; panel.open = false; sum.textContent = label; }
+    function unfold() { onEnd = null; sum.textContent = title; panel.open = true; }
+    panel.addEventListener('toggle', () => {
+      if (!panel.open || !onEnd) return;
+      const f = onEnd; onEnd = null; f(); unfold();
+    });
+    const toStage = () => $('canvas-3d').scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    const endCorners = () => { Stage.editCorners(false); $('cal-edit').hidden = !Stage.hasCorners(); };
     $('cal-btn').addEventListener('click', () => {
       const w = Number($('cal-w').value), d = Number($('cal-d').value);
       if (!(w > 0.2 && d > 0.2)) { msg.textContent = 'Escribe el ancho y el fondo del rectángulo en metros.'; return; }
       setPaint(null);
-      fold('Marcando esquinas… (toca aquí para cancelar)');
-      $('canvas-3d').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      fold('Marcando esquinas… (toca aquí para cancelar)', () => { Stage.cancelCalib(); msg.textContent = 'Calibración cancelada.'; });
+      toStage();
       Stage.calibrate(w, d);
+    });
+    $('cal-edit').addEventListener('click', () => {
+      setPaint(null);
+      Stage.editCorners(true);
+      fold('✓ Arrastra las esquinas para afinar · toca aquí al terminar', endCorners);
+      toStage();
     });
     window.addEventListener('msb:calib', e => {
       const d = e.detail;
-      if (!d.done) { msg.textContent = 'Toca en la foto la esquina ' + STEPS[d.step] + '.'; $('fit-sum').textContent = 'Toca la esquina ' + STEPS[d.step] + ' (aquí para cancelar)'; return; }
-      unfold();
-      msg.textContent = d.ok
-        ? `Listo: cámara a ${String(d.height).replace('.', ',')} m de altura y lente de ${d.fov}°${d.estimated ? '' : ' (foto muy frontal: si no encaja, cambia la lente y repite)'}. Los equipos ya están a escala real.`
-        : d.msg;
+      if (!d.done) { msg.textContent = 'Toca en la foto la esquina ' + STEPS[d.step] + '.'; sum.textContent = 'Toca la esquina ' + STEPS[d.step] + ' (aquí para cancelar)'; return; }
+      if (d.ok) {
+        msg.textContent = `Cámara a ${String(d.height).replace('.', ',')} m de altura y lente de ${d.fov}°${d.estimated ? '' : ' (foto muy frontal: si no encaja, cambia la lente y repite)'}. Los equipos ya están a escala real.`;
+        if (!d.live) fold('✓ Arrastra las esquinas para afinar · toca aquí al terminar', endCorners);
+      } else { unfold(); msg.textContent = d.msg; }
+      $('cal-edit').hidden = false;
       syncView();
     });
-    const panel = $('fit-panel'), sum = $('fit-sum'), title = sum.textContent;
-    let folded = false;
-    function fold(label) { folded = true; panel.open = false; sum.textContent = label; }
-    function unfold() { folded = false; sum.textContent = title; panel.open = true; }
-    panel.addEventListener('toggle', () => {
-      if (!panel.open || !folded) return;
-      Stage.cancelCalib(); setPaint(null); unfold();
-      if (/Toca|Marcando/.test(msg.textContent)) msg.textContent = 'Calibración cancelada.';
+
+    // Contorno del espacio
+    const endSpace = () => { Stage.space('close'); };
+    $('space-start').addEventListener('click', () => {
+      setPaint(null);
+      Stage.space('start');
+      fold('Toca los puntos del contorno en el suelo · toca aquí para cerrarlo', endSpace);
+      toStage();
     });
+    $('space-undo').addEventListener('click', () => Stage.space('undo'));
+    $('space-clear').addEventListener('click', () => { Stage.space('clear'); smsg.textContent = ''; });
+    $('space-adapt').addEventListener('click', () => {
+      const r = Stage.space('adapt');
+      if (!r) return;
+      smsg.textContent = r.ok ? `Montaje adaptado: escenario contra el fondo (${String(r.back).replace('.', ',')} m de pared) y todo dentro de ${String(r.area).replace('.', ',')} m². Ahora puedes afinar cada equipo.` : r.msg;
+      if (r.ok) toStage();
+    });
+    $('space-export').addEventListener('change', e => Stage.spaceInExport(e.target.checked));
+    window.addEventListener('msb:space', e => {
+      const d = e.detail;
+      $('space-undo').hidden = !d.n; $('space-clear').hidden = !d.n; $('space-adapt').hidden = !d.closed;
+      if (d.drawing) { sum.textContent = `${d.n} punto${d.n === 1 ? '' : 's'} · toca el primero o aquí para cerrar`; smsg.textContent = 'Toca en el suelo de la foto cada esquina del espacio. Para cerrar, toca otra vez el primer punto.'; }
+      else if (d.closed) { if (onEnd === endSpace) unfold(); smsg.textContent = `Espacio: ${String(d.area).replace('.', ',')} m² · ${String(d.w).replace('.', ',')} × ${String(d.d).replace('.', ',')} m. Pulsa «Adaptar el montaje al espacio».`; }
+      else if (!d.n) smsg.textContent = '';
+    });
+
     const setPaint = mode => {
       Stage.paint(mode);
-      if (mode) fold(mode === 'paint' ? '✓ Terminar de pintar' : '✓ Terminar de borrar');
+      if (mode) fold(mode === 'paint' ? '✓ Terminar de pintar' : '✓ Terminar de borrar', () => setPaint(null));
       $('fg-paint').setAttribute('aria-pressed', mode === 'paint' ? 'true' : 'false');
       $('fg-erase').setAttribute('aria-pressed', mode === 'erase' ? 'true' : 'false');
     };
@@ -682,7 +732,7 @@
     $('fg-clear').addEventListener('click', () => Stage.clearFg());
     $('fg-brush').addEventListener('input', e => Stage.brush(Number(e.target.value)));
     $('look-auto').addEventListener('click', () => { Stage.autoLook(); syncView(); });
-    $('venue-remove').addEventListener('click', () => { setPaint(null); msg.textContent = ''; });
+    $('venue-remove').addEventListener('click', () => { setPaint(null); msg.textContent = ''; smsg.textContent = ''; $('cal-edit').hidden = true; ['space-undo', 'space-clear', 'space-adapt'].forEach(id => { $(id).hidden = true; }); });
   }
 /* ===================== ESCENARIO 3D (Three.js r128) ===================== */
 const Stage = (() => {
@@ -1008,15 +1058,16 @@ const Stage = (() => {
   }
 
   // Pantalla LED modular de w × h metros sobre estructura de aluminio
-  function buildLedWall(w, h) {
+  function buildLedWall(w, h, hung) {
     const g = new THREE.Group();
-    const bottom = h > 1.6 ? 0.6 : 0.9;
+    const bottom = hung ? 0 : h > 1.6 ? 0.6 : 0.9;
     const frame = box(w + 0.08, h + 0.08, 0.1, M.black); frame.position.y = bottom + h / 2; g.add(frame);
     const s = new THREE.Mesh(new THREE.PlaneGeometry(w, h), M.ledScreen); s.position.set(0, bottom + h / 2, 0.051); g.add(s);
     const seams = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.35 });
     for (let x = -w / 2 + 0.5; x < w / 2 - 0.01; x += 0.5) { const l = new THREE.Mesh(new THREE.PlaneGeometry(0.008, h), seams); l.position.set(x, bottom + h / 2, 0.052); g.add(l); }
     for (let y = 0.5; y < h - 0.01; y += 0.5) { const l = new THREE.Mesh(new THREE.PlaneGeometry(w, 0.008), seams); l.position.set(0, bottom + y, 0.052); g.add(l); }
-    [-1, 1].forEach(sx => {
+    if (hung) [-1, 1].forEach(sx => { const c = box(0.05, 0.3, 0.05, M.alu); c.position.set(sx * (w / 2 - 0.3), h + 0.19, 0); g.add(c); });
+    else [-1, 1].forEach(sx => {
       const x = sx * (w / 2 - 0.15);
       const l = box(0.06, bottom, 0.06, M.alu); l.position.set(x, bottom / 2, -0.05); g.add(l);
       const f = box(0.08, 0.03, 0.8, M.alu); f.position.set(x, 0.015, -0.05); g.add(f);
@@ -1027,13 +1078,16 @@ const Stage = (() => {
   }
 
   // Pantalla profesional de 55" en horizontal con pie de suelo
-  function buildScreen55() {
-    const g = new THREE.Group();
-    [-0.3, 0.3].forEach(x => { const f = box(0.06, 0.04, 0.6, M.black); f.position.set(x, 0.02, 0); g.add(f); });
-    const bar = box(0.66, 0.05, 0.06, M.black); bar.position.set(0, 0.06, 0); g.add(bar);
-    const pole = box(0.08, 1.3, 0.05, M.pole); pole.position.set(0, 0.7, -0.05); g.add(pole);
-    const body = box(1.25, 0.72, 0.05, M.black); body.position.set(0, 1.55, 0); g.add(body);
-    const scr = new THREE.Mesh(new THREE.PlaneGeometry(1.21, 0.68), M.ledScreen); scr.position.set(0, 1.55, 0.026); g.add(scr);
+  function buildScreen55(hung) {
+    const g = new THREE.Group(), cy = hung ? 0 : 1.55;
+    if (hung) { const br = box(0.06, 0.34, 0.06, M.pole); br.position.set(0, 0.53, -0.04); g.add(br); }
+    else {
+      [-0.3, 0.3].forEach(x => { const f = box(0.06, 0.04, 0.6, M.black); f.position.set(x, 0.02, 0); g.add(f); });
+      const bar = box(0.66, 0.05, 0.06, M.black); bar.position.set(0, 0.06, 0); g.add(bar);
+      const pole = box(0.08, 1.3, 0.05, M.pole); pole.position.set(0, 0.7, -0.05); g.add(pole);
+    }
+    const body = box(1.25, 0.72, 0.05, M.black); body.position.set(0, cy, 0); g.add(body);
+    const scr = new THREE.Mesh(new THREE.PlaneGeometry(1.21, 0.68), M.ledScreen); scr.position.set(0, cy, 0.026); g.add(scr);
     g.traverse(o => { if (o.isMesh && o !== scr) o.castShadow = true; });
     return g;
   }
@@ -1078,9 +1132,12 @@ const Stage = (() => {
 
   /* ---------- Montaje: altura de tarima, colecciones que crecen y ajustes por equipo ---------- */
   const TAR0 = { on: true, w: 7.2, d: 4.2, h: 0.4 }, TAR = Object.assign({}, TAR0), BACK = -2.6;
-  let SH = 0.4, trussY = 0.4;
+  let SH = 0.4;
+  const TR0 = { w: 6.4, h: 3.5 }, TR = Object.assign({}, TR0);
+  let SPACE = null, spaceInExport = false;
+  const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
   const CAP = { towers: 24, trx: 26, heads: 48, bars: 24, speakers: 24, mics: 24, screens: 24, totems: 24 };
-  const KIND = { trx: 'Altavoz Alto TRX315', speaker: 'Altavoz RCF EVOX 12', totem: 'Tótem', screen: 'Pantalla', mic: 'Micrófono', cam: 'Cámara', wall: 'Pantalla LED', booth: 'Cabina DJ', lectern: 'Atril', foh: 'Control de sonido', head: 'Cabeza móvil', tower: 'Torre de truss' };
+  const KIND = { trx: 'Altavoz Alto TRX315', speaker: 'Altavoz RCF EVOX 12', totem: 'Tótem', screen: 'Pantalla', mic: 'Micrófono', cam: 'Cámara', wall: 'Pantalla LED', booth: 'Cabina DJ', lectern: 'Atril', foh: 'Control de sonido', head: 'Cabeza móvil', tower: 'Torre de truss', truss: 'Truss del escenario' };
   let draggables = [], dragObj = null, selected = null, selBox = null;
   const LOOK = { light: 1, warm: 0, dir: 27 };
   const glb = {};
@@ -1090,7 +1147,8 @@ const Stage = (() => {
   function addDraggable(o, kind) { tag(o, kind); scene.add(o); draggables.push(o); return o; }
   const onStageAt = (x, z) => TAR.on && Math.abs(x) < TAR.w / 2 + 0.02 && z > BACK - 0.02 && z < BACK + TAR.d + 0.02;
   function place(o, x, z, _legacy, ry) {
-    o.userData.onStage = onStageAt(x, z);
+    if (o.userData.hung) return;
+    o.userData.onStage = o.userData.kind === 'truss' ? onStageAt(x - TR.w / 2, z) && onStageAt(x + TR.w / 2, z) : onStageAt(x, z);
     o.position.set(x, (o.userData.onStage ? SH : 0) + o.userData.lift, z);
     if (ry !== undefined) o.rotation.y = ry;
   }
@@ -1122,7 +1180,7 @@ const Stage = (() => {
   function swapModels() {
     draggables.slice().forEach(o => {
       const kind = o.userData.kind;
-      if (o.userData.real || !KIND_MODEL[kind]) return;
+      if (o.userData.real || o.userData.hung || !KIND_MODEL[kind]) return;
       const n = make(kind);
       if (!n) return;
       n.position.copy(o.position); n.rotation.copy(o.rotation); n.scale.copy(o.scale);
@@ -1134,6 +1192,62 @@ const Stage = (() => {
       ['booth', 'lectern', 'foh'].forEach(k => { if (rig[k] === o) rig[k] = n; });
       if (selected === o) select(n);
     });
+  }
+
+  /* Truss del fondo: ancho y alto ajustables; las cabezas, los PAR y lo colgado son hijos suyos. */
+  function buildTrussGeo() {
+    if (rig.trussGeo) rig.truss.remove(rig.trussGeo);
+    const g = new THREE.Group(), hw = TR.w / 2;
+    trussRun(V3(-hw, 0, 0), V3(-hw, TR.h, 0), M.alu, g);
+    trussRun(V3(hw, 0, 0), V3(hw, TR.h, 0), M.alu, g);
+    trussRun(V3(-hw - 0.15, TR.h - 0.15, 0), V3(hw + 0.15, TR.h - 0.15, 0), M.alu, g);
+    [-hw, hw].forEach(x => { const p = box(0.6, 0.02, 0.6, M.alu); p.position.set(x, 0.01, 0); g.add(p); });
+    g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+    rig.trussGeo = g; rig.truss.add(g);
+  }
+  function hungLayout(o) {
+    const hw = TR.w / 2, u = o.userData;
+    const half = u.kind === 'wall' ? u.dims[0] / 2 : 0.63 * o.scale.x;
+    o.position.x = Math.max(-hw + half - 0.2, Math.min(hw - half + 0.2, o.position.x));
+    o.position.z = 0.28;
+    o.position.y = u.kind === 'wall' ? TR.h - 0.5 - u.dims[1] : TR.h - 0.55 - 0.36 * o.scale.y;
+    o.rotation.set(0, 0, 0);
+  }
+  function layoutTruss() {
+    const hw = TR.w / 2;
+    rig.pars.forEach(p => { p.g.position.set(p.sx * (hw - 0.25), TR.h - 1.25, 0.25); p.g.rotation.set(0.49, -p.sx * 0.77, 0, 'YXZ'); });
+    rig.truss.children.forEach(c => { if (c.userData && c.userData.hung) hungLayout(c); });
+  }
+  function setTruss(v) {
+    if (v.w !== undefined) TR.w = Math.max(2, Math.min(16, v.w));
+    if (v.h !== undefined) TR.h = Math.max(2, Math.min(7, v.h));
+    buildTrussGeo(); layoutTruss();
+    place(rig.truss, rig.truss.position.x, rig.truss.position.z);
+    update(lastState);
+  }
+  // Cuelga (o descuelga) una pantalla LED o de 55" del truss.
+  function hang(o, on) {
+    const u = o.userData;
+    if (!!u.hung === on || (on && !rig.truss.visible)) return o;
+    const wp = o.getWorldPosition(V3(0, 0, 0));
+    const n = u.kind === 'wall' ? buildLedWall(u.dims[0], u.dims[1], on) : make(on ? null : 'screen', () => buildScreen55(on));
+    n.userData = Object.assign({}, u, { hung: on, moved: true, lift: 0 });
+    n.scale.copy(o.scale); n.visible = o.visible;
+    o.parent.remove(o);
+    if (on) {
+      rig.truss.add(n);
+      rig.truss.updateMatrixWorld(true);
+      n.position.x = rig.truss.worldToLocal(wp.clone()).x;
+      hungLayout(n);
+    } else {
+      scene.add(n);
+      n.rotation.y = rig.truss.rotation.y;
+      place(n, wp.x, wp.z + 0.8);
+    }
+    draggables[draggables.indexOf(o)] = n;
+    if (u.kind === 'wall') rig.walls[u.key] = n; else rig.screens[rig.screens.indexOf(o)] = n;
+    if (selected === o) select(n);
+    return n;
   }
 
   /* Torre de truss vertical con base, opcionalmente con una cabeza móvil arriba. */
@@ -1179,9 +1293,6 @@ const Stage = (() => {
   function relevel() {
     SH = TAR.on ? TAR.h : 0;
     rig.tarima.visible = TAR.on;
-    trussY = onStageAt(3.2, -2.1) ? SH : 0;
-    rig.truss.position.y = trussY - 0.4;
-    rig.pars.forEach(p => { p.g.position.y = trussY + 2.3; });
     draggables.forEach(o => place(o, o.position.x, o.position.z));
   }
   function setTarima(o) {
@@ -1190,7 +1301,7 @@ const Stage = (() => {
     if (o.h !== undefined) TAR.h = Math.max(0.2, Math.min(1.5, o.h));
     const was = selected === rig.tarima;
     buildTarima(); relevel();
-    if (was) { selected = rig.tarima; selBox.setFromObject(selected); }
+    if (was) { selected = rig.tarima; selFit(selected); }
     update(lastState);
   }
 
@@ -1256,17 +1367,16 @@ const Stage = (() => {
 
     const drape = new THREE.Mesh(new THREE.PlaneGeometry(9, 5), M.drape); drape.position.set(0, 2.5, -2.75); scene.add(drape); rig.drape = drape;
 
-    rig.truss = new THREE.Group(); scene.add(rig.truss);
-    trussRun(new THREE.Vector3(-3.2, 0.4, -2.1), new THREE.Vector3(-3.2, 3.95, -2.1), M.alu, rig.truss);
-    trussRun(new THREE.Vector3(3.2, 0.4, -2.1), new THREE.Vector3(3.2, 3.95, -2.1), M.alu, rig.truss);
-    trussRun(new THREE.Vector3(-3.35, 3.8, -2.1), new THREE.Vector3(3.35, 3.8, -2.1), M.alu, rig.truss);
-    [-3.2, 3.2].forEach(x => { const p = box(0.6, 0.02, 0.6, M.alu); p.position.set(x, 0.41, -2.1); rig.truss.add(p); });
+    rig.truss = addDraggable(new THREE.Group(), 'truss');
+    buildTrussGeo();
 
     rig.trx = []; rig.towers = [];
     rig.speakers = []; rig.heads = []; rig.bars = []; rig.mics = []; rig.screens = []; rig.totems = []; rig.cams = [];
 
     rig.pars = [];
-    [-1, 1].forEach(sx => { const p = buildPar(); p.g.position.set(sx * 2.95, 2.7, -1.85); p.g.lookAt(sx * 0.6, 0.9, 0.6); scene.add(p.g); rig.pars.push(p); });
+    [-1, 1].forEach(sx => { const p = buildPar(); p.sx = sx; rig.truss.add(p.g); rig.pars.push(p); });
+    layoutTruss();
+    rig.space = new THREE.Group(); rig.space.visible = false; scene.add(rig.space);
 
     const boothStripHolder = buildBooth();
     rig.booth = addDraggable(make('booth', () => boothStripHolder), 'booth');
@@ -1287,7 +1397,7 @@ const Stage = (() => {
     rig.haze = new THREE.Points(hg, new THREE.PointsMaterial({ map: tex.puff, size: 1.6, transparent: true, opacity: 0.16, depthWrite: false, color: 0xb8bcc4 }));
     scene.add(rig.haze);
 
-    selBox = new THREE.BoxHelper(undefined, 0xe65837); selBox.visible = false; scene.add(selBox);
+    selBox = new THREE.Box3Helper(new THREE.Box3(), 0xe65837); selBox.visible = false; scene.add(selBox);
 
     drawTotem();
     if (document.fonts && document.fonts.load) document.fonts.load('60px "Bebas Neue"').then(() => { drawTotem(); drawLed(0); });
@@ -1325,14 +1435,16 @@ const Stage = (() => {
     canvas.addEventListener('pointerdown', e => {
       if (e.button !== 0) return;
       if (fg.calib) { e.stopImmediatePropagation(); e.preventDefault(); calibClick(e); return; }
+      if (SPACE && SPACE.drawing) { e.stopImmediatePropagation(); e.preventDefault(); spaceClick(e); return; }
       down = { x: e.clientX, y: e.clientY, moved: false };
       const o = pick(e);
       if (!o) return;
       if (o.userData.fixed) { down.target = o; return; }
       dragObj = o;
       controls.enabled = false;
-      plane.constant = -o.position.y;
-      if (ray.ray.intersectPlane(plane, hit)) off.copy(o.position).sub(hit);
+      const wp = o.getWorldPosition(V3(0, 0, 0));
+      plane.constant = -wp.y;
+      if (ray.ray.intersectPlane(plane, hit)) off.copy(wp).sub(hit);
       canvas.setPointerCapture(e.pointerId);
       canvas.style.cursor = 'grabbing';
     }, true);
@@ -1342,9 +1454,14 @@ const Stage = (() => {
       if (!down || !down.moved) return;
       aim(e);
       if (!ray.ray.intersectPlane(plane, hit)) return;
-      const x = Math.max(-14, Math.min(14, hit.x + off.x)), z = Math.max(-6, Math.min(16, hit.z + off.z));
-      place(dragObj, x, z);
-      plane.constant = -dragObj.position.y;
+      if (dragObj.userData.hung) {
+        dragObj.position.x = rig.truss.worldToLocal(hit.clone().add(off)).x;
+        hungLayout(dragObj);
+      } else {
+        const x = Math.max(-30, Math.min(30, hit.x + off.x)), z = Math.max(-30, Math.min(30, hit.z + off.z));
+        place(dragObj, x, z);
+        plane.constant = -dragObj.position.y;
+      }
       dragObj.userData.moved = true;
     });
     const end = e => {
@@ -1363,27 +1480,37 @@ const Stage = (() => {
     });
   }
 
+  // Caja de selección sin los haces de luz (que miden metros).
+  function selFit(o) {
+    const b = selBox.box.makeEmpty();
+    (o.userData.kind === 'truss' ? rig.trussGeo : o).updateMatrixWorld(true);
+    (o.userData.kind === 'truss' ? rig.trussGeo : o).traverse(m => {
+      if (m.isMesh && m.visible && !(m.material && m.material.blending === THREE.AdditiveBlending)) b.expandByObject(m);
+    });
+  }
   function info(o) {
     if (!o) return null;
     const u = o.userData;
     if (u.kind === 'tarima') return { kind: 'tarima', label: 'Tarima', tarima: Object.assign({}, TAR) };
+    if (u.kind === 'truss') return { kind: 'truss', label: KIND.truss, truss: Object.assign({}, TR) };
     if (u.kind === 'tower') return { kind: 'tower', label: KIND.tower, towerH: u.towerH, head: u.head, lift: u.lift, size: u.size };
-    return { kind: u.kind, label: KIND[u.kind] || 'Equipo', size: u.size, inch: u.inch, lift: u.lift, dims: u.dims ? u.dims.slice() : null, rot: Math.round(THREE.MathUtils.radToDeg(o.rotation.y)), real: !!u.real };
+    return { kind: u.kind, label: KIND[u.kind] || 'Equipo', size: u.size, inch: u.inch, lift: u.lift, dims: u.dims ? u.dims.slice() : null, rot: Math.round(THREE.MathUtils.radToDeg(o.rotation.y)), real: !!u.real, hung: !!u.hung, canHang: (u.kind === 'wall' || u.kind === 'screen') && rig.truss.visible };
   }
 
   function select(o) {
     selected = o || null;
     selBox.visible = !!selected;
-    if (selected) selBox.setFromObject(selected);
+    if (selected) selFit(selected);
     window.dispatchEvent(new CustomEvent('msb:select', { detail: info(selected) }));
   }
 
   function rebuildWall(o, w, h) {
-    const n = buildLedWall(w, h);
+    const n = buildLedWall(w, h, o.userData.hung);
     n.position.copy(o.position); n.rotation.copy(o.rotation);
     n.userData = Object.assign({}, o.userData, { dims: [w, h] });
     n.visible = o.visible;
-    scene.remove(o); scene.add(n);
+    const parent = o.parent; parent.remove(o); parent.add(n);
+    if (n.userData.hung) hungLayout(n);
     draggables[draggables.indexOf(o)] = n;
     rig.walls[o.userData.key] = n;
     return n;
@@ -1398,32 +1525,40 @@ const Stage = (() => {
     if (prop === 'size') { u.size = Math.max(0.3, Math.min(3, v)); o.scale.setScalar(u.size); }
     else if (prop === 'inch') { u.inch = v; u.size = v / 55; o.scale.setScalar(u.size); }
     else if (prop === 'tarima') { setTarima(v); notify(); return info(rig.tarima); }
+    else if (prop === 'lift' && u.hung) { /* colgada: la altura la marca el truss */ }
     else if (prop === 'lift') { u.lift = Math.max(0, Math.min(6, v)); place(o, o.position.x, o.position.z); }
     else if (prop === 'rot') o.rotation.y += THREE.MathUtils.degToRad(v);
+    else if (prop === 'hang') t = hang(o, !!v);
+    else if (prop === 'truss' && u.kind === 'truss') { setTruss(v); notify(); return info(rig.truss); }
+    else if (prop === 'reset' && u.kind === 'truss') { Object.assign(TR, TR0); u.moved = false; rig.truss.rotation.y = 0; setTruss({}); notify(); return info(rig.truss); }
     else if (prop === 'tower' && u.kind === 'tower') t = rebuildTower(o, Math.max(1, Math.min(6, v.h)), !!v.head);
     else if (prop === 'dims' && u.kind === 'wall') t = rebuildWall(o, Math.max(1, Math.min(16, v[0])), Math.max(0.5, Math.min(8, v[1])));
     else if (prop === 'reset' && u.kind === 'tarima') { setTarima(TAR0); notify(); return info(rig.tarima); }
     else if (prop === 'reset') {
-      if (u.kind === 'wall' && (u.dims[0] !== u.base[0] || u.dims[1] !== u.base[1])) t = rebuildWall(o, u.base[0], u.base[1]);
-      if (u.kind === 'tower' && (u.towerH !== 2.5 || !u.head)) t = rebuildTower(o, 2.5, true);
+      if (u.hung) t = hang(o, false);
+      if (u.kind === 'wall' && (u.dims[0] !== u.base[0] || u.dims[1] !== u.base[1])) t = rebuildWall(t, u.base[0], u.base[1]);
+      if (u.kind === 'tower' && (u.towerH !== 2.5 || !u.head)) t = rebuildTower(t, 2.5, true);
       Object.assign(t.userData, { size: 1, inch: 55, lift: 0, moved: false });
       t.scale.setScalar(1);
       update(lastState);
     }
     t.userData.moved = t.userData.moved || prop !== 'reset';
+    if (t.userData.hung) hungLayout(t);
     selected = t;
-    selBox.setFromObject(t);
+    selFit(t);
     notify();
     return info(t);
   }
 
   function resetLayout() {
+    draggables.filter(o => o.userData.hung).forEach(o => hang(o, false));
+    Object.assign(TR, TR0); rig.truss.rotation.y = 0; buildTrussGeo(); layoutTruss();
     draggables.forEach(o => {
       const u = o.userData;
       if (u.kind === 'wall' && (u.dims[0] !== u.base[0] || u.dims[1] !== u.base[1])) rebuildWall(o, u.base[0], u.base[1]);
       if (u.kind === 'tower' && (u.towerH !== 2.5 || !u.head)) rebuildTower(o, 2.5, true);
     });
-    draggables.forEach(o => { Object.assign(o.userData, { moved: false, lift: 0, size: 1, inch: 55 }); o.scale.setScalar(1); });
+    draggables.forEach(o => { Object.assign(o.userData, { moved: false, lift: 0, size: 1, inch: 55 }); o.scale.setScalar(1); if (o.userData.kind !== 'truss') o.rotation.y = 0; });
     Object.assign(TAR, { w: TAR0.w, d: TAR0.d, h: TAR0.h }); buildTarima(); relevel();
     select(null);
     update(lastState);
@@ -1443,6 +1578,9 @@ const Stage = (() => {
       (rig[k] || []).filter(o => o.visible && o.userData.inch !== 55).forEach(o => { sizes[o.userData.inch] = (sizes[o.userData.inch] || 0) + 1; });
       Object.keys(sizes).forEach(i => out.push(`${sizes[i]} ${name}${sizes[i] > 1 ? (name === 'tótem' ? 's' : 's') : ''} de ${i}"`));
     });
+    if (rig.truss.visible && (TR.w !== TR0.w || TR.h !== TR0.h)) out.push(`Truss de ${String(TR.w).replace('.', ',')} m de ancho × ${String(TR.h).replace('.', ',')} m de alto`);
+    const hungN = draggables.filter(o => o.visible && o.userData.hung).map(o => o.userData.kind === 'wall' ? 'pantalla LED' : 'pantalla');
+    if (hungN.length) out.push('Colgado del truss: ' + hungN.join(', '));
     const th = {};
     (rig.towers || []).filter(o => o.visible && (o.userData.towerH !== 2.5 || !o.userData.head)).forEach(o => { const k = String(o.userData.towerH).replace('.', ',') + ' m' + (o.userData.head ? ' con cabeza móvil' : ' sin cabeza'); th[k] = (th[k] || 0) + 1; });
     Object.keys(th).forEach(k => out.push(`${th[k]} torre${th[k] > 1 ? 's' : ''} de truss de ${k}`));
@@ -1525,12 +1663,20 @@ const Stage = (() => {
     });
 
     rig.truss.visible = cfg.truss;
+    if (!rig.truss.userData.moved) place(rig.truss, 0, -2.1, 0, 0);
+    if (!cfg.truss) draggables.filter(o => o.userData.hung).forEach(o => hang(o, false));
     const nh = vis(cfg.heads, 'heads'), onTruss = Math.min(nh, 12);
     fill(rig.heads, nh, i => { const h = buildHead(); h.phase = i * 0.7; scene.add(h.g); return h; });
     rig.heads.forEach((h, i) => {
       h.g.visible = i < nh;
       if (!h.g.visible) return;
-      if (i < 12) { h.g.rotation.x = 0; h.g.position.set(onTruss === 1 ? 0 : -2.85 + i * (5.7 / (onTruss - 1)), trussY + 3.22, -2.1); return; }
+      if (i < 12) {
+        if (h.g.parent !== rig.truss) rig.truss.add(h.g);
+        const hw = TR.w / 2 - 0.35;
+        h.g.rotation.set(0, 0, 0); h.g.position.set(onTruss === 1 ? 0 : -hw + i * (2 * hw / (onTruss - 1)), TR.h - 0.33, 0);
+        return;
+      }
+      if (h.g.parent !== scene) scene.add(h.g);
       const k = i - 12, side = k % 2 ? 1 : -1, col = Math.floor(k / 2);
       h.g.rotation.x = Math.PI;
       h.g.position.set(side * (3.95 + Math.floor(col / 6) * 0.6), 0, -2.2 + (col % 6) * 0.75);
@@ -1568,7 +1714,7 @@ const Stage = (() => {
     Object.keys(rig.walls).forEach(k => {
       const w = rig.walls[k];
       w.visible = cfg.wall === k;
-      if (!w.userData.moved) place(w, 0, -1.85, true, 0);
+      if (!w.userData.moved && !w.userData.hung) place(w, 0, -1.85, true, 0);
     });
 
     const scrPos = [[-4.7, 3.2, 0.5], [4.7, 3.2, -0.5], [-5.2, 0.4, 0.9], [5.2, 0.4, -0.9]];
@@ -1576,7 +1722,7 @@ const Stage = (() => {
     fill(rig.screens, ns, () => addDraggable(make('screen', buildScreen55), 'screen'));
     rig.screens.forEach((sc, i) => {
       sc.visible = i < ns;
-      if (!sc.visible || sc.userData.moved) return;
+      if (!sc.visible || sc.userData.moved || sc.userData.hung) return;
       const k = i - 4, side = k % 2 ? 1 : -1;
       const [px, pz, r] = scrPos[i] || [side * 5.9, 5.4 + Math.floor(k / 2) * 2.2, -side * 1.2];
       place(sc, px, pz, false, r);
@@ -1673,7 +1819,7 @@ const Stage = (() => {
       camera.position.set(Math.sin(a) * rec.r, rec.h, Math.cos(a) * rec.r);
       camera.lookAt(controls.target);
     } else controls.update();
-    if (selected && selBox.visible) selBox.setFromObject(selected);
+    if (selected && selBox.visible) selFit(selected);
     renderer.render(scene, camera);
     if (rec) compose(rec.ctx, rec.mark);
   }
@@ -1771,9 +1917,9 @@ const Stage = (() => {
       m.fillStyle = '#000'; m.beginPath(); m.arc(x, y, rad, 0, Math.PI * 2); m.fill();
       fg.has = true; rebuildCut();
     };
-    el.addEventListener('pointerdown', e => { if (!fg.mode) return; painting = true; el.setPointerCapture(e.pointerId); dab(e); });
-    el.addEventListener('pointermove', e => { if (painting) dab(e); });
-    const stop = () => { painting = false; };
+    el.addEventListener('pointerdown', e => { if (fg.editing && !fg.mode) { cornerDown(e); return; } if (!fg.mode) return; painting = true; el.setPointerCapture(e.pointerId); dab(e); });
+    el.addEventListener('pointermove', e => { if (fg.editing && !fg.mode) { cornerMove(e); return; } if (painting) dab(e); });
+    const stop = () => { painting = false; cornerDrag = -1; };
     el.addEventListener('pointerup', stop); el.addEventListener('pointercancel', stop);
   }
   function layoutFg() {
@@ -1810,11 +1956,13 @@ const Stage = (() => {
       g.drawImage(fg.cut, c.sx, c.sy, c.sw, c.sh, 0, 0, W, H);
       if (fg.mode) g.drawImage(fg.tint, c.sx, c.sy, c.sw, c.sh, 0, 0, W, H);
     }
+    fg.el.style.pointerEvents = fg.mode || fg.editing ? 'auto' : 'none';
+    if (fg.editing) fg.el.style.cursor = 'move';
     if (fg.pts && fg.pts.length) {
-      const P = fg.pts.map(([nx, ny]) => [(nx + 1) / 2 * W, (1 - ny) / 2 * H]);
+      const P = fg.pts.map(p => photoToCanvas(p, W, H));
       g.strokeStyle = '#E65837'; g.fillStyle = '#E65837'; g.lineWidth = 2 * W / fg.el.clientWidth;
       g.beginPath(); P.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); if (P.length === 4) g.closePath(); g.stroke();
-      P.forEach(([x, y], i) => { g.beginPath(); g.arc(x, y, 7 * W / fg.el.clientWidth, 0, Math.PI * 2); g.fill(); g.fillStyle = '#0A0A0A'; g.font = `bold ${Math.round(11 * W / fg.el.clientWidth)}px sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(String(i + 1), x, y); g.fillStyle = '#E65837'; });
+      P.forEach(([x, y], i) => { g.beginPath(); g.arc(x, y, (fg.editing ? 10 : 7) * W / fg.el.clientWidth, 0, Math.PI * 2); g.fill(); g.fillStyle = '#0A0A0A'; g.font = `bold ${Math.round(11 * W / fg.el.clientWidth)}px sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(String(i + 1), x, y); g.fillStyle = '#E65837'; });
     }
   }
   function initFgPhoto(img) {
@@ -1853,30 +2001,174 @@ const Stage = (() => {
     fg.calib = { w, d }; fg.pts = []; fg.mode = null; drawFg();
     window.dispatchEvent(new CustomEvent('msb:calib', { detail: { step: 0 } }));
   }
-  function calibClick(e) {
-    const r = renderer.domElement.getBoundingClientRect();
+  // Puntos de la foto: x en unidades de la altura de la foto (−aspecto…+aspecto), y de −1 a 1.
+  function canvasToPhoto(e) {
+    const r = renderer.domElement.getBoundingClientRect(), a = r.width / r.height, ia = imgAspect();
     const nx = ((e.clientX - r.left) / r.width) * 2 - 1, ny = -((e.clientY - r.top) / r.height) * 2 + 1;
-    fg.pts.push([nx, ny]); drawFg();
+    const [u, v] = ia >= a ? [nx * a / ia, ny] : [nx, ny * ia / a];
+    return [u * ia, v];
+  }
+  function photoToCanvas([x, y], W, H) {
+    const a = W / H, ia = imgAspect(), u = x / ia;
+    const [nx, ny] = ia >= a ? [u * ia / a, y] : [u, y * a / ia];
+    return [(nx + 1) / 2 * W, (1 - ny) / 2 * H];
+  }
+  function applySolve(res) {
+    venueFov = res.fov;
+    controls.maxDistance = Math.max(22, res.depth * 1.5);
+    camera.position.set(...res.pos);
+    controls.target.set(res.pos[0] + res.fwd[0] * res.depth, res.pos[1] + res.fwd[1] * res.depth, res.pos[2] + res.fwd[2] * res.depth);
+    fitBg(camera.aspect);
+    controls.update();
+    if (SPACE) SPACE = null, drawSpace();
+  }
+  const calibEvent = (res, live) => window.dispatchEvent(new CustomEvent('msb:calib', { detail: { done: true, live: !!live, ok: res.ok, msg: res.msg || '', fov: res.ok ? Math.round(res.fov) : 0, height: res.ok ? +res.pos[1].toFixed(2) : 0, estimated: !!res.estimated } }));
+  function calibClick(e) {
+    fg.pts.push(canvasToPhoto(e)); drawFg();
     if (fg.pts.length < 4) { window.dispatchEvent(new CustomEvent('msb:calib', { detail: { step: fg.pts.length } })); return; }
-    const a = camera.aspect, ia = imgAspect();
-    const img = fg.pts.map(([x, y]) => (ia >= a ? [x * a / ia, y] : [x, y * ia / a])).map(([u, v]) => [u * ia, v]);
-    const res = solveCamera(img, fg.calib.w, fg.calib.d, venueFov);
+    const res = solveCamera(fg.pts, fg.calib.w, fg.calib.d, venueFov);
+    fg.lastCalib = { w: fg.calib.w, d: fg.calib.d };
     fg.calib = null;
-    if (res.ok) {
-      venueFov = res.fov;
-      controls.maxDistance = Math.max(22, res.depth * 1.5);
-      camera.position.set(...res.pos);
-      controls.target.set(res.pos[0] + res.fwd[0] * res.depth, res.pos[1] + res.fwd[1] * res.depth, res.pos[2] + res.fwd[2] * res.depth);
-      fitBg(camera.aspect);
-      controls.update();
-      setTimeout(() => { fg.pts = null; drawFg(); }, 1500);
-    } else { fg.pts = null; drawFg(); }
-    window.dispatchEvent(new CustomEvent('msb:calib', { detail: { done: true, ok: res.ok, msg: res.msg || '', fov: res.ok ? Math.round(res.fov) : 0, height: res.ok ? +res.pos[1].toFixed(2) : 0, estimated: !!res.estimated } }));
+    if (res.ok) { applySolve(res); fg.corners = fg.pts.map(p => p.slice()); editCorners(true); }
+    else { fg.pts = null; drawFg(); }
+    calibEvent(res);
+  }
+  /* Esquinas arrastrables: cada movimiento recalcula la cámara al momento. */
+  let cornerDrag = -1;
+  function editCorners(on) {
+    fg.editing = !!on && !!fg.corners;
+    fg.pts = fg.editing ? fg.corners : null;
+    drawFg();
+  }
+  function cornerDown(e) {
+    const r = fg.el.getBoundingClientRect();
+    const P = fg.corners.map(p => photoToCanvas(p, r.width, r.height));
+    const x = e.clientX - r.left, y = e.clientY - r.top;
+    cornerDrag = P.findIndex(([px, py]) => Math.hypot(px - x, py - y) < 22);
+    if (cornerDrag >= 0) fg.el.setPointerCapture(e.pointerId);
+  }
+  function cornerMove(e) {
+    if (cornerDrag < 0) return;
+    const prev = fg.corners[cornerDrag];
+    fg.corners[cornerDrag] = canvasToPhoto(e);
+    const res = solveCamera(fg.corners, fg.lastCalib.w, fg.lastCalib.d, venueFov);
+    if (res.ok) { applySolve(res); calibEvent(res, true); } else fg.corners[cornerDrag] = prev;
+    fg.pts = fg.corners; drawFg();
+  }
+
+  /* Contorno del espacio dibujado sobre el suelo de la foto, con medidas de cada lado. */
+  const floorPlane = new THREE.Plane(V3(0, 1, 0), 0);
+  function floorAt(e) {
+    const r = renderer.domElement.getBoundingClientRect(), ray = new THREE.Raycaster();
+    ray.setFromCamera(new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), camera);
+    const p = V3(0, 0, 0);
+    return ray.ray.intersectPlane(floorPlane, p) ? [p.x, p.z] : null;
+  }
+  function label(text) {
+    const c = document.createElement('canvas'); c.width = 256; c.height = 96;
+    const g = c.getContext('2d');
+    g.fillStyle = 'rgba(10,10,10,.82)'; g.fillRect(0, 14, 256, 68);
+    g.fillStyle = '#E65837'; g.fillRect(0, 14, 8, 68);
+    g.fillStyle = '#F4F0E8'; g.font = '600 44px "Work Sans", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, 132, 50);
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: false, transparent: true }));
+    sp.scale.set(0.9, 0.34, 1); sp.renderOrder = 10;
+    return sp;
+  }
+  const polyArea = P => Math.abs(P.reduce((a, [x, z], i) => { const [x2, z2] = P[(i + 1) % P.length]; return a + x * z2 - x2 * z; }, 0)) / 2;
+  const fmtM = v => (Math.round(v * 10) / 10).toString().replace('.', ',');
+  function drawSpace() {
+    rig.space.clear();
+    rig.space.visible = !!(SPACE && SPACE.pts.length);
+    if (!rig.space.visible) return;
+    const P = SPACE.pts, closed = SPACE.closed && P.length > 2;
+    const pts = P.map(([x, z]) => V3(x, 0.012, z));
+    if (closed) pts.push(pts[0].clone());
+    rig.space.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0xe65837, depthTest: false })));
+    P.forEach(([x, z]) => { const d = new THREE.Mesh(new THREE.CircleGeometry(0.09, 20), new THREE.MeshBasicMaterial({ color: 0xe65837, depthTest: false })); d.rotation.x = -Math.PI / 2; d.position.set(x, 0.013, z); d.renderOrder = 9; rig.space.add(d); });
+    const n = closed ? P.length : P.length - 1;
+    for (let i = 0; i < n; i++) {
+      const [x1, z1] = P[i], [x2, z2] = P[(i + 1) % P.length], L = Math.hypot(x2 - x1, z2 - z1);
+      const sp = label(fmtM(L) + ' m'); sp.position.set((x1 + x2) / 2, 0.3, (z1 + z2) / 2); rig.space.add(sp);
+    }
+  }
+  function spaceEvent() {
+    const P = SPACE ? SPACE.pts : [], closed = !!(SPACE && SPACE.closed);
+    let w = 0, d = 0;
+    if (P.length) { const xs = P.map(p => p[0]), zs = P.map(p => p[1]); w = Math.max(...xs) - Math.min(...xs); d = Math.max(...zs) - Math.min(...zs); }
+    window.dispatchEvent(new CustomEvent('msb:space', { detail: { n: P.length, closed, drawing: !!(SPACE && SPACE.drawing), area: closed ? +polyArea(P).toFixed(1) : 0, w: +w.toFixed(1), d: +d.toFixed(1) } }));
+  }
+  function spaceClick(e) {
+    const p = floorAt(e);
+    if (!p) return;
+    const P = SPACE.pts;
+    if (P.length > 2 && Math.hypot(p[0] - P[0][0], p[1] - P[0][1]) < 0.35) { SPACE.closed = true; SPACE.drawing = false; }
+    else P.push(p);
+    drawSpace(); spaceEvent();
+  }
+
+  /* Adapta el montaje al espacio: el lado más lejano pasa a ser el fondo del escenario
+     y todo lo que quede fuera del contorno se mete dentro. */
+  function insidePoly(P, x, z) {
+    let ins = false;
+    for (let i = 0, j = P.length - 1; i < P.length; j = i++) {
+      const [xi, zi] = P[i], [xj, zj] = P[j];
+      if ((zi > z) !== (zj > z) && x < (xj - xi) * (z - zi) / (zj - zi) + xi) ins = !ins;
+    }
+    return ins;
+  }
+  function pullInside(P, x, z, inset) {
+    if (insidePoly(P, x, z)) return [x, z];
+    let best = null, bd = Infinity;
+    const c = P.reduce((a, [px, pz]) => [a[0] + px / P.length, a[1] + pz / P.length], [0, 0]);
+    for (let i = 0; i < P.length; i++) {
+      const [x1, z1] = P[i], [x2, z2] = P[(i + 1) % P.length], dx = x2 - x1, dz = z2 - z1;
+      const t = Math.max(0, Math.min(1, ((x - x1) * dx + (z - z1) * dz) / (dx * dx + dz * dz || 1)));
+      const qx = x1 + t * dx, qz = z1 + t * dz, d = Math.hypot(qx - x, qz - z);
+      if (d < bd) { bd = d; best = [qx, qz]; }
+    }
+    const vx = c[0] - best[0], vz = c[1] - best[1], L = Math.hypot(vx, vz) || 1;
+    return [best[0] + vx / L * inset, best[1] + vz / L * inset];
+  }
+  function adaptSpace() {
+    if (!SPACE || !SPACE.closed) return { ok: false, msg: 'Primero dibuja y cierra el contorno del espacio.' };
+    const P = SPACE.pts, cam = camera.position;
+    let bi = 0, bd = -1;
+    P.forEach(([x, z], i) => { const [x2, z2] = P[(i + 1) % P.length], d = Math.hypot((x + x2) / 2 - cam.x, (z + z2) / 2 - cam.z); if (d > bd) { bd = d; bi = i; } });
+    const [ax, az] = P[bi], [bx, bz] = P[(bi + 1) % P.length], len = Math.hypot(bx - ax, bz - az);
+    const mid = V3((ax + bx) / 2, 0, (az + bz) / 2);
+    let ux = (bx - ax) / len, uz = (bz - az) / len;
+    const cx = P.reduce((a, p) => a + p[0], 0) / P.length, cz = P.reduce((a, p) => a + p[1], 0) / P.length;
+    let nx = -uz, nz = ux;
+    if ((cx - mid.x) * nx + (cz - mid.z) * nz < 0) { nx = -nx; nz = -nz; }
+    if (-uz * nx + ux * nz < 0) { ux = -ux; uz = -uz; }
+    // Matriz mundo → nuevo: fondo en z = −2,9, a lo largo del eje x, hacia dentro = +z.
+    const B = new THREE.Matrix4().makeBasis(V3(ux, 0, uz), V3(0, 1, 0), V3(nx, 0, nz));
+    const Mt = new THREE.Matrix4().makeTranslation(0, 0, -2.9).multiply(B.clone().transpose()).multiply(new THREE.Matrix4().makeTranslation(-mid.x, 0, -mid.z));
+    const yaw = Math.atan2(-nx, nz);
+    camera.position.applyMatrix4(Mt); controls.target.applyMatrix4(Mt);
+    SPACE.pts = P.map(([x, z]) => { const v = V3(x, 0, z).applyMatrix4(Mt); return [v.x, v.z]; });
+    LOOK.dir = (LOOK.dir + THREE.MathUtils.radToDeg(yaw) + 360) % 360; applyLook();
+    controls.update();
+    const Q = SPACE.pts, xs = Q.map(p => p[0]), zs = Q.map(p => p[1]);
+    const depth = Math.max(...zs) - Math.min(...zs);
+    draggables.filter(o => o.userData.hung).forEach(o => hang(o, false));
+    draggables.forEach(o => { o.userData.moved = false; if (o.userData.kind !== 'truss') o.rotation.y = 0; });
+    rig.truss.rotation.y = 0;
+    Object.assign(TR, { w: Math.max(2, Math.min(TR0.w, len - 1)) }); buildTrussGeo(); layoutTruss();
+    Object.assign(TAR, { w: Math.max(1, Math.min(TAR.w, len - 0.4)), d: Math.max(1, Math.min(TAR.d, depth * 0.45)) }); buildTarima(); relevel();
+    update(lastState);
+    draggables.forEach(o => {
+      if (!o.visible || o.userData.hung) return;
+      const [x, z] = pullInside(Q, o.position.x, o.position.z, 0.45);
+      if (x !== o.position.x || z !== o.position.z) place(o, x, z);
+    });
+    drawSpace(); spaceEvent(); notify();
+    return { ok: true, back: +len.toFixed(1), depth: +depth.toFixed(1), area: +polyArea(Q).toFixed(1), minX: Math.min(...xs) };
   }
   function setVenue(img) {
     if (!inited) return;
     bgImg = img || null;
-    fg.calib = null; fg.mode = null;
+    fg.calib = null; fg.mode = null; fg.corners = null; fg.editing = false; SPACE = null; if (rig.space) drawSpace();
     if (img) {
       initFgPhoto(img);
       const t = new THREE.Texture(img); t.needsUpdate = true;
@@ -1935,8 +2227,9 @@ const Stage = (() => {
     renderer.setPixelRatio(1); renderer.setSize(w, h, false);
     camera.aspect = w / h; camera.updateProjectionMatrix();
     fitBg(w / h);
-    const selVis = selBox.visible, gridVis = rig.grid.visible; selBox.visible = false; rig.grid.visible = false;
-    return () => { exporting = false; selBox.visible = selVis; rig.grid.visible = gridVis; renderer.setPixelRatio(prevPR); resize(); };
+    const selVis = selBox.visible, gridVis = rig.grid.visible, spVis = rig.space.visible;
+    selBox.visible = false; rig.grid.visible = false; if (!spaceInExport) rig.space.visible = false;
+    return () => { exporting = false; selBox.visible = selVis; rig.grid.visible = gridVis; rig.space.visible = spVis; renderer.setPixelRatio(prevPR); resize(); };
   }
 
   function watermark(g, w, h) {
@@ -2032,7 +2325,20 @@ const Stage = (() => {
     select(o) { if (!inited) return; if (o === 'tarima') { if (rig.tarima.visible) select(rig.tarima); } else if (!o) select(null); },
     tarima() { return Object.assign({}, TAR); },
     setModels(map) { setModels(map); },
-    calibrate(w, d) { if (inited) startCalib(w, d); },
+    calibrate(w, d) { if (inited) { editCorners(false); startCalib(w, d); } },
+    editCorners(on) { if (inited) editCorners(on); return !!fg.editing; },
+    hasCorners() { return !!fg.corners; },
+    space(cmd) {
+      if (!inited || !bgImg) return null;
+      if (cmd === 'start') { SPACE = { pts: [], closed: false, drawing: true }; editCorners(false); }
+      else if (cmd === 'close' && SPACE && SPACE.pts.length > 2) { SPACE.closed = true; SPACE.drawing = false; }
+      else if (cmd === 'undo' && SPACE && SPACE.pts.length) { SPACE.pts.pop(); SPACE.closed = false; SPACE.drawing = true; }
+      else if (cmd === 'clear') SPACE = null;
+      else if (cmd === 'adapt') return adaptSpace();
+      drawSpace(); spaceEvent();
+      return null;
+    },
+    spaceInExport(v) { spaceInExport = !!v; },
     cancelCalib() { fg.calib = null; fg.pts = null; drawFg(); },
     paint(mode) { fg.mode = mode || null; fg.calib = null; if (fg.mask) rebuildCut(); drawFg(); },
     brush(px) { fg.brush = px; },

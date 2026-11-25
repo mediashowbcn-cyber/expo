@@ -212,6 +212,12 @@ $msb_ld = array(
 						<div class="fit-row" id="insp-tarima-row"><span>Ancho × fondo × alto (m) <output id="insp-tm2"></output></span>
 							<div class="insp-dims"><input type="number" id="insp-tw" min="1" max="20" step="0.5" aria-label="Ancho de la tarima en metros" /> × <input type="number" id="insp-td" min="1" max="12" step="0.5" aria-label="Fondo de la tarima en metros" /> × <input type="number" id="insp-th" min="0.2" max="1.5" step="0.1" aria-label="Alto de la tarima en metros" /></div>
 							<small>El precio se calcula por m².</small></div>
+						<div class="fit-row" id="insp-truss-row"><span>Ancho × alto del truss (m)</span>
+							<div class="insp-dims"><input type="number" id="insp-trw" min="2" max="16" step="0.5" aria-label="Ancho del truss en metros" /> × <input type="number" id="insp-trh" min="2" max="7" step="0.25" aria-label="Alto del truss en metros" /></div>
+							<small>Las cabezas móviles y lo que cuelga se reparten solos.</small></div>
+						<div class="fit-row" id="insp-hang-row">
+							<label class="fit-check"><input type="checkbox" id="insp-hang" /> Colgada del truss</label>
+							<small id="insp-hang-note">Añade truss (o un pack con truss) para poder colgarla.</small></div>
 						<div class="fit-row" id="insp-tower-row"><span>Altura de la torre (m)</span>
 							<div class="insp-dims"><input type="number" id="insp-towh" min="1" max="6" step="0.25" aria-label="Altura de la torre en metros" /></div>
 							<label class="fit-check"><input type="checkbox" id="insp-towhead" /> Cabeza móvil arriba</label></div>
@@ -225,17 +231,25 @@ $msb_ld = array(
 				          <strong>1 · Perspectiva exacta</strong>
 				          <p>Marca las 4 esquinas de algo rectangular del suelo cuyas medidas conozcas (baldosas, una alfombra, la zona del escenario). Empieza por la del fondo a la izquierda y sigue como las agujas del reloj.</p>
 				          <div class="insp-dims"><input type="number" id="cal-w" value="3" min="0.3" max="40" step="0.1" aria-label="Ancho del rectángulo en metros" /> × <input type="number" id="cal-d" value="3" min="0.3" max="40" step="0.1" aria-label="Fondo del rectángulo en metros" /> m</div>
-				          <button type="button" class="btn btn-sm btn-pri" id="cal-btn">Marcar 4 esquinas</button>
+				          <div class="insp-btns"><button type="button" class="btn btn-sm btn-pri" id="cal-btn">Marcar 4 esquinas</button><button type="button" class="btn btn-sm" id="cal-edit" hidden>Ajustar esquinas</button></div>
 				          <p class="fit-msg" id="cal-msg" role="status"></p>
 				        </div>
 				        <div class="fit-sec">
-				          <strong>2 · Primer plano</strong>
+				          <strong>2 · Dibuja el espacio</strong>
+				          <p>Marca en el suelo todas las esquinas del espacio (las que necesites). Verás las medidas de cada lado y los m², y el montaje se adapta a ese contorno.</p>
+				          <div class="insp-btns"><button type="button" class="btn btn-sm btn-pri" id="space-start">Dibujar contorno</button><button type="button" class="btn btn-sm" id="space-undo" hidden>Deshacer punto</button><button type="button" class="btn btn-sm" id="space-clear" hidden>Borrar</button></div>
+				          <button type="button" class="btn btn-sm btn-pri" id="space-adapt" hidden>Adaptar el montaje al espacio</button>
+				          <label class="fit-check"><input type="checkbox" id="space-export" /> Mostrar el plano y las medidas en la exportación</label>
+				          <p class="fit-msg" id="space-msg" role="status"></p>
+				        </div>
+				        <div class="fit-sec">
+				          <strong>3 · Primer plano</strong>
 				          <p>Pinta encima de lo que está delante del montaje (mesas, sillas, columnas) y quedará por delante de los equipos.</p>
 				          <div class="insp-btns"><button type="button" class="btn btn-sm" id="fg-paint" aria-pressed="false">Pintar</button><button type="button" class="btn btn-sm" id="fg-erase" aria-pressed="false">Borrar</button><button type="button" class="btn btn-sm" id="fg-clear">Limpiar</button></div>
 				          <label class="fit-row" for="fg-brush"><span>Tamaño del pincel</span><input type="range" id="fg-brush" min="6" max="120" step="2" value="40" /></label>
 				        </div>
 				        <div class="fit-sec">
-				          <strong>3 · Luz</strong>
+				          <strong>4 · Luz</strong>
 				          <button type="button" class="btn btn-sm" id="look-auto">Igualar la luz con la foto</button>
 				          <label class="fit-row" for="fit-light"><span>Intensidad <output id="fit-light-val"></output></span><input type="range" id="fit-light" min="0.2" max="2.5" step="0.05" /></label>
 				          <label class="fit-row" for="fit-warm"><span>Tono <output id="fit-warm-val"></output></span><input type="range" id="fit-warm" min="-1" max="1" step="0.05" /></label>
