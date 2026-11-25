@@ -21,10 +21,18 @@ function msb_models() {
 		'corporate' => 'Escenario Corporate (truss, 2 barras LED, 2 PAR, 2 micros)',
 		'premium'   => 'Escenario Premium (truss, 4 cabezas, humo, 4 micros)',
 		'integral'  => 'Escenario Integral (pantalla LED, cámaras, 4 cabezas)',
+		'led_s'     => 'Pantalla LED kit S (2 × 1,5 m)',
+		'led_m'     => 'Pantalla LED kit M (3 × 2 m)',
+		'led_l'     => 'Pantalla LED kit L (4 × 2,5 m)',
 		'totem'     => 'Tótem LED 55" (con logo del cliente)',
+		'screen55'  => 'Pantalla 55" con pie',
 		'heads'     => 'Pack 6 cabezas móviles',
 		'bars'      => 'Pack 4 barras LED',
-		'led'       => 'Pantalla LED 3 m²',
+		'truss'     => 'Truss de escenario',
+		'booth'     => 'Cabina DJ',
+		'dj'        => 'DJ (figura en la cabina)',
+		'mic'       => 'Micrófono adicional',
+		'lectern'   => 'Atril con micrófono',
 		'stream'    => 'Cámaras de streaming',
 		'smoke'     => 'Humo / fuego frío',
 	);
@@ -49,7 +57,7 @@ add_action(
 				'label'       => 'Modelo 3D',
 				'options'     => msb_models(),
 				'desc_tip'    => true,
-				'description' => 'Qué se dibuja en el escenario 3D. En los packs, elige un escenario. En los extras, el equipo que se añade.',
+				'description' => 'Qué se dibuja en el escenario 3D. En los packs, elige un escenario. En los extras, el equipo que se añade. Los tres kits de pantalla LED se muestran juntos y el cliente elige uno. Deja el precio vacío para mostrar «A consultar».',
 			)
 		);
 		woocommerce_wp_text_input(
@@ -194,7 +202,7 @@ function msb_catalog() {
 		$extras[] = array(
 			'id'    => $p->get_id(),
 			'name'  => $p->get_name(),
-			'price' => (float) $p->get_regular_price(),
+			'price' => '' === $p->get_regular_price() ? null : (float) $p->get_regular_price(),
 			'max'   => max( 1, (int) $p->get_meta( '_msb_max' ) ),
 			'model' => (string) $p->get_meta( '_msb_modelo' ),
 			'desc'  => wp_strip_all_tags( $p->get_short_description() ),

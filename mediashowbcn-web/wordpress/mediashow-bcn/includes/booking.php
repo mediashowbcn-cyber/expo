@@ -38,8 +38,10 @@ function msb_build_quote( $in ) {
 		$extra   = $hours - $included;
 		$lines[] = array( sprintf( 'Horas extra (%d × %s)', $extra, msb_fmt( msb_cents( msb_opt( 'extra_hour' ) ) ) ), $extra * msb_cents( msb_opt( 'extra_hour' ) ) );
 	}
-	$extras = json_decode( wp_unslash( $in['extras'] ?? '{}' ), true );
-	$names  = array();
+	$extras  = json_decode( wp_unslash( $in['extras'] ?? '{}' ), true );
+	$names   = array();
+	$pending = array();
+	$led     = false;
 	if ( is_array( $extras ) ) {
 		foreach ( $extras as $id => $qty ) {
 			$p   = wc_get_product( absint( $id ) );
@@ -47,8 +49,25 @@ function msb_build_quote( $in ) {
 			if ( ! $qty || ! $p || 'publish' !== $p->get_status() || 'extra' !== $p->get_meta( '_msb_tipo' ) ) {
 				continue;
 			}
-			$qty     = min( $qty, max( 1, (int) $p->get_meta( '_msb_max' ) ) );
-			$label   = $p->get_name() . ( $qty > 1 ? ' × ' . $qty : '' );
+			// Solo se puede elegir un kit de pantalla LED.
+			if ( 0 === strpos( (string) $p->get_meta( '_msb_modelo' ), 'led_' ) ) {
+				if ( $led ) {
+					continue;
+				}
+				$led = true;
+				$qty = 1;
+			}
+			$qty   = min( $qty, max( 1, (int) $p->get_meta( '_msb_max' ) ) );
+			$label = $p->get_name() . ( $qty > 1 ? ' × ' . $qty : '' );
+			if ( 'led_s' === $p->get_meta( '_msb_modelo' ) && 'integral' === $pack->get_meta( '_msb_modelo' ) ) {
+				$names[] = $label . ' (incluida en el pack)';
+				continue;
+			}
+			if ( '' === $p->get_regular_price() ) {
+				$pending[] = $label;
+				$names[]   = $label . ' (a consultar)';
+				continue;
+			}
 			$lines[] = array( $label, $qty * msb_cents( $p->get_regular_price() ) );
 			$names[] = $label;
 		}
@@ -71,6 +90,7 @@ function msb_build_quote( $in ) {
 		'pack_id'  => $pack->get_id(),
 		'lines'    => $lines,
 		'extras'   => $names,
+		'pending'  => $pending,
 		'base'     => $base,
 		'iva'      => $iva,
 		'total'    => $total,
@@ -212,7 +232,7 @@ function msb_quote_rows( $q, $logo = '' ) {
 	if ( $q['name'] ) {
 		$rows['Cliente'] = $q['name'] . ( $q['phone'] ? ' · ' . $q['phone'] : '' );
 	}
-	$rows['Total del presupuesto (IVA incl.)'] = msb_fmt( $q['total'] );
+	$rows['Total del presupuesto (IVA incl.)'] = msb_fmt( $q['total'] ) . ( empty( $q['pending'] ) ? '' : ' + conceptos a consultar' );
 	$rows['Resto a pagar antes del evento']    = msb_fmt( $q['total'] - $q['deposit'] );
 	if ( $logo ) {
 		$rows['Logo para tótems'] = $logo;

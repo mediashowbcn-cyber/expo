@@ -211,11 +211,12 @@ $msb_ld = array(
 					<div class="stage-legend" id="stage-legend" aria-hidden="true"></div>
 					<div class="stage-fallback" id="stage-fallback" hidden>Tu navegador no puede mostrar el escenario 3D. El cálculo del presupuesto funciona igualmente.</div>
 					<div class="stage-bar">
-						<span>Arrastra para girar 360° · Pellizca o usa la rueda para el zoom</span>
+						<span>Arrastra el fondo para girar 360° · Arrastra un equipo para moverlo · Doble clic para girarlo</span>
 						<div style="display:flex;gap:8px;flex-wrap:wrap;">
 							<button type="button" class="btn btn-sm" onclick="setCamPreset('front')">Frente</button>
 							<button type="button" class="btn btn-sm" onclick="setCamPreset('audience')">Público</button>
 							<button type="button" class="btn btn-sm" onclick="setCamPreset('back')">Trasera 360°</button>
+							<button type="button" class="btn btn-sm" onclick="resetLayout()">Recolocar</button>
 						</div>
 					</div>
 				</div>
@@ -240,7 +241,7 @@ $msb_ld = array(
 					<div class="logo-panel" id="logo-panel" hidden>
 						<div class="logo-thumb" id="logo-thumb" aria-hidden="true"></div>
 						<div>
-							<strong style="font-size:13.5px;">Tu logo en los tótems 55"</strong>
+							<strong style="font-size:13.5px;">Tu logo en las pantallas 55"</strong>
 							<p class="msg" style="margin-top:2px;">PNG, SVG, JPG o WebP, hasta 5 MB. Se muestra en el 3D al momento y se adjunta a tu reserva.</p>
 							<div class="logo-actions">
 								<input class="file-input" id="logo-input" type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" />

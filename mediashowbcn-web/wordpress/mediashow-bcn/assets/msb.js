@@ -6,6 +6,9 @@
   const PACKS = D.packs || [];
   const EXTRAS = D.extras || [];
   const packById = id => PACKS.find(p => p.id === Number(id));
+  const isLed = ex => /^led_/.test(ex.model);
+  const LEDS = EXTRAS.filter(isLed);
+  const priceTxt = (price, max) => price === null ? 'A consultar' : '+' + eur0(price) + (max > 1 ? ' / ud. (máx. ' + max + ')' : '');
 
   const ICONS = {
     totem: '<rect x="7" y="2" width="10" height="17" rx="1.5"/><path d="M12 19v3M8 22h8"/>',
@@ -14,6 +17,12 @@
     led: '<rect x="2" y="4" width="20" height="13" rx="1.5"/><path d="M8 21h8M12 17v4"/>',
     stream: '<rect x="2" y="6" width="14" height="12" rx="2"/><path d="M16 10l6-3v10l-6-3z"/>',
     smoke: '<path d="M6 17h12a3 3 0 000-6 4.5 4.5 0 00-8.8-1.2A3.5 3.5 0 006 17z"/>',
+    screen55: '<rect x="3" y="4" width="18" height="11" rx="1.2"/><path d="M12 15v6M8 21h8"/>',
+    truss: '<path d="M3 6h18M3 10h18M3 6l4 4 4-4 4 4 4-4M5 10v11M19 10v11"/>',
+    booth: '<rect x="3" y="10" width="18" height="10" rx="1.5"/><circle cx="8" cy="7" r="2.5"/><circle cx="16" cy="7" r="2.5"/>',
+    dj: '<circle cx="12" cy="7" r="3.5"/><path d="M7.5 7a4.5 4.5 0 019 0M5 21c0-3.5 3.1-6 7-6s7 2.5 7 6"/>',
+    mic: '<rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v4"/>',
+    lectern: '<path d="M6 7h12l-2 4H8z"/><path d="M9 11v9M15 11v9M7 20h10"/>',
     '': '<path d="M4 7l8-4 8 4v10l-8 4-8-4z"/><path d="M4 7l8 4 8-4M12 11v10"/>'
   };
 
@@ -26,7 +35,7 @@
       spec: 'Escenas programadas en Naranja Show, cian o ámbar cálido.', preset: 'premium', dm: 'amber', models: { heads: 1, bars: 1 } },
     { eyebrow: '03 · Vídeo, LED & Streaming', title: 'Pantallas LED, Tótems y Realización',
       body: 'Pantallas LED modulares de gran formato, tótems digitales 55" personalizables con tu marca, realización multicámara en directo y cobertura fotográfica profesional.',
-      spec: 'Añade tótems LED 55" con tu logo o una pantalla LED de 3 m² directamente en el cotizador.', preset: 'integral', dm: 'corp', models: { totem: 2 } }
+      spec: 'Elige entre 3 kits de pantalla LED y añade tótems o pantallas de 55" con tu logo.', preset: 'integral', dm: 'corp', models: { led_m: 1, totem: 2 } }
   ];
 
   const state = {
@@ -119,32 +128,54 @@
     $('hours-select').innerHTML = opts.map(x => `<option value="${x}">${x} horas ${x === h ? '(incluidas)' : '(+' + eur0((x - h) * S.extraHour) + ')'}</option>`).join('');
   }
 
+  function extraRow(ex) {
+    const label = esc(ex.name);
+    const thumb = ex.img
+      ? `<button type="button" class="extra-photo" data-photo="${ex.id}" aria-label="Ver foto de ${label}"><img src="${esc(ex.img)}" alt="" loading="lazy" /></button>`
+      : `<div class="extra-ico"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[ex.model] || ICONS['']}</svg></div>`;
+    return `
+      <div class="extra-row" id="row-${ex.id}">
+        <div class="extra-meta">
+          ${thumb}
+          <div>
+            <div style="font-weight:600;font-size:13.5px;">${label}</div>
+            <div style="font-size:12px;color:var(--gray);">${priceTxt(ex.price, ex.max)}</div>
+          </div>
+        </div>
+        <div class="qty-ctl">
+          <button type="button" data-id="${ex.id}" data-d="-1" aria-label="Quitar ${label}">−</button>
+          <output id="qty-${ex.id}" aria-live="polite">0</output>
+          <button type="button" data-id="${ex.id}" data-d="1" aria-label="Añadir ${label}">+</button>
+        </div>
+      </div>`;
+  }
+
+  function ledRow() {
+    if (!LEDS.length) return '';
+    return `
+      <div class="extra-row extra-choice" id="row-led">
+        <div class="extra-meta">
+          <div class="extra-ico"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONS.led}</svg></div>
+          <div>
+            <div style="font-weight:600;font-size:13.5px;">Pantalla LED</div>
+            <div style="font-size:12px;color:var(--gray);" id="sub-led">Elige un kit</div>
+          </div>
+        </div>
+        <div class="seg" role="radiogroup" aria-label="Pantalla LED">
+          <button type="button" role="radio" data-led="">Ninguna</button>
+          ${LEDS.map(ex => `<button type="button" role="radio" data-led="${ex.id}" title="${esc(ex.name)}">${esc(ex.name.replace(/^Pantalla LED\s*/i, '').split('·')[0].trim())}<small>${esc((ex.name.split('·')[1] || '').trim())}</small></button>`).join('')}
+        </div>
+      </div>`;
+  }
+
   function buildExtrasList() {
     if (!EXTRAS.length) { $('extras-list').innerHTML = '<p class="msg">No hay extras publicados.</p>'; return; }
-    $('extras-list').innerHTML = EXTRAS.map(ex => {
-      const label = esc(ex.name);
-      const thumb = ex.img
-        ? `<button type="button" class="extra-photo" data-photo="${ex.id}" aria-label="Ver foto de ${label}"><img src="${esc(ex.img)}" alt="" loading="lazy" /></button>`
-        : `<div class="extra-ico"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[ex.model] || ICONS['']}</svg></div>`;
-      return `
-        <div class="extra-row" id="row-${ex.id}">
-          <div class="extra-meta">
-            ${thumb}
-            <div>
-              <div style="font-weight:600;font-size:13.5px;">${label}</div>
-              <div style="font-size:12px;color:var(--gray);">+${eur0(ex.price)}${ex.max > 1 ? ' / ud. (máx. ' + ex.max + ')' : ''}</div>
-            </div>
-          </div>
-          <div class="qty-ctl">
-            <button type="button" data-id="${ex.id}" data-d="-1" aria-label="Quitar ${label}">−</button>
-            <output id="qty-${ex.id}" aria-live="polite">0</output>
-            <button type="button" data-id="${ex.id}" data-d="1" aria-label="Añadir ${label}">+</button>
-          </div>
-        </div>`;
-    }).join('');
+    $('extras-list').innerHTML = ledRow() + EXTRAS.filter(ex => !isLed(ex)).map(extraRow).join('');
     $('extras-list').addEventListener('click', e => {
       const ph = e.target.closest('[data-photo]');
       if (ph) { openPhoto(EXTRAS.find(x => x.id === Number(ph.dataset.photo))); return; }
+      const l = e.target.closest('button[data-led]');
+      if (l) { LEDS.forEach(ex => { state.extras[ex.id] = String(ex.id) === l.dataset.led ? 1 : 0; }); render(); return; }
       const b = e.target.closest('button[data-id]');
       if (!b) return;
       const ex = EXTRAS.find(x => x.id === Number(b.dataset.id));
@@ -186,12 +217,15 @@
     if (extraHours) lines.push({ label: `Horas extra (${extraHours} × ${eur0(S.extraHour)})`, cents: extraHours * Math.round(S.extraHour * 100) });
     EXTRAS.forEach(ex => {
       const q = state.extras[ex.id];
-      if (q) lines.push({ label: `${ex.name}${q > 1 ? ' × ' + q : ''}`, cents: q * Math.round(ex.price * 100) });
+      if (!q) return;
+      if (ex.model === 'led_s' && pack && pack.preset === 'integral') { lines.push({ label: `${ex.name} (incluida en el pack)`, cents: 0 }); return; }
+      lines.push({ label: `${ex.name}${q > 1 ? ' × ' + q : ''}`, cents: ex.price === null ? null : q * Math.round(ex.price * 100) });
     });
-    const base = lines.reduce((a, l) => a + l.cents, 0);
+    const pending = lines.filter(l => l.cents === null).length;
+    const base = lines.reduce((a, l) => a + (l.cents || 0), 0);
     const iva = Math.round(base * S.iva / 100);
     const total = base + iva;
-    return { pack, lines, base, iva, total, deposit: Math.round(total * S.deposit / 100) };
+    return { pack, lines, pending, base, iva, total, deposit: Math.round(total * S.deposit / 100) };
   }
 
   function fmtDate(v) {
@@ -209,12 +243,19 @@
       ? 'Exterior: revisamos protección contra lluvia y viento, lastres, punto de corriente y normativa del recinto antes del montaje.'
       : 'Interior: configuración acústica y lumínica adaptada a sala, hotel o local.';
 
-    EXTRAS.forEach(ex => {
+    EXTRAS.filter(ex => !isLed(ex)).forEach(ex => {
       $('qty-' + ex.id).textContent = state.extras[ex.id];
       $('row-' + ex.id).classList.toggle('on', state.extras[ex.id] > 0);
     });
+    if (LEDS.length) {
+      const chosen = LEDS.find(ex => state.extras[ex.id]);
+      $('row-led').classList.toggle('on', !!chosen);
+      $('row-led').querySelectorAll('[data-led]').forEach(b => b.setAttribute('aria-checked', b.dataset.led === (chosen ? String(chosen.id) : '') ? 'true' : 'false'));
+      const pk0 = packById(state.pack);
+      $('sub-led').textContent = chosen ? (chosen.model === 'led_s' && pk0 && pk0.preset === 'integral' ? 'Incluida en el pack' : priceTxt(chosen.price, 1)) : (pk0 && pk0.preset === 'integral' ? 'Kit S incluido en el pack' : 'Elige un kit');
+    }
     const models = modelCounts();
-    $('logo-panel').hidden = !models.totem;
+    $('logo-panel').hidden = !(models.totem || models.screen55);
 
     const q = computeQuote();
     const pk = q.pack;
@@ -231,10 +272,11 @@
       hint.textContent = `Para ${state.guests} personas recomendamos el Pack ${packById(rec).name}.`;
     } else hint.hidden = true;
 
-    const linesHtml = q.lines.map(l => `<div class="line-item"><span>${esc(l.label)}</span><strong>${eur(l.cents)}</strong></div>`).join('')
+    const linesHtml = q.lines.map(l => `<div class="line-item"><span>${esc(l.label)}</span><strong>${l.cents === null ? 'A consultar' : eur(l.cents)}</strong></div>`).join('')
       + `<div class="line-item"><span>Base imponible</span><strong>${eur(q.base)}</strong></div>`
       + `<div class="line-item"><span>IVA ${S.iva} %</span><strong>${eur(q.iva)}</strong></div>`
-      + `<div class="line-item sum"><span>Reserva ${S.deposit} % · resto antes del evento</span><strong>${eur(q.deposit)}</strong></div>`;
+      + `<div class="line-item sum"><span>Reserva ${S.deposit} % · resto antes del evento</span><strong>${eur(q.deposit)}</strong></div>`
+      + (q.pending ? `<p class="msg">${q.pending === 1 ? '1 concepto se presupuesta aparte y no está' : q.pending + ' conceptos se presupuestan aparte y no están'} en el total.</p>` : '');
     $('quote-lines').innerHTML = linesHtml;
     $('prop-lines').innerHTML = linesHtml;
 
@@ -251,10 +293,10 @@
       `Fecha: ${fmtDate(state.date)} · ${state.guests} personas · ${state.hours} h · ${state.space} · ${ZONES[state.zone]}.`,
       `Iluminación: ${$('dm-select').selectedOptions[0].text}.`
     ];
-    const extrasTxt = EXTRAS.filter(ex => state.extras[ex.id]).map(ex => `${ex.name}${state.extras[ex.id] > 1 ? ' ×' + state.extras[ex.id] : ''}`);
+    const extrasTxt = q.lines.slice(1).filter(l => !/^Horas extra/.test(l.label)).map(l => l.label + (l.cents === null ? ' (a consultar)' : ''));
     if (extrasTxt.length) wa.push('Extras: ' + extrasTxt.join(', ') + '.');
-    if (models.totem && state.logo) wa.push('Tengo logo para los tótems; os lo envío por aquí.');
-    wa.push(`Estimado con IVA: ${eur(q.total)} (reserva ${S.deposit} %: ${eur(q.deposit)}).`);
+    if ((models.totem || models.screen55) && state.logo) wa.push('Tengo logo para las pantallas; os lo envío por aquí.');
+    wa.push(`Estimado con IVA: ${eur(q.total)} (reserva ${S.deposit} %: ${eur(q.deposit)})${q.pending ? ' + conceptos a consultar' : ''}.`);
     $('wa-quote-btn').href = `https://wa.me/${S.whatsapp}?text=${encodeURIComponent(wa.join('\n'))}`;
     const ok = $('consent-check').checked;
     $('wa-quote-btn').setAttribute('aria-disabled', ok ? 'false' : 'true');
@@ -317,7 +359,8 @@
 
   function logoBlob() {
     return new Promise(resolve => {
-      if (!state.logo || !modelCounts().totem) return resolve(null);
+      const m = modelCounts();
+      if (!state.logo || !(m.totem || m.screen55)) return resolve(null);
       const img = state.logo, r = Math.min(1, 1600 / Math.max(img.naturalWidth || 1, img.naturalHeight || 1));
       const c = document.createElement('canvas');
       c.width = Math.max(1, Math.round((img.naturalWidth || 800) * r));
@@ -656,11 +699,72 @@ const Stage = (() => {
     return g;
   }
 
-  function buildLedWall() {
+  // Pantalla LED modular de w × h metros sobre estructura de aluminio
+  function buildLedWall(w, h) {
     const g = new THREE.Group();
-    const frame = box(2.08, 1.58, 0.1, M.black); frame.position.y = 1.65; g.add(frame);
-    const s = new THREE.Mesh(new THREE.PlaneGeometry(2.0, 1.5), M.ledScreen); s.position.set(0, 1.65, 0.051); g.add(s);
-    [-0.9, 0.9].forEach(x => { const l = box(0.06, 0.9, 0.06, M.alu); l.position.set(x, 0.45, -0.05); g.add(l); const f = box(0.08, 0.03, 0.7, M.alu); f.position.set(x, 0.015, -0.05); g.add(f); });
+    const bottom = h > 1.6 ? 0.6 : 0.9;
+    const frame = box(w + 0.08, h + 0.08, 0.1, M.black); frame.position.y = bottom + h / 2; g.add(frame);
+    const s = new THREE.Mesh(new THREE.PlaneGeometry(w, h), M.ledScreen); s.position.set(0, bottom + h / 2, 0.051); g.add(s);
+    const seams = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.35 });
+    for (let x = -w / 2 + 0.5; x < w / 2 - 0.01; x += 0.5) { const l = new THREE.Mesh(new THREE.PlaneGeometry(0.008, h), seams); l.position.set(x, bottom + h / 2, 0.052); g.add(l); }
+    for (let y = 0.5; y < h - 0.01; y += 0.5) { const l = new THREE.Mesh(new THREE.PlaneGeometry(w, 0.008), seams); l.position.set(0, bottom + y, 0.052); g.add(l); }
+    [-1, 1].forEach(sx => {
+      const x = sx * (w / 2 - 0.15);
+      const l = box(0.06, bottom, 0.06, M.alu); l.position.set(x, bottom / 2, -0.05); g.add(l);
+      const f = box(0.08, 0.03, 0.8, M.alu); f.position.set(x, 0.015, -0.05); g.add(f);
+      const brace = box(0.04, 0.04, 0.6, M.alu); brace.position.set(x, bottom + h * 0.6, -0.35); brace.rotation.x = 0.9; g.add(brace);
+    });
+    g.traverse(o => { if (o.isMesh && o !== s) o.castShadow = true; });
+    return g;
+  }
+
+  // Pantalla profesional de 55" en horizontal con pie de suelo
+  function buildScreen55() {
+    const g = new THREE.Group();
+    [-0.3, 0.3].forEach(x => { const f = box(0.06, 0.04, 0.6, M.black); f.position.set(x, 0.02, 0); g.add(f); });
+    const bar = box(0.66, 0.05, 0.06, M.black); bar.position.set(0, 0.06, 0); g.add(bar);
+    const pole = box(0.08, 1.3, 0.05, M.pole); pole.position.set(0, 0.7, -0.05); g.add(pole);
+    const body = box(1.25, 0.72, 0.05, M.black); body.position.set(0, 1.55, 0); g.add(body);
+    const scr = new THREE.Mesh(new THREE.PlaneGeometry(1.21, 0.68), M.ledScreen); scr.position.set(0, 1.55, 0.026); g.add(scr);
+    g.traverse(o => { if (o.isMesh && o !== scr) o.castShadow = true; });
+    return g;
+  }
+
+  // DJ animado con auriculares (va dentro de la cabina y se mueve con ella)
+  function buildDJ() {
+    const g = new THREE.Group();
+    const cloth = new THREE.MeshStandardMaterial({ color: 0x1d1f26, roughness: 0.8 });
+    const skin = new THREE.MeshStandardMaterial({ color: 0x9c7a63, roughness: 0.7 });
+    [-0.1, 0.1].forEach(x => { const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.065, 0.85, 10), cloth); leg.position.set(x, 0.43, 0); g.add(leg); });
+    const body = new THREE.Group(); body.position.y = 0.85; g.add(body);
+    const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.17, 0.62, 14), cloth); torso.position.y = 0.31; body.add(torso);
+    const tee = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.12), new THREE.MeshBasicMaterial({ color: 0xe65837, toneMapped: false })); tee.position.set(0, 0.4, 0.19); body.add(tee);
+    const head = new THREE.Group(); head.position.y = 0.78; body.add(head);
+    head.add(new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 12), skin));
+    const phones = new THREE.Mesh(new THREE.TorusGeometry(0.13, 0.018, 8, 20, Math.PI), M.black); phones.position.y = 0.01; head.add(phones);
+    [-1, 1].forEach(sx => { const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.04, 14), M.black); cup.rotation.z = Math.PI / 2; cup.position.set(sx * 0.13, 0, 0); head.add(cup); });
+    const arms = [-1, 1].map(sx => {
+      const arm = new THREE.Group(); arm.position.set(sx * 0.24, 0.55, 0); body.add(arm);
+      const a = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.045, 0.55, 8), cloth); a.position.y = -0.27; arm.add(a);
+      const hand = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), skin); hand.position.y = -0.56; arm.add(hand);
+      arm.rotation.x = -0.9; arm.rotation.z = sx * 0.25;
+      return arm;
+    });
+    g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+    return { g, body, head, arms };
+  }
+
+  // Atril de conferencia con micrófono de cuello de cisne
+  function buildLectern() {
+    const g = new THREE.Group();
+    const base = box(0.6, 0.04, 0.45, M.black); base.position.y = 0.02; g.add(base);
+    const col = box(0.5, 1.05, 0.36, M.black); col.position.y = 0.56; g.add(col);
+    const strip = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.08), new THREE.MeshBasicMaterial({ color: 0xe65837, toneMapped: false })); strip.position.set(0, 0.85, 0.181); g.add(strip);
+    rig.lecternStrip = strip.material;
+    const top = box(0.62, 0.04, 0.45, M.desk); top.position.set(0, 1.12, -0.02); top.rotation.x = 0.25; g.add(top);
+    const neck = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.008, 6, 16, Math.PI / 1.6), M.pole); neck.position.set(0.12, 1.16, 0.08); neck.rotation.y = Math.PI / 2; g.add(neck);
+    const capsule = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.01, 0.07, 8), M.black); capsule.position.set(0.12, 1.32, 0.2); capsule.rotation.x = 1.1; g.add(capsule);
+    g.traverse(o => { if (o.isMesh) o.castShadow = true; });
     return g;
   }
 
@@ -733,13 +837,18 @@ const Stage = (() => {
     [-1, 1].forEach(sx => { const p = buildPar(); p.g.position.set(sx * 2.95, 2.7, -1.85); p.g.lookAt(sx * 0.6, 0.9, 0.6); scene.add(p.g); rig.pars.push(p); });
 
     rig.mics = [];
-    [[0, 0.95], [-1.2, 0.85], [1.2, 0.85], [-2.2, 0.6]].forEach(([x, z]) => { const m = buildMic(); m.position.set(x, 0.4, z); scene.add(m); rig.mics.push(m); });
+    [[0, 0.95], [-1.2, 0.85], [1.2, 0.85], [-2.2, 0.6], [2.2, 0.6], [-0.6, 0.3], [0.6, 0.3], [-1.8, -0.2]].forEach(([x, z]) => { const m = buildMic(); m.position.set(x, 0.4, z); scene.add(m); rig.mics.push(m); });
 
     rig.booth = buildBooth(); rig.booth.position.set(0, 0.4, -0.7); scene.add(rig.booth);
+    rig.dj = buildDJ(); rig.dj.g.position.set(0, 0, -0.62); rig.dj.g.rotation.y = 0; rig.booth.add(rig.dj.g);
+    rig.lectern = buildLectern(); rig.lectern.position.set(-2.1, 0.4, 0.75); rig.lectern.rotation.y = 0.25; scene.add(rig.lectern);
     rig.foh = buildFoh(); rig.foh.position.set(0, 0, 7.2); rig.foh.rotation.y = Math.PI; scene.add(rig.foh);
     rig.cams = [];
     [-2.6, 2.6].forEach(x => { const c = buildCam(); c.position.set(x, 0, 5.6); c.lookAt(0, 0, -1); scene.add(c); rig.cams.push(c); });
-    rig.wall = buildLedWall(); rig.wall.position.set(0, 0.4, -1.85); scene.add(rig.wall);
+    rig.walls = {};
+    [['S', 2, 1.5], ['M', 3, 2], ['L', 4, 2.5]].forEach(([k, w, h]) => { const wall = buildLedWall(w, h); wall.position.set(0, 0.4, -1.85); scene.add(wall); rig.walls[k] = wall; });
+    rig.screens = [];
+    [[-4.7, 3.2, 0.5], [4.7, 3.2, -0.5], [-5.2, 0.4, 0.9], [5.2, 0.4, -0.9]].forEach(([x, z, r]) => { const sc = buildScreen55(); sc.position.set(x, 0, z); sc.rotation.y = r; scene.add(sc); rig.screens.push(sc); });
 
     rig.totems = [buildTotem(), buildTotem()];
     rig.totems.forEach(t => scene.add(t));
@@ -753,10 +862,67 @@ const Stage = (() => {
     drawTotem();
     if (document.fonts && document.fonts.load) document.fonts.load('60px "Bebas Neue"').then(() => { drawTotem(); drawLed(0); });
 
+    draggables = [...rig.speakers, ...rig.totems, ...rig.screens, ...rig.mics, ...rig.cams, ...Object.values(rig.walls), rig.booth, rig.lectern, rig.foh];
+    draggables.forEach(o => { o.userData.home = { p: o.position.clone(), r: o.rotation.y }; });
+    setupDrag(canvas);
+
     const ro = new ResizeObserver(resize); ro.observe(canvas);
     resize();
     setCamPreset('front');
     loop();
+  }
+
+  // Arrastrar equipos por el suelo o el escenario; doble clic para girarlos 45°
+  let draggables = [], dragObj = null;
+  function setupDrag(canvas) {
+    const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+    const hit = new THREE.Vector3(), off = new THREE.Vector3();
+    const aim = e => {
+      const r = canvas.getBoundingClientRect();
+      ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+      ray.setFromCamera(ndc, camera);
+    };
+    const pick = e => {
+      aim(e);
+      const hits = ray.intersectObjects(draggables.filter(o => o.visible), true);
+      if (!hits.length) return null;
+      let o = hits[0].object;
+      while (o && !draggables.includes(o)) o = o.parent;
+      return o;
+    };
+    // Va en fase de captura para adelantarse a OrbitControls y no girar la cámara al arrastrar.
+    canvas.addEventListener('pointerdown', e => {
+      if (e.button !== 0) return;
+      const o = pick(e);
+      if (!o) return;
+      dragObj = o;
+      controls.enabled = false;
+      plane.constant = -o.position.y;
+      if (ray.ray.intersectPlane(plane, hit)) off.copy(o.position).sub(hit);
+      canvas.setPointerCapture(e.pointerId);
+      canvas.style.cursor = 'grabbing';
+    }, true);
+    canvas.addEventListener('pointermove', e => {
+      if (!dragObj) { if (e.pointerType === 'mouse') canvas.style.cursor = pick(e) ? 'grab' : ''; return; }
+      aim(e);
+      if (!ray.ray.intersectPlane(plane, hit)) return;
+      const x = Math.max(-7, Math.min(7, hit.x + off.x)), z = Math.max(-2.5, Math.min(9, hit.z + off.z));
+      const onStage = Math.abs(x) < 3.55 && z > -2.55 && z < 1.55;
+      dragObj.position.set(x, onStage ? 0.4 : 0, z);
+      plane.constant = -dragObj.position.y;
+      dragObj.userData.moved = true;
+    });
+    const end = () => { if (!dragObj) return; dragObj = null; controls.enabled = true; canvas.style.cursor = ''; };
+    canvas.addEventListener('pointerup', end);
+    canvas.addEventListener('pointercancel', end);
+    canvas.addEventListener('dblclick', e => {
+      const o = pick(e);
+      if (o) { o.rotation.y += Math.PI / 4; o.userData.moved = true; }
+    });
+  }
+
+  function resetLayout() {
+    draggables.forEach(o => { o.userData.moved = false; o.position.copy(o.userData.home.p); o.rotation.y = o.userData.home.r; });
   }
 
   function resize() {
@@ -772,28 +938,31 @@ const Stage = (() => {
   function update(s) {
     if (!inited) return;
     mode = s.dm; pal = PAL[mode];
-    const p = s.preset;
+    const p = s.preset, x = s.models;
     const full = p === 'premium' || p === 'integral';
-    const m = s.models;
+    const led = x.led_s ? 'S' : x.led_m ? 'M' : x.led_l ? 'L' : '';
     cfg = {
       speakers: s.guests <= 60 ? 2 : s.guests <= 150 ? 4 : 6,
-      heads: Math.min(10, (full ? 4 : 0) + 6 * (m.heads || 0)),
-      bars: Math.min(6, (p === 'corporate' ? 2 : 0) + 4 * (m.bars || 0)),
+      heads: Math.min(10, (full ? 4 : 0) + 6 * (x.heads || 0)),
+      bars: Math.min(6, (p === 'corporate' ? 2 : 0) + 4 * (x.bars || 0)),
       pars: p === 'corporate' ? 2 : 0,
-      mics: { starter: 1, corporate: 2, premium: 4, integral: 4 }[p] || 2,
-      booth: p === 'starter',
+      mics: Math.min(8, ({ starter: 1, corporate: 2, premium: 4, integral: 4 }[p] || 2) + (x.mic || 0)),
+      dj: (x.dj || 0) > 0,
+      booth: p === 'starter' || (x.booth || 0) > 0 || (x.dj || 0) > 0,
+      lectern: (x.lectern || 0) > 0,
       foh: p !== 'starter',
-      wall: p === 'integral' || (m.led || 0) > 0,
-      cams: (p === 'integral' || (m.stream || 0) > 0) ? 2 : 0,
-      haze: p === 'premium' || (m.smoke || 0) > 0,
-      totems: Math.min(2, m.totem || 0)
+      wall: led || (p === 'integral' ? 'S' : ''),
+      screens: Math.min(4, x.screen55 || 0),
+      cams: (p === 'integral' || (x.stream || 0) > 0) ? 2 : 0,
+      haze: p === 'premium' || (x.smoke || 0) > 0,
+      totems: Math.min(2, x.totem || 0)
     };
-    cfg.truss = p !== 'starter' || cfg.heads > 0;
+    cfg.truss = p !== 'starter' || cfg.heads > 0 || (x.truss || 0) > 0;
 
     const xs = { 2: [-2.9, 2.9], 4: [-3.3, -2.6, 2.6, 3.3], 6: [-4.3, -3.4, -2.6, 2.6, 3.4, 4.3] }[cfg.speakers];
     rig.speakers.forEach((sp, i) => {
       sp.visible = i < cfg.speakers;
-      if (sp.visible) { const x = xs[i]; const out = Math.abs(x) > 3.5; sp.position.set(x, out ? 0 : 0.4, out ? 1.9 : 1.15); sp.rotation.y = -x * 0.05; }
+      if (sp.visible && !sp.userData.moved) { const px = xs[i]; const out = Math.abs(px) > 3.5; sp.position.set(px, out ? 0 : 0.4, out ? 1.9 : 1.15); sp.rotation.y = -px * 0.05; }
     });
 
     rig.truss.visible = cfg.truss;
@@ -808,15 +977,18 @@ const Stage = (() => {
     rig.pars.forEach(pr => { pr.g.visible = cfg.pars > 0; });
     rig.mics.forEach((m, i) => { m.visible = i < cfg.mics; });
     rig.booth.visible = cfg.booth;
+    rig.dj.g.visible = cfg.dj;
+    rig.lectern.visible = cfg.lectern;
     rig.foh.visible = cfg.foh;
-    rig.wall.visible = cfg.wall;
+    Object.keys(rig.walls).forEach(k => { rig.walls[k].visible = cfg.wall === k; });
+    rig.screens.forEach((sc, i) => { sc.visible = i < cfg.screens; });
     rig.cams.forEach(c => { c.visible = cfg.cams > 0; });
     rig.haze.visible = cfg.haze;
 
     const tpos = cfg.totems === 1 ? [[2.4, -0.4]] : [[-2.4, 0.4], [2.4, -0.4]];
     rig.totems.forEach((t, i) => {
       t.visible = i < cfg.totems;
-      if (t.visible) { t.position.set(tpos[i][0], 0, 2.6); t.rotation.y = tpos[i][1]; }
+      if (t.visible && !t.userData.moved) { t.position.set(tpos[i][0], 0, 2.6); t.rotation.y = tpos[i][1]; }
     });
 
     lights.a.color.setHex(pal.a); lights.b.color.setHex(pal.b); lights.rim.color.setHex(pal.rim);
@@ -826,13 +998,17 @@ const Stage = (() => {
     rig.pars.forEach(pr => { pr.lensMat.color.setHex(pal.b); pr.beamMat.color.setHex(pal.b); pr.beamMat.opacity = cfg.haze ? 0.12 : 0.06; });
     rig.bars.forEach(b => { b.glowMat.color.setHex(pal.a); b.glowMat.opacity = cfg.haze ? 0.14 : 0.07; });
     rig.boothStrip.color.setHex(pal.a);
+    rig.lecternStrip.color.setHex(pal.a);
     drawLed(clock.getElapsedTime());
 
     const leg = [`${cfg.speakers} × RCF EVOX 12`];
     if (cfg.heads) leg.push(`${cfg.heads} cabezas móviles`);
     if (cfg.bars) leg.push(`${cfg.bars} barras LED`);
-    if (cfg.wall) leg.push('Pantalla LED 3 m²');
+    if (cfg.wall) leg.push({ S: 'LED kit S 3 m²', M: 'LED kit M 6 m²', L: 'LED kit L 10 m²' }[cfg.wall]);
     if (cfg.totems) leg.push(`${cfg.totems} tótem${cfg.totems > 1 ? 's' : ''} 55"`);
+    if (cfg.screens) leg.push(`${cfg.screens} pantalla${cfg.screens > 1 ? 's' : ''} 55"`);
+    if (cfg.dj) leg.push('DJ');
+    if (cfg.lectern) leg.push('Atril');
     leg.push(pal.label);
     $('stage-legend').innerHTML = leg.map(t => `<span>${t}</span>`).join('');
   }
@@ -859,7 +1035,14 @@ const Stage = (() => {
       lights.b.intensity = 1.4 + 0.5 * Math.cos(t * 1.7 * speed);
       if (rig.haze.visible) { rig.haze.rotation.y = Math.sin(t * 0.05) * 0.08; rig.haze.position.y = Math.sin(t * 0.3) * 0.08; }
     }
-    if (cfg.wall && !reduce && ++ledTick % 4 === 0) drawLed(t);
+    if (cfg.dj && !reduce) {
+      const beat = t * (mode === 'corp' ? 3.2 : 4.4);
+      rig.dj.head.rotation.x = 0.18 * Math.max(0, Math.sin(beat));
+      rig.dj.body.position.y = 0.85 + 0.03 * Math.abs(Math.sin(beat));
+      rig.dj.arms[0].rotation.x = -0.9 + 0.12 * Math.sin(beat * 0.5);
+      rig.dj.arms[1].rotation.x = -0.9 - 0.25 * Math.max(0, Math.sin(beat * 0.25 + 1));
+    }
+    if ((cfg.wall || cfg.screens) && !reduce && ++ledTick % 4 === 0) drawLed(t);
   }
 
   function loop() {
@@ -883,6 +1066,7 @@ const Stage = (() => {
     update,
     setActive(v) { active = v; if (v) resize(); },
     setLogo(img) { logoImg = img; if (inited) { drawTotem(); drawLed(clock.getElapsedTime()); } },
+    resetLayout() { if (inited) resetLayout(); },
     cam(preset) {
       const presets = { front: [0, 3.4, 10], audience: [5.5, 2.2, 8.5], back: [0.8, 3.6, -9.5] };
       setCam(presets[preset] || presets.front);
@@ -893,7 +1077,9 @@ const Stage = (() => {
 
   function setCamPreset(p) { Stage.cam(p); }
 
-  Object.assign(window, { switchView, goHome, selectPillar, openQuoterWithPreset, openQuoterWithPack, toggleProposal, printProposal, setCamPreset });
+  function resetLayout() { Stage.resetLayout(); render(); }
+
+  Object.assign(window, { switchView, goHome, selectPillar, openQuoterWithPreset, openQuoterWithPack, toggleProposal, printProposal, setCamPreset, resetLayout });
 
   buildSelects();
   buildExtrasList();

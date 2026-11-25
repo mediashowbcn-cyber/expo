@@ -168,10 +168,18 @@ function msb_setup_products() {
 	}
 
 	$extra_defs = array(
+		array( 'MSB-LED-S', 'Pantalla LED Kit S · 2 × 1,5 m (3 m²)', 900, 1, 'led_s', 'Pantalla LED modular de 3 m² con estructura.' ),
+		array( 'MSB-LED-M', 'Pantalla LED Kit M · 3 × 2 m (6 m²)', '', 1, 'led_m', 'Pantalla LED modular de 6 m² con estructura.' ),
+		array( 'MSB-LED-L', 'Pantalla LED Kit L · 4 × 2,5 m (10 m²)', '', 1, 'led_l', 'Pantalla LED modular de 10 m² con estructura.' ),
 		array( 'MSB-TOTEM', 'Tótem LED Digital 55"', 280, 2, 'totem', 'Tótem vertical de 55" con tu logo o contenido.' ),
+		array( 'MSB-SCREEN55', 'Pantalla 55" con pie', '', 4, 'screen55', 'Pantalla profesional de 55" en horizontal con pie de suelo.' ),
 		array( 'MSB-HEADS', 'Pack 6 Cabezas Móviles', 250, 1, 'heads', 'Seis cabezas móviles Wash/Beam en truss.' ),
 		array( 'MSB-BARS', 'Pack 4 Barras LED', 140, 1, 'bars', 'Cuatro barras LED para escenario o ambiente.' ),
-		array( 'MSB-LED', 'Pantalla LED 3 m²', 900, 1, 'led', 'Pantalla LED modular de 3 m² con estructura.' ),
+		array( 'MSB-TRUSS', 'Truss de escenario 6 × 4 m', '', 1, 'truss', 'Estructura de truss de aluminio para colgar iluminación.' ),
+		array( 'MSB-BOOTH', 'Cabina DJ (DJ booth)', '', 1, 'booth', 'Cabina DJ con frontal iluminado.' ),
+		array( 'MSB-DJ', 'DJ profesional', '', 1, 'dj', 'DJ profesional durante el evento.' ),
+		array( 'MSB-MIC', 'Micrófono inalámbrico adicional', '', 4, 'mic', 'Micrófono inalámbrico con pie.' ),
+		array( 'MSB-LECTERN', 'Atril con micrófono', '', 1, 'lectern', 'Atril de conferencia con micrófono de cuello de cisne.' ),
 		array( 'MSB-STREAM', 'Streaming multicámara', 600, 1, 'stream', 'Realización multicámara y emisión en directo.' ),
 		array( 'MSB-TEC', 'Técnico adicional', 150, 3, '', 'Técnico extra durante el evento.' ),
 		array( 'MSB-FOTO', 'Fotografía del evento', 350, 1, '', 'Cobertura fotográfica profesional.' ),
