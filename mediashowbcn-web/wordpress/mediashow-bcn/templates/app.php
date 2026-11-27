@@ -76,10 +76,27 @@ $msb_ld = array(
 				<h1>La producción no debe notarse, <em>debe sentirse.</em></h1>
 				<p class="lead">Tú imaginas el evento. Nosotros lo hacemos sonar, brillar y funcionar a la primera.</p>
 				<div class="hero-ctas">
-					<button type="button" class="btn btn-pri" onclick="switchView('quoter')">Diseña tu evento en 3D →</button>
-					<a class="btn" href="#packs" onclick="return goHome('packs')">Ver packs</a>
-					<a class="btn" href="<?php echo esc_url( $msb_wa . '?text=' . rawurlencode( 'Hola Media Show BCN, quiero información para un evento en Barcelona.' ) ); ?>" target="_blank" rel="noopener">WhatsApp</a>
+					<a class="btn btn-pri" href="<?php echo esc_url( $msb_wa . '?text=' . rawurlencode( 'Hola Media Show BCN, quiero un presupuesto para mi evento.' ) ); ?>" target="_blank" rel="noopener">Pedir presupuesto hoy</a>
+					<button type="button" class="btn" onclick="switchView('quoter')">Cotizar en 3D gratis</button>
+					<a class="btn" href="#packs" onclick="return goHome('packs')">Ver precios</a>
 				</div>
+			</div>
+		</section>
+
+		<section class="sec-block servicios" id="servicios" aria-labelledby="serv-t">
+			<div class="container">
+				<div class="eyebrow">Producción técnica</div>
+				<h2 class="sec-title" id="serv-t">Todo lo que tu evento necesita, en un solo equipo</h2>
+				<p class="sec-sub">Sonido, luz, pantallas, DJ, streaming y escenario. Montamos, operamos y recogemos.</p>
+				<div class="serv-grid">
+					<div class="card serv"><strong>Sonido</strong><p>Altavoces activos, consola, micros inalámbricos y técnico de sonido.</p></div>
+					<div class="card serv"><strong>Iluminación</strong><p>Cabezas móviles, PAR LED, barras de luz, láseres y efectos.</p></div>
+					<div class="card serv"><strong>Pantallas LED y tótems</strong><p>Pantallas modulares y tótems de 55" con tu logo o tu contenido.</p></div>
+					<div class="card serv"><strong>DJ y cabinas</strong><p>Cabina DJ con frontal iluminado, en cinco modelos, y DJ profesional.</p></div>
+					<div class="card serv"><strong>Streaming y realización</strong><p>Varias cámaras, emisión en directo y grabación del evento.</p></div>
+					<div class="card serv"><strong>Escenario, tarimas y truss</strong><p>Tarimas modulares a medida y estructuras de truss para colgar luces.</p></div>
+				</div>
+				<p class="serv-cta"><a class="btn btn-pri" href="<?php echo esc_url( $msb_wa . '?text=' . rawurlencode( 'Hola Media Show BCN, quiero un presupuesto de producción para mi evento.' ) ); ?>" target="_blank" rel="noopener">Pedir presupuesto de producción</a></p>
 			</div>
 		</section>
 
@@ -133,6 +150,17 @@ $msb_ld = array(
 				</div>
 				<?php endif; ?>
 				<p class="pack-note">¿Prefieres reservar con el <?php echo esc_html( (float) msb_opt( 'deposit' ) ); ?> %? Hazlo desde el cotizador 3D. Consulta las <a href="<?php echo esc_url( $msb_links['condiciones'] ); ?>">condiciones de reserva</a>.</p>
+			</div>
+		</section>
+
+		<section class="gestion-cta" aria-labelledby="gest-t">
+			<div class="container gestion-in">
+				<div>
+					<div class="eyebrow">Para productoras y empresas de eventos</div>
+					<h2 class="sec-title" id="gest-t">¿Organizas eventos? Llévalos desde un solo sitio.</h2>
+					<p class="sec-sub">Presupuestos, calendario, equipo, material y cobros en una plataforma que tu equipo comparte en vivo. Pide una demo y te la enseñamos con tu forma de trabajar.</p>
+				</div>
+				<a class="btn btn-pri btn-lg" href="<?php echo esc_url( $msb_wa . '?text=' . rawurlencode( 'Hola Media Show BCN, quiero una demo de la plataforma de gestión para mi empresa de eventos.' ) ); ?>" target="_blank" rel="noopener">Pedir una demo de gestión</a>
 			</div>
 		</section>
 
@@ -195,7 +223,7 @@ $msb_ld = array(
 				</a>
 				<div class="call-copy">
 					<div class="eyebrow"><span class="live-dot"></span> Línea abierta 24/7</div>
-					<h2 class="call-title" id="call-t">¿Tu evento es pronto? <em>Llama ahora.</em></h2>
+					<h2 class="call-title" id="call-t">Pide tu presupuesto hoy. <em>Te respondemos rápido.</em></h2>
 					<p class="call-sub">Te atiende nuestra asistente de voz al instante, de día o de noche: precio, disponibilidad y siguiente paso en una llamada.</p>
 					<div class="call-btns">
 						<a class="btn btn-pri btn-lg call-btn" href="<?php echo esc_url( $msb_tel ); ?>"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 10.8a15.1 15.1 0 006.6 6.6l2.2-2.2a1 1 0 011-.25 11.4 11.4 0 003.6.57 1 1 0 011 1V20a1 1 0 01-1 1A17 17 0 013 4a1 1 0 011-1h3.5a1 1 0 011 1c0 1.25.2 2.45.57 3.57a1 1 0 01-.25 1z" fill="currentColor"/></svg> Llamar al <?php echo esc_html( msb_opt( 'phone_label' ) ); ?></a>

@@ -527,3 +527,13 @@ mark.pendiente { background: #fde68a; color: #0A0A0A; padding: 0 4px; border-rad
 .carrusel-pista img { flex: 0 0 min(78%, 520px); aspect-ratio: 4 / 3; object-fit: cover; scroll-snap-align: start; border-radius: 12px; border: 1px solid var(--line, #2a2a2a); }
 .carrusel-btn { flex: none; width: 42px; height: 42px; border-radius: 50%; border: 1px solid var(--line, #2a2a2a); background: var(--bg-card, #111); color: var(--white, #F4F0E8); font-size: 22px; cursor: pointer; }
 .galeria-mas { margin: 18px 0 0; }
+
+/* v7.25: portada orientada a vender (servicios, gestión y presupuesto) */
+.serv-grid { display: grid; grid-template-columns: 1fr; gap: 14px; margin-top: 18px; }
+@media (min-width: 760px) { .serv-grid { grid-template-columns: repeat(3, 1fr); } }
+.serv strong { display: block; font-size: 17px; margin-bottom: 6px; }
+.serv p { margin: 0; color: var(--gray, #A6A49E); font-size: 14.5px; }
+.serv-cta { margin: 22px 0 0; }
+.gestion-cta { padding: 46px 0; border-top: 1px solid var(--line, #2a2a2a); border-bottom: 1px solid var(--line, #2a2a2a); background: var(--bg-elev, #0f0f10); }
+.gestion-in { display: grid; gap: 18px; align-items: center; }
+@media (min-width: 860px) { .gestion-in { grid-template-columns: 1fr auto; } }
