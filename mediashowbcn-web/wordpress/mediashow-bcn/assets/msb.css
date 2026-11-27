@@ -413,3 +413,15 @@ details.fit-sec[open] { gap: 10px; }
 #dock-list .work-box { margin: 0; padding: 0; background: none; border: 0; }
 #dock-list .work-box h3 { display: none; }
 @media (max-width: 680px) { .stage-dock { width: 240px; } .stage-box:fullscreen .stage-dock { width: 78vw; } }
+/* v7: acciones del equipo seleccionado, cámaras y atajos */
+.work-sel { display: grid; gap: 8px; padding: 10px; margin-bottom: 8px; border: 1px solid #E65837; border-radius: 10px; background: #1b120f; }
+.work-sel-name { font-weight: 700; font-size: 13.5px; color: #F4F0E8; }
+.work-sel-acts { display: flex; flex-wrap: wrap; gap: 6px; }
+.work-sel-acts button:disabled { opacity: .4; cursor: not-allowed; }
+.cam-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.cam-row button { padding: 7px 10px; border-radius: 8px; border: 1px solid #2a2a2a; background: #111; color: #F4F0E8; font: 600 12.5px/1.2 'Work Sans', system-ui, sans-serif; cursor: pointer; }
+.cam-saved { display: flex; flex-wrap: wrap; gap: 6px; }
+.cam-chip { display: inline-flex; align-items: center; border: 1px solid #2a2a2a; border-radius: 999px; overflow: hidden; background: #111; }
+.cam-chip button { padding: 6px 10px; border: 0; background: transparent; color: #F4F0E8; font: 600 12px/1.2 'Work Sans', system-ui, sans-serif; cursor: pointer; }
+.cam-chip button[data-camdel] { color: #A6A49E; border-left: 1px solid #2a2a2a; }
+.dock-keys { margin: 0; font-size: 11.5px; line-height: 1.5; color: #A6A49E; }

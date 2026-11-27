@@ -157,35 +157,114 @@
   }
 
   const KMAP = { spk: 'speaker', trx_extra: 'trx', tower: 'tower', screen55: 'screen', totem: 'totem', mic: 'mic', stream: 'cam', booth: 'booth', lectern: 'lectern', heads: 'head', led_s: 'wall', led_m: 'wall', led_l: 'wall', foh: 'foh' };
-  /* Panel de trabajo: lo que hay en el escenario, con cantidades y acceso directo al equipo en 3D. */
+  /* Panel de trabajo v7: lista del escenario, acciones sobre el equipo seleccionado, vistas y atajos */
+  const REV = {};
+  Object.keys(KMAP).forEach(m => { const ex = EXTRAS.find(x => x.model === m); if (ex) REV[KMAP[m]] = ex; });
+  const bumpExtra = (ex, d) => {
+    if (!ex) return;
+    if (ex.model === 'heads') state.headsN = null;
+    state.extras[ex.id] = Math.max(0, Math.min(ex.max, (state.extras[ex.id] || 0) + d));
+    render();
+  };
+  const KNAME = { speaker: 'Altavoz RCF', trx: 'Altavoz TRX315', tower: 'Torre de truss', screen: 'Pantalla 55"', totem: 'Tótem', mic: 'Micro', cam: 'Cámara', head: 'Cabezal móvil', wall: 'Pantalla LED', booth: 'Cabina DJ', lectern: 'Atril', foh: 'Mesa de control' };
   function renderWork() {
     const box = $('work-list');
     if (!box) return;
+    const sel = Stage.selInfo ? Stage.selInfo() : null;
+    let bar = '';
+    if (sel && sel.kind !== 'truss' && sel.kind !== 'tarima') {
+      const can = !!REV[sel.kind] && !['wall', 'booth', 'lectern', 'foh'].includes(sel.kind);
+      bar = `<div class="work-sel"><div class="work-sel-name">${esc(sel.label)}${sel.hung ? ' · colgada' : ''}</div><div class="work-sel-acts">
+        <button type="button" class="btn btn-sm" data-act="dup" ${can ? '' : 'disabled'} title="Duplicar (D)">Duplicar</button>
+        <button type="button" class="btn btn-sm" data-act="center" title="Centrar (C)">Centrar</button>
+        <button type="button" class="btn btn-sm" data-act="front" title="Traer al frente (F)">Al frente</button>
+        <button type="button" class="btn btn-sm" data-act="del" ${can ? '' : 'disabled'} title="Quitar (Supr)">Quitar</button>
+      </div></div>`;
+    }
     const rows = [];
     EXTRAS.forEach(ex => {
       const q = state.extras[ex.id] || 0;
       if (!q) return;
-      const sel = ex === TARIMA ? 'tarima' : KMAP[ex.model];
-      rows.push(`<div class="work-row"><span class="work-name">${esc(ex.name)}</span><span class="work-qty"><button type="button" data-w="${ex.id}" data-d="-1" aria-label="Quitar uno de ${esc(ex.name)}">−</button><output>${q}</output><button type="button" data-w="${ex.id}" data-d="1" aria-label="Añadir uno de ${esc(ex.name)}">+</button></span>${sel ? `<button type="button" class="btn btn-sm" data-sel="${sel}">Ver en 3D</button>` : '<span></span>'}</div>`);
+      const sk = ex === TARIMA ? 'tarima' : KMAP[ex.model];
+      rows.push(`<div class="work-row"><span class="work-name">${esc(ex.name)}</span><span class="work-qty"><button type="button" data-w="${ex.id}" data-d="-1" aria-label="Quitar uno de ${esc(ex.name)}">−</button><output>${q}</output><button type="button" data-w="${ex.id}" data-d="1" aria-label="Añadir uno de ${esc(ex.name)}">+</button></span>${sk ? `<button type="button" class="btn btn-sm" data-sel="${sk}">Ver en 3D</button>` : '<span></span>'}</div>`);
     });
-    box.innerHTML = rows.length ? rows.join('') : '<p class="msg">Todavía no hay equipos en el escenario. Añádelos con «Añadir al render» o desde «Servicios adicionales».</p>';
+    box.innerHTML = bar + (rows.length ? rows.join('') : '<p class="msg">Todavía no hay equipos en el escenario. Añádelos con «Añadir al render» o desde «Servicios adicionales».</p>');
+  }
+  function renderCams() {
+    const box = $('cam-saved');
+    if (!box) return;
+    let list = [];
+    try { list = JSON.parse(localStorage.getItem('msb-views') || '[]'); } catch (e) { list = []; }
+    box.innerHTML = list.map((v, i) => `<span class="cam-chip"><button type="button" data-cam="${i}">${esc(v.name)}</button><button type="button" data-camdel="${i}" aria-label="Borrar vista ${esc(v.name)}">×</button></span>`).join('');
   }
   function setupWork() {
     const box = $('work-list');
     box.addEventListener('click', e => {
       const b = e.target.closest('button');
-      if (!b) return;
-      if (b.dataset.w) {
-        const ex = EXTRAS.find(x => x.id === Number(b.dataset.w));
-        if (ex.model === 'heads') state.headsN = null;
-        state.extras[ex.id] = Math.max(0, Math.min(ex.max, (state.extras[ex.id] || 0) + Number(b.dataset.d)));
-        render();
-      } else if (b.dataset.sel) {
+      if (!b || b.disabled) return;
+      if (b.dataset.w) { bumpExtra(EXTRAS.find(x => x.id === Number(b.dataset.w)), Number(b.dataset.d)); return; }
+      if (b.dataset.sel) {
         $('canvas-3d').scrollIntoView({ behavior: 'smooth', block: 'center' });
-        if (b.dataset.sel === 'tarima') Stage.select('tarima');
-        else Stage.selectKind(b.dataset.sel);
+        if (b.dataset.sel === 'tarima') Stage.select('tarima'); else Stage.selectKind(b.dataset.sel);
+        return;
       }
+      if (b.dataset.act) act(b.dataset.act);
     });
+    window.addEventListener('msb:select', renderWork);
+    window.addEventListener('msb:montage', renderWork);
+    // Cámaras
+    const camsBox = $('dock-cams');
+    if (camsBox) camsBox.addEventListener('click', e => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      let list = []; try { list = JSON.parse(localStorage.getItem('msb-views') || '[]'); } catch (x) { list = []; }
+      if (b.dataset.preset) { Stage.cam(b.dataset.preset); if (window.syncView) syncView(); return; }
+      if (b.dataset.save !== undefined) {
+        const name = (window.prompt('Nombre de la vista (por ejemplo: Desde el público):', 'Vista ' + (list.length + 1)) || '').trim();
+        const st = Stage.camState(); if (!name || !st) return;
+        list.push({ name: name.slice(0, 30), st });
+        try { localStorage.setItem('msb-views', JSON.stringify(list)); } catch (x) { /* sin almacenamiento */ }
+        renderCams(); return;
+      }
+      if (b.dataset.cam !== undefined) { const v = list[Number(b.dataset.cam)]; if (v && !Stage.camRestore(v.st)) $('export-msg').textContent = 'Con foto calibrada la cámara queda fija: desbloquéala para cambiar de vista.'; return; }
+      if (b.dataset.camdel !== undefined) { list.splice(Number(b.dataset.camdel), 1); try { localStorage.setItem('msb-views', JSON.stringify(list)); } catch (x) { /* sin almacenamiento */ } renderCams(); }
+    });
+    // Atajos de teclado (solo con el cotizador visible y sin escribir en un campo)
+    document.addEventListener('keydown', e => {
+      if ($('view-quoter').hidden || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) || document.activeElement.isContentEditable) return;
+      const k = e.key, st = Stage.selInfo();
+      const step = e.shiftKey ? 1 : 0.25;
+      if (k === 'Escape') { Stage.select(null); return; }
+      if (!st) return;
+      let handled = true;
+      if (k === 'ArrowLeft') Stage.nudge(-step, 0);
+      else if (k === 'ArrowRight') Stage.nudge(step, 0);
+      else if (k === 'ArrowUp') Stage.nudge(0, -step);
+      else if (k === 'ArrowDown') Stage.nudge(0, step);
+      else if (k === 'q' || k === 'Q') Stage.adjust('rot', -15);
+      else if (k === 'e' || k === 'E') Stage.adjust('rot', 15);
+      else if (k === '+' || k === '=') Stage.adjust('size', Math.min(3, (st.size || 1) * 1.1));
+      else if (k === '-') Stage.adjust('size', Math.max(0.3, (st.size || 1) / 1.1));
+      else if (k === 'd' || k === 'D') act('dup');
+      else if (k === 'c' || k === 'C') act('center');
+      else if (k === 'f' || k === 'F') act('front');
+      else if (k === 'Delete' || k === 'Backspace') act('del');
+      else handled = false;
+      if (handled) e.preventDefault();
+    });
+  }
+  function act(a) {
+    const st = Stage.selInfo();
+    if (!st) return;
+    const ex = REV[st.kind];
+    if (a === 'dup') { if (!ex) return; bumpExtra(ex, 1); Stage.duplicateSelected(); }
+    else if (a === 'del') {
+      if (ex && (state.extras[ex.id] || 0) > 0) bumpExtra(ex, -1);
+      else $('export-msg').textContent = 'Este equipo viene incluido en el pack. Para quitarlo, cambia de pack o de escena.';
+    }
+    else if (a === 'center') Stage.focusSelected();
+    else if (a === 'front') Stage.bringFront();
   }
 
   function extraRow(ex) {
@@ -3269,6 +3348,34 @@ const Stage = (() => {
     update,
     headCount() { return cfg ? cfg.heads : 0; },
     selectKind(k) { return inited ? selectKind(k) : false; },
+    selInfo() { return selected && inited ? info(selected) : null; },
+    nudge(dx, dz) {
+      if (!selected || !inited || selected.userData.kind === 'tarima' || selected.userData.hung) return false;
+      const o = selected;
+      place(o, o.position.x + dx, o.position.z + dz);
+      o.userData.moved = true; selFit(o); notify(); return true;
+    },
+    duplicateSelected() {
+      if (!selected || !inited) return null;
+      const src = selected, kind = src.userData.kind;
+      if (['tarima', 'truss', 'wall', 'booth', 'lectern', 'foh'].includes(kind)) return null;
+      // La interfaz sube primero la cantidad: el nuevo equipo es uno visible que aún no se ha movido.
+      const copy = draggables.find(o => o !== src && o.userData.kind === kind && o.visible && !o.userData.moved && !o.userData.hung);
+      if (!copy) return null;
+      Object.assign(copy.userData, { lift: src.userData.lift, size: src.userData.size, inch: src.userData.inch });
+      copy.scale.copy(src.scale); copy.rotation.y = src.rotation.y;
+      copy.userData.moved = true;
+      place(copy, src.position.x + 1.1, src.position.z + 0.6);
+      select(copy); notify();
+      return copy;
+    },
+    camState() { return inited ? { pos: camera.position.toArray(), target: controls.target.toArray(), fov: camera.fov } : null; },
+    camRestore(st) {
+      if (!inited || !st || camLock) return false;
+      camera.position.fromArray(st.pos); controls.target.fromArray(st.target);
+      camera.fov = st.fov; camera.updateProjectionMatrix(); controls.update(); return true;
+    },
+    get camLockedNow() { return camLock; },
     focusSelected() {
       if (!selected || !inited) return;
       const p = selected.getWorldPosition(V3(0, 0, 0));
@@ -3414,9 +3521,11 @@ const Stage = (() => {
       <button type="button" class="dock-head" id="dock-toggle" aria-expanded="true"><span>Panel de trabajo</span><span class="dock-caret" aria-hidden="true">▾</span></button>
       <div class="dock-body" id="dock-body">
         <div class="dock-sec"><strong>Escena y colores</strong><div class="dock-seg" role="radiogroup">${pals.map(([v, l]) => `<button type="button" role="radio" data-dm="${v}">${l}</button>`).join('')}</div></div>
+        <div class="dock-sec" id="dock-cams"><strong>Cámaras</strong><div class="cam-row"><button type="button" data-preset="front">Frente</button><button type="button" data-preset="audience">Público</button><button type="button" data-preset="back">Trasera</button><button type="button" data-save="1">Guardar vista</button></div><div id="cam-saved" class="cam-saved"></div></div>
         <div class="dock-sec"><strong>Total orientativo</strong><div class="dock-total" id="dock-total">0,00 €</div><a class="btn btn-sm btn-pri" id="dock-wa" href="#" target="_blank" rel="noopener">Enviar por WhatsApp</a></div>
         <div class="dock-sec"><strong>Añadir al render</strong><div id="dock-add"></div></div>
         <div class="dock-sec" id="dock-list"></div>
+        <p class="dock-keys">Atajos: flechas mueven el equipo (Mayús. = 1 m) · Q/E giran · +/− cambian tamaño · D duplicar · C centrar · F al frente · Supr quitar · Esc deseleccionar</p>
       </div>`;
     box.appendChild(dock);
     const addBar = $('add-bar'), workBox = $('work-box');
@@ -3450,6 +3559,7 @@ const Stage = (() => {
   })();
   setupFS();
   setupWork();
+  renderCams();
   // En pantallas pequeñas la cotización empieza plegada para dejar sitio al visor.
   { const qs = document.querySelector('.quote-summary'); if (qs) qs.open = false; }
   $('insp-focus').addEventListener('click', () => Stage.focusSelected());

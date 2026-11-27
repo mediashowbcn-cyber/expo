@@ -1,7 +1,7 @@
 # Cuaderno del cotizador 3D (para retomar el trabajo)
 
 ## Estado
-- Plugin «Media Show BCN» en la versión **7.0.0**, instalado en mediashowbcn.com (blog 258969453).
+- Plugin «Media Show BCN» en la versión **7.1.0**, instalado en mediashowbcn.com (blog 258969453).
 - Código canónico: `mediashowbcn-web/wordpress/mediashow-bcn/assets/msb.js` (un solo archivo, sin paso de compilación).
   Los fuentes de trabajo antiguos ya no se usan: editar siempre `msb.js` directamente.
 - Three.js r160 como módulo ES (`assets/three-loader.js`). Las fuentes de sus addons vienen de jsDelivr.
@@ -24,12 +24,11 @@
 1. **Precios de extras**: pendiente de confirmación del dueño (propuesta en el chat).
 2. **Fotos reales de producto**: pendientes; los renders actuales son ilustrativos.
 3. **Panel de trabajo v7**:
-   - añadir y quitar desde la lista;
-   - duplicar equipos;
-   - color por equipo y por escena;
-   - alinear y distribuir selecciones;
-   - cámaras guardadas (frente, público, foto, personalizadas);
-   - atajos de teclado para mover, girar y cambiar de equipo.
+   - HECHO en 7.1.0: acciones sobre el equipo seleccionado (duplicar, quitar de los extras, centrar, al frente); cámaras guardadas por nombre; atajos de teclado (flechas, Q/E, +/−, D, C, F, Supr, Esc).
+   - PENDIENTE: quitar equipos que vienen con el pack (necesita un estado «oculto» por equipo que sobreviva a los cambios de cantidad).
+   - PENDIENTE: color por equipo y por escena (ahora solo tres escenas).
+   - PENDIENTE: alinear y distribuir selecciones varias (seleccionar más de uno).
+   - PENDIENTE: vistas guardadas en el proyecto (ahora se guardan en el navegador).
 4. **Causa de equipos que acaban en el fondo**: hay herramientas de recuperación («Centrar», «Traer al frente»), pero no la causa.
 5. **Foto real de un espacio** para la prueba de extremo a extremo del pack.
 6. **Descripciones largas** de producto (solo se han revisado las cortas).
