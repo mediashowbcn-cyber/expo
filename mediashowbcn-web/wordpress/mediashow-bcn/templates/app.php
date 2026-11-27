@@ -228,6 +228,9 @@ $msb_ld = array(
 							<small>El precio se calcula por m².</small></div>
 						<div class="fit-row" id="insp-truss-row"><span>Ancho × alto del truss (m)</span>
 							<div class="insp-dims"><input type="number" id="insp-trw" min="2" max="16" step="0.5" aria-label="Ancho del truss en metros" /> × <input type="number" id="insp-trh" min="2" max="7" step="0.25" aria-label="Alto del truss en metros" /></div>
+							<div class="fit-row"><span>Cabezas móviles en el truss</span>
+							<div class="insp-dims"><input type="number" id="insp-trheads" min="0" max="48" step="1" aria-label="Número de cabezas móviles en el truss" /></div>
+							<small>Escribe el número exacto. Se cobran por packs de 6, redondeando hacia arriba.</small></div>
 							<small>Las cabezas móviles y lo que cuelga se reparten solos.</small></div>
 						<div class="fit-row" id="insp-hang-row">
 							<label class="fit-check"><input type="checkbox" id="insp-hang" /> Colgada del truss</label>

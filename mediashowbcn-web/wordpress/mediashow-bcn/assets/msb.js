@@ -9,6 +9,7 @@
   const packById = id => PACKS.find(p => p.id === Number(id));
   const isLed = ex => /^led_/.test(ex.model);
   const LEDS = EXTRAS.filter(isLed);
+  const HEADS = EXTRAS.find(ex => ex.model === 'heads');
   const TARIMA = EXTRAS.find(ex => ex.model === 'tarima');
   const isSpecial = ex => isLed(ex) || ex === TARIMA;
   const dec = v => String(+Number(v).toFixed(2)).replace('.', ',');
@@ -207,10 +208,12 @@
         setTarimaOn(tb.dataset.tarima === '1'); return;
       }
       const l = e.target.closest('button[data-led]');
+
       if (l) { LEDS.forEach(ex => { state.extras[ex.id] = String(ex.id) === l.dataset.led ? 1 : 0; }); render(); return; }
       const b = e.target.closest('button[data-id]');
       if (!b) return;
       const ex = EXTRAS.find(x => x.id === Number(b.dataset.id));
+      if (ex.model === 'heads') state.headsN = null;
       state.extras[ex.id] = Math.max(0, Math.min(ex.max, state.extras[ex.id] + Number(b.dataset.d)));
       render();
     });
@@ -300,6 +303,8 @@
   function render() {
     readInputs();
     syncTarima();
+    // Cabezas escritas a mano: el precio va por packs de 6, redondeando hacia arriba.
+    if (state.headsN != null && HEADS) state.extras[HEADS.id] = Math.min(HEADS.max, Math.ceil(state.headsN / 6));
     state.pack = state.packMode === 'auto' ? recommendPack(state.guests) : Number(state.packMode);
     $('guests-val').textContent = state.guests >= 300 ? '300+' : state.guests;
     $('space-note').textContent = state.space === 'Exterior'
@@ -376,7 +381,7 @@
     $('reserve-btn').hidden = !(D.shop && pk);
     $('reserve-btn').setAttribute('aria-disabled', ok ? 'false' : 'true');
 
-    Stage.update({ preset: pk ? pk.preset : 'corporate', models, dm: state.dm, guests: state.guests, tarimaKnown: !!TARIMA });
+    Stage.update({ preset: pk ? pk.preset : 'corporate', models: Object.assign({}, models, state.headsN != null ? { headsN: state.headsN } : {}), dm: state.dm, guests: state.guests, tarimaKnown: !!TARIMA });
   }
 
   function toggleProposal() {
@@ -580,6 +585,7 @@
     if (d.kind === 'wall' || d.kind === 'screen') { $('insp-hang').checked = !!d.hung; $('insp-hang').disabled = !d.canHang && !d.hung; $('insp-hang-note').hidden = d.canHang || d.hung; }
     if (tru) {
       $('insp-trw').value = d.truss.w; $('insp-trh').value = d.truss.h;
+      $('insp-trheads').value = state.headsN != null ? state.headsN : (Stage.headCount ? Stage.headCount() : 0);
       ['insp-inch-row', 'insp-dims-row', 'insp-size-row', 'insp-lift-row', 'insp-tarima-row', 'insp-tower-row', 'insp-real'].forEach(id => { $(id).hidden = true; });
       $('insp-rot').hidden = false;
       return;
@@ -625,6 +631,10 @@
     ['insp-tw', 'insp-td', 'insp-th'].forEach(id => $(id).addEventListener('change', tdims));
     const trs = () => { const r = v => Math.round(Number(v) * 4) / 4; set('truss', { w: r($('insp-trw').value), h: r($('insp-trh').value) }); };
     $('insp-trw').addEventListener('change', trs); $('insp-trh').addEventListener('change', trs);
+    $('insp-trheads').addEventListener('change', () => {
+      const n = Math.max(0, Math.min(48, Math.round(Number($('insp-trheads').value) || 0)));
+      state.headsN = n; $('insp-trheads').value = n; render();
+    });
     $('insp-hang').addEventListener('change', e => set('hang', e.target.checked));
     const tow = () => { const h = Math.round(Number($('insp-towh').value) * 4) / 4; if (h >= 1) set('tower', { h, head: $('insp-towhead').checked }); };
     $('insp-towh').addEventListener('change', tow);
@@ -2159,7 +2169,7 @@ const Stage = (() => {
     cfg = {
       base: s.guests <= 60 ? 2 : s.guests <= 150 ? 4 : 6,
       extraSpk: x.spk || 0,
-      heads: (full ? 4 : 0) + 6 * (x.heads || 0),
+      heads: x.headsN != null ? x.headsN : (full ? 4 : 0) + 6 * (x.heads || 0),
       bars: (p === 'corporate' ? 2 : 0) + 4 * (x.bars || 0),
       pars: p === 'corporate' ? 2 : 0,
       mics: ({ starter: 1, corporate: 2, premium: 4, integral: 4 }[p] || 2) + (x.mic || 0),
@@ -3193,6 +3203,7 @@ const Stage = (() => {
   return {
     init,
     update,
+    headCount() { return cfg ? cfg.heads : 0; },
     setActive(v) { active = v; if (v) { resize(); queueCommit(); } },
     setLogo(img) { logoImg = img; if (inited) { drawTotem(); drawLed(clock.getElapsedTime()); } },
     resetLayout() { if (inited) resetLayout(); },
