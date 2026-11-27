@@ -171,6 +171,16 @@
     const box = $('work-list');
     if (!box) return;
     const sel = Stage.selInfo ? Stage.selInfo() : null;
+    const mc = Stage.multiCount ? Stage.multiCount() : 0;
+    let mbar = '';
+    if (mc > 1) mbar = `<div class="work-multi"><div class="work-sel-name">${mc} equipos seleccionados</div><div class="work-sel-acts">
+        <button type="button" class="btn btn-sm" data-al="row" title="Poner en fila">En fila</button>
+        <button type="button" class="btn btn-sm" data-al="col" title="Poner en columna">En columna</button>
+        <button type="button" class="btn btn-sm" data-al="distX" title="Repartir a lo ancho">Repartir X</button>
+        <button type="button" class="btn btn-sm" data-al="distZ" title="Repartir en profundidad">Repartir Z</button>
+        <button type="button" class="btn btn-sm" data-al="height" title="Misma altura">Misma altura</button>
+        <button type="button" class="btn btn-sm" data-al="clear">Deseleccionar</button>
+      </div><p class="msg" style="margin:6px 0 0;">Mayús. + toque en el visor para añadir o quitar equipos.</p></div>`;
     let bar = '';
     if (sel && sel.kind !== 'truss' && sel.kind !== 'tarima') {
       const can = !!REV[sel.kind] && !['wall', 'booth', 'lectern', 'foh'].includes(sel.kind);
@@ -191,7 +201,7 @@
     });
     const hid = Stage.removedCount ? Stage.removedCount() : 0;
     const hidRow = hid ? `<div class="work-hidden"><span>${hid} equipo${hid > 1 ? 's' : ''} del pack quitado${hid > 1 ? 's' : ''} del render</span><button type="button" class="btn btn-sm" data-act="restore">Restaurar</button></div>` : '';
-    box.innerHTML = bar + (rows.length ? rows.join('') : '<p class="msg">Todavía no hay equipos en el escenario. Añádelos con «Añadir al render» o desde «Servicios adicionales».</p>') + hidRow;
+    box.innerHTML = mbar + bar + (rows.length ? rows.join('') : '<p class="msg">Todavía no hay equipos en el escenario. Añádelos con «Añadir al render» o desde «Servicios adicionales».</p>') + hidRow;
   }
   function renderCams() {
     const box = $('cam-saved');
@@ -213,6 +223,7 @@
       }
       if (b.dataset.tint !== undefined) { Stage.tintSelected(b.dataset.tint ? parseInt(b.dataset.tint.slice(1), 16) : null); return; }
       if (b.dataset.act === 'restore') { Stage.restoreRemoved(); return; }
+      if (b.dataset.al) { if (b.dataset.al === 'clear') Stage.clearMulti(); else Stage.alignMulti(b.dataset.al); renderWork(); return; }
       if (b.dataset.act) act(b.dataset.act);
     });
     window.addEventListener('msb:select', renderWork);
@@ -1747,7 +1758,7 @@ const Stage = (() => {
   const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
   const CAP = { towers: 24, trx: 26, heads: 48, bars: 24, speakers: 24, mics: 24, screens: 24, totems: 24 };
   const KIND = { trx: 'Altavoz Alto TRX315', speaker: 'Altavoz RCF EVOX 12', totem: 'Tótem', screen: 'Pantalla', mic: 'Micrófono', cam: 'Cámara', wall: 'Pantalla LED', booth: 'Cabina DJ', lectern: 'Atril', foh: 'Control de sonido', head: 'Cabeza móvil', tower: 'Torre de truss', truss: 'Truss del escenario' };
-  let draggables = [], dragObj = null, selected = null, selBox = null;
+  let draggables = [], dragObj = null, selected = null, selBox = null, multi = [];
   const LOOK = { light: 1, warm: 0, dir: 27 };
   const glb = {};
   const KIND_MODEL = { speaker: ['rcf', 'spk'], trx: ['trx', 'trx_extra'], totem: ['totem'], screen: ['screen55'], booth: ['booth'], lectern: ['lectern'], mic: ['mic'], cam: ['stream'], foh: ['foh'] };
@@ -2121,7 +2132,15 @@ const Stage = (() => {
     });
     const end = e => {
       const tap = down && !down.moved;
-      if (tap) select(dragObj || down.target || (e.type === 'pointerup' ? pick(e) : null));
+      if (tap) {
+        const tgt = dragObj || down.target || (e.type === 'pointerup' ? pick(e) : null);
+        if (e.shiftKey && tgt && tgt.userData.kind !== 'tarima') {
+          if (!multi.length && selected && selected !== tgt) multi = [selected];
+          const i = multi.indexOf(tgt);
+          if (i >= 0) multi.splice(i, 1); else multi.push(tgt);
+          select(multi.length ? multi[multi.length - 1] : null);
+        } else select(tgt);
+      }
       else if (dragObj && dragObj === selected) notify();
       else if (dragObj) queueCommit();
       down = null;
@@ -2166,9 +2185,11 @@ const Stage = (() => {
   // Caja de selección sin los haces de luz (que miden metros).
   function selFit(o) {
     const b = selBox.box.makeEmpty();
-    (o.userData.kind === 'truss' ? rig.trussGeo : o).updateMatrixWorld(true);
-    (o.userData.kind === 'truss' ? rig.trussGeo : o).traverse(m => {
-      if (m.isMesh && m.visible && !(m.material && m.material.blending === THREE.AdditiveBlending)) b.expandByObject(m);
+    const list = multi.length > 1 && multi.includes(o) ? multi : [o];
+    list.forEach(x => {
+      const t = x.userData.kind === 'truss' ? rig.trussGeo : x;
+      t.updateMatrixWorld(true);
+      t.traverse(m => { if (m.isMesh && m.visible && !(m.material && m.material.blending === THREE.AdditiveBlending)) b.expandByObject(m); });
     });
   }
   function info(o) {
@@ -2181,6 +2202,7 @@ const Stage = (() => {
   }
 
   function select(o) {
+    if (!o || !multi.includes(o)) multi = [];
     selected = o || null;
     selBox.visible = !!selected;
     if (selected) selFit(selected);
@@ -3359,6 +3381,30 @@ const Stage = (() => {
     headCount() { return cfg ? cfg.heads : 0; },
     selectKind(k) { return inited ? selectKind(k) : false; },
     selInfo() { return selected && inited ? info(selected) : null; },
+    multiCount() { return multi.filter(o => o.visible).length; },
+    clearMulti() { multi = []; select(null); },
+    alignMulti(mode) {
+      const L = multi.filter(o => o.visible && !o.userData.hung && o.userData.kind !== 'tarima');
+      if (L.length < 2) return false;
+      const avg = k => L.reduce((a, o) => a + o.position[k], 0) / L.length;
+      const spread = (axis, fixed) => {
+        const other = axis === 'x' ? 'z' : 'x';
+        const sorted = [...L].sort((a, b) => a.position[axis] - b.position[axis]);
+        const a0 = sorted[0].position[axis], a1 = sorted[sorted.length - 1].position[axis];
+        sorted.forEach((o, i) => {
+          const v = a0 + (a1 - a0) * i / (sorted.length - 1);
+          const pos = axis === 'x' ? { x: v, z: fixed === null ? o.position.z : fixed } : { x: fixed === null ? o.position.x : fixed, z: v };
+          place(o, pos.x, pos.z); o.userData.moved = true;
+        });
+      };
+      if (mode === 'row') spread('x', avg('z'));
+      else if (mode === 'col') spread('z', avg('x'));
+      else if (mode === 'distX') spread('x', null);
+      else if (mode === 'distZ') spread('z', null);
+      else if (mode === 'height') { L.forEach(o => { o.userData.lift = L.reduce((a, b) => a + b.userData.lift, 0) / L.length; place(o, o.position.x, o.position.z); o.userData.moved = true; }); }
+      else return false;
+      selFit(selected || L[0]); notify(); return true;
+    },
     hideSelected() {
       if (!selected || !inited || selected.userData.kind === 'tarima') return false;
       selected.userData.removed = true; selected.visible = false;

@@ -1,7 +1,7 @@
 # Cuaderno del cotizador 3D (para retomar el trabajo)
 
 ## Estado
-- Plugin «Media Show BCN» en la versión **7.2.0**, instalado en mediashowbcn.com (blog 258969453).
+- Plugin «Media Show BCN» en la versión **7.3.0**, instalado en mediashowbcn.com (blog 258969453).
 - Código canónico: `mediashowbcn-web/wordpress/mediashow-bcn/assets/msb.js` (un solo archivo, sin paso de compilación).
   Los fuentes de trabajo antiguos ya no se usan: editar siempre `msb.js` directamente.
 - Three.js r160 como módulo ES (`assets/three-loader.js`). Las fuentes de sus addons vienen de jsDelivr.
@@ -26,10 +26,10 @@
 3. **Panel de trabajo v7**:
    - HECHO en 7.1.0: acciones sobre el equipo seleccionado (duplicar, quitar de los extras, centrar, al frente); cámaras guardadas por nombre; atajos de teclado (flechas, Q/E, +/−, D, C, F, Supr, Esc).
    - HECHO en 7.2.0: quitar equipos del pack del render (el precio no cambia; se restauran desde la lista); color por equipo (cinco tonos y original); vistas guardadas dentro del archivo de proyecto.
-   - PENDIENTE: alinear y distribuir varios equipos (necesita selección múltiple).
+   - HECHO en 7.3.0: selección múltiple (Mayús. + toque en el visor) y acciones en fila, en columna, repartir en X o Z, misma altura y deseleccionar.
 
 ## Ideas para la siguiente tanda (orden de utilidad para el cotizador)
-1. Seleccionar varios equipos (Mayús.+clic) y alinearlos en línea, a la misma distancia o en arco.
+1. Alinear en arco (además de en fila y columna).
 2. Plantilla de montaje por tipo de evento (boda, empresa, concierto, conferencia) que coloque el escenario y el sonido de partida.
 3. Medida de distancia entre dos puntos del suelo (para comprobar cobertura y accesos).
 4. Zona de cobertura de sonido en el visor (no solo en el dossier).
