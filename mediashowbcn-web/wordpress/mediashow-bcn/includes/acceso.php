@@ -438,3 +438,18 @@ add_action(
 	},
 	5
 );
+
+/* ---------- Aviso en la tienda para quien no ha entrado ---------- */
+
+add_action(
+	'woocommerce_before_main_content',
+	function () {
+		if ( is_user_logged_in() ) {
+			return;
+		}
+		echo '<div class="msb-aviso-cuenta" role="region" aria-label="Entra o regístrate">';
+		echo '<p><strong>Entra o regístrate para finalizar tu compra.</strong> Con tu cuenta también puedes visitar el cotizador 3D y ver tu evento antes de reservar.</p>';
+		echo '<a class="button msb-aviso-btn" href="' . esc_url( home_url( '/#cotizador' ) ) . '">Entrar o registrarme</a>';
+		echo '</div>';
+	}
+);

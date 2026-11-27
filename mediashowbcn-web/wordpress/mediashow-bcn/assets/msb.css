@@ -512,3 +512,8 @@ mark.pendiente { background: #fde68a; color: #0A0A0A; padding: 0 4px; border-rad
 /* v7.19.1: el cotizador 3D solo se ve después de registrarse o entrar */
 .is-public #view-quoter > *:not(#acceso-box) { display: none !important; }
 .is-public #acceso-box { margin-top: 8px; }
+
+/* v7.19.2: aviso de cuenta en la tienda */
+.msb-aviso-cuenta { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; margin: 0 0 22px; padding: 14px 18px; border: 1px solid #E65837; border-radius: 12px; background: #151412; color: #F4F0E8; }
+.msb-aviso-cuenta p { margin: 0; font-size: 15px; }
+.msb-aviso-btn { background: #E65837 !important; color: #0A0A0A !important; border-radius: 10px; padding: 10px 16px; font-weight: 700; text-decoration: none; }
