@@ -1,0 +1,24 @@
+const { chromium } = require('playwright');
+const route = require('./route160.js');
+const path = require('path');
+(async () => {
+  const b = await chromium.launch({ args: ['--use-gl=swiftshader', '--enable-webgl', '--ignore-gpu-blocklist'] });
+  const p = await b.newPage({ viewport: { width: 1280, height: 800 } });
+  const errs = []; p.on('pageerror', e => errs.push(e.message));
+  await p.route('**/*', route);
+  await p.goto('http://localhost:8099/', { waitUntil: 'domcontentloaded', timeout: 90000 });
+  await p.waitForFunction(() => window.THREE && THREE.REVISION);
+  await p.evaluate(() => { msbApplyConfig({ pack: 25, asistentes: 100, extras: [{ id: 29, cantidad: 1 }] }); openQuoterWithPack(25); });
+  await p.waitForTimeout(1800);
+  await p.click('#work-list button[data-sel="wall"]'); await p.waitForTimeout(600);
+  console.log('file input visible:', await p.locator('input[data-led]').count());
+  await p.setInputFiles('input[data-led]', path.join(__dirname, 'assets', 'venue-test.jpg')); await p.waitForTimeout(1500);
+  console.log('reset button:', await p.locator('button[data-act="ledreset"]').count());
+  await p.click('button[data-act="ledreset"]'); await p.waitForTimeout(500);
+  console.log('reset button after clear:', await p.locator('button[data-act="ledreset"]').count());
+  console.log('stage api:', await p.evaluate(() => typeof window.msbStage + ' ' + (window.msbStage ? Object.keys(window.msbStage).slice(0,5).join(',') : '')));
+  const sel = await p.evaluate(() => { const r = document.querySelector('#work-list'); return r ? r.innerText.slice(0, 200) : 'no list'; });
+  console.log('list:', sel.replace(/\n/g, ' | '));
+  console.log('errs:', errs.join(' | ') || 'none');
+  await b.close();
+})().catch(e => { console.error('ERR', e.message); process.exit(1); });

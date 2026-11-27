@@ -174,6 +174,13 @@
     render();
   };
   const KNAME = { speaker: 'Altavoz RCF', trx: 'Altavoz TRX315', tower: 'Torre de truss', screen: 'Pantalla 55"', totem: 'Tótem', mic: 'Micro', cam: 'Cámara', head: 'Cabezal móvil', wall: 'Pantalla LED', booth: 'Cabina DJ', lectern: 'Atril', foh: 'Mesa de control' };
+  const WA_INTRO = {
+    boda: 'Estamos organizando una boda y queremos presupuesto de sonido y luces.',
+    empresa: 'Organizamos un evento de empresa y necesitamos sonido e iluminación.',
+    concierto: 'Preparamos un concierto y queremos presupuesto de sonido y luces.',
+    conf: 'Organizamos una conferencia y necesitamos sonido, micrófonos y proyección.'
+  };
+  let tplKey = null;
   const TPL = {
     boda: { pack: 26, asistentes: 150, extras: [{ id: 66, cantidad: 2 }, { id: 33, cantidad: 1 }], dm: 'amber' },
     empresa: { pack: 25, asistentes: 100, extras: [{ id: 39 }], dm: 'corp' },
@@ -182,6 +189,7 @@
   };
   function applyTemplate(k) {
     const t = TPL[k];
+    tplKey = k; Stage.setPalette(null);
     if (!t) return;
     EXTRAS.forEach(ex => { state.extras[ex.id] = 0; });
     applyConfig(Object.assign({}, t, { extras: t.extras }));
@@ -203,6 +211,16 @@
     P.items.forEach(it => { if (SPEC[it.kind]) watts += SPEC[it.kind].w; });
     watts += P.headsOnTruss * SPEC.head.w + P.floorHeads.length * SPEC.head.w;
     if (watts > 3000) warn.push(`Consumo ≈ ${fmtN(watts / 1000, 1)} kW: más de una línea de 16 A (${Math.ceil(watts / 3000)} líneas).`);
+    const spk = P.items.filter(it => it.kind === 'speaker' || it.kind === 'trx');
+    if (P.space && P.space.length > 2 && spk.length) {
+      const xs = P.space.map(p => p[0]), zs = P.space.map(p => p[1]);
+      let n = 0, low = 0;
+      for (let x = Math.min(...xs) + 0.25; x < Math.max(...xs); x += 0.5) for (let z = Math.min(...zs) + 0.25; z < Math.max(...zs); z += 0.5) {
+        if (!inPoly(P.space, x, z)) continue;
+        n++; if (splAt(spk, x, z) < 88) low++;
+      }
+      if (n && low / n > 0.2) warn.push(`${Math.round(low / n * 100)} % del espacio queda por debajo de 88 dB con los altavoces actuales (modelo orientativo a volumen máximo). Reorienta los altavoces o añade uno.`);
+    }
     box.innerHTML = warn.length ? warn.map(w => `<p>${esc(w)}</p>`).join('') : '<p class="ok">Sin avisos de montaje.</p>';
   }
   // Material en CSV para el técnico (mismo recuento que el dossier)
@@ -221,7 +239,51 @@
     const box = $('dock-versions');
     if (!box) return;
     let list = []; try { list = JSON.parse(localStorage.getItem('msb-versions') || '[]'); } catch (e) { list = []; }
-    box.innerHTML = list.map((v, i) => `<span class="cam-chip"><button type="button" data-ver="${i}">${esc(v.name)}</button><button type="button" data-verdel="${i}" aria-label="Borrar versión ${esc(v.name)}">×</button></span>`).join('');
+    box.innerHTML = list.map((v, i) => `<span class="cam-chip"><button type="button" data-ver="${i}">${esc(v.name)}</button><button type="button" data-verdel="${i}" aria-label="Borrar versión ${esc(v.name)}">×</button></span>`).join('')
+      + (list.length > 1 ? '<div class="cam-row"><button type="button" data-tool="compare">Comparar dos versiones</button></div>' : '') + '<div id="compare-out"></div>';
+  }
+  const DM_NAME = { dm: 'Show naranja y cian', amber: 'Gala ámbar cálido', corp: 'Corporativo limpio' };
+  function listVersions() { try { return JSON.parse(localStorage.getItem('msb-versions') || '[]'); } catch (e) { return []; } }
+  function openCompare() {
+    const out = $('compare-out'), list = listVersions();
+    if (!out || list.length < 2) return;
+    const opts = list.map((v, i) => `<option value="${i}">${esc(v.name)}</option>`).join('');
+    out.innerHTML = `<div class="cam-row"><label>Versión A <select id="cmp-a" data-cmp>${opts}</select></label><label>Versión B <select id="cmp-b" data-cmp>${opts}</select></label></div><div id="cmp-table"></div>`;
+    $('cmp-b').selectedIndex = 1;
+    renderCompare();
+  }
+  function renderCompare() {
+    const out = $('cmp-table'), list = listVersions();
+    if (!out) return;
+    const a = list[Number($('cmp-a').value)], b = list[Number($('cmp-b').value)];
+    if (!a || !b) return;
+    const ua = (a.P && a.P.ui) || {}, ub = (b.P && b.P.ui) || {};
+    const rows = [
+      ['Fecha', fmtDate(ua.date), fmtDate(ub.date)],
+      ['Personas', ua.guests, ub.guests], ['Horas', ua.hours, ub.hours],
+      ['Espacio', ua.space, ub.space], ['Zona', ZONES[ua.zone] || '—', ZONES[ub.zone] || '—'],
+      ['Iluminación', DM_NAME[ua.dm] || '—', DM_NAME[ub.dm] || '—']
+    ];
+    EXTRAS.forEach(ex => { const qa = (ua.extras || {})[ex.id] || 0, qb = (ub.extras || {})[ex.id] || 0; if (qa || qb) rows.push([ex.name, qa, qb]); });
+    out.innerHTML = `<table class="cmp-table"><thead><tr><th>Concepto</th><th>${esc(a.name)}</th><th>${esc(b.name)}</th></tr></thead><tbody>${rows.map(([k, x, y]) => `<tr${String(x) !== String(y) ? ' class="diff"' : ''}><td>${esc(k)}</td><td>${esc(x === undefined ? '—' : x)}</td><td>${esc(y === undefined ? '—' : y)}</td></tr>`).join('')}</tbody></table><p class="msg">Las filas marcadas en color son diferentes. El total no se compara: depende del pack activo.</p>`;
+  }
+  function renderDate() {
+    const box = $('dock-date'), v = $('date-input') && $('date-input').value;
+    if (!box) return;
+    if (!v) { box.textContent = 'Indica la fecha del evento para ver los días que faltan y descargar el recordatorio.'; return; }
+    const t0 = new Date(); t0.setHours(0, 0, 0, 0);
+    const days = Math.round((new Date(v + 'T00:00') - t0) / 864e5);
+    box.textContent = days < 0 ? 'El evento ya ha pasado.' : days === 0 ? 'Es hoy.' : `Faltan ${days} día${days === 1 ? '' : 's'} para el evento. La disponibilidad se confirma por escrito antes de reservar.`;
+  }
+  function downloadICS() {
+    const v = $('date-input').value;
+    if (!v) { $('export-msg').textContent = 'Indica primero la fecha del evento.'; return; }
+    const d = v.replace(/-/g, ''), now = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+    const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Media Show BCN//Cotizador 3D//ES', 'CALSCALE:GREGORIAN', 'BEGIN:VEVENT',
+      `UID:msb-${d}-${now}@mediashowbcn.com`, `DTSTAMP:${now}`, `DTSTART;VALUE=DATE:${d}`, 'SUMMARY:Evento Media Show BCN: sonido y luces',
+      'DESCRIPTION:Revisar la propuesta de montaje, la reserva y el acceso al espacio.', 'BEGIN:VALARM', 'ACTION:DISPLAY',
+      'DESCRIPTION:Recordatorio: el evento es en 7 días', 'TRIGGER:-P7D', 'END:VALARM', 'END:VEVENT', 'END:VCALENDAR'];
+    download(new Blob([lines.join('\r\n')], { type: 'text/calendar;charset=utf-8' }), 'recordatorio-media-show-bcn.ics');
   }
   function renderWork() {
     const box = $('work-list');
@@ -233,6 +295,7 @@
     if (mc > 1) mbar = `<div class="work-multi"><div class="work-sel-name">${mc} equipos seleccionados</div><div class="work-sel-acts">
         <button type="button" class="btn btn-sm" data-al="row" title="Poner en fila">En fila</button>
         <button type="button" class="btn btn-sm" data-al="col" title="Poner en columna">En columna</button>
+        <button type="button" class="btn btn-sm" data-al="arc" title="Poner en arco hacia el público">En arco</button>
         <button type="button" class="btn btn-sm" data-al="distX" title="Repartir a lo ancho">Repartir X</button>
         <button type="button" class="btn btn-sm" data-al="distZ" title="Repartir en profundidad">Repartir Z</button>
         <button type="button" class="btn btn-sm" data-al="height" title="Misma altura">Misma altura</button>
@@ -246,7 +309,8 @@
         <button type="button" class="btn btn-sm" data-act="center" title="Centrar (C)">Centrar</button>
         <button type="button" class="btn btn-sm" data-act="front" title="Traer al frente (F)">Al frente</button>
         <button type="button" class="btn btn-sm" data-act="del" title="Quitar (Supr)">Quitar</button>
-      </div>
+        <button type="button" class="btn btn-sm" data-act="unitundo" ${sel.undo ? '' : 'disabled'} title="Deshacer el último cambio de este equipo">Deshacer equipo</button>
+      </div>${sel.kind === 'wall' ? `<div class="work-led"><label class="btn btn-sm">Imagen en la pantalla<input type="file" accept="image/*" data-led hidden /></label>${sel.content ? ' <button type="button" class="btn btn-sm" data-act="ledreset">Quitar imagen</button>' : ''}<p class="msg">La imagen se ve en esta sesión y no se guarda en las versiones.</p></div>` : ''}
       <div class="work-swatches" aria-label="Color del equipo">${[['#0f1012', 'Negro'], ['#e8e8e8', 'Blanco'], ['#9aa3ad', 'Plata'], ['#E65837', 'Naranja'], ['#22d3ee', 'Cian']].map(([h, l]) => `<button type="button" data-tint="${h}" title="${l}" aria-label="Color ${l}" style="background:${h}"></button>`).join('')}<button type="button" data-tint="" class="sw-reset" title="Color original">Original</button></div></div>`;
     }
     const rows = [];
@@ -287,11 +351,30 @@
     window.addEventListener('msb:montage', renderWarn);
     $('dock-tpl').addEventListener('click', e => { const b = e.target.closest('button[data-tpl]'); if (b) applyTemplate(b.dataset.tpl); });
     $('dock-human').addEventListener('change', e => Stage.setHuman(e.target.checked));
+    box.addEventListener('change', e => {
+      const f = e.target.matches && e.target.matches('input[data-led]') && e.target.files[0];
+      if (!f) return;
+      Stage.setWallImage(URL.createObjectURL(f)); e.target.value = '';
+    });
+    $('dock-body').addEventListener('change', e => { if (e.target.matches('select[data-cmp]')) renderCompare(); });
+    $('date-input').addEventListener('change', renderDate);
+    window.addEventListener('msb:measure', e => { const m = e.detail.m; $('dock-measure').textContent = m == null ? 'Toca dos puntos del suelo para medir.' : `Distancia: ${m.toFixed(2).replace('.', ',')} m`; });
     $('dock-body').addEventListener('click', e => {
       const t = e.target.closest('button[data-tool]');
       if (t) {
         if (t.dataset.tool === 'pres') { const b = document.querySelector('.stage-box'); b.classList.toggle('presentation'); t.textContent = b.classList.contains('presentation') ? 'Salir de presentación' : 'Modo presentación'; }
         if (t.dataset.tool === 'csv') exportCSV();
+        if (t.dataset.tool === 'ics') downloadICS();
+        if (t.dataset.tool === 'compare') openCompare();
+        if (t.dataset.tool === 'measure') {
+          const on = t.dataset.on !== '1';
+          t.dataset.on = on ? '1' : '0'; t.textContent = on ? 'Dejar de medir' : 'Medir distancia';
+          Stage.setMeasure(on); $('dock-measure').textContent = on ? 'Toca dos puntos del suelo para medir.' : '';
+        }
+        if (t.dataset.tool === 'cover') { const on = t.dataset.on !== '1'; t.dataset.on = on ? '1' : '0'; t.textContent = on ? 'Ocultar cobertura de sonido' : 'Mostrar cobertura de sonido'; Stage.setCoverage(on); }
+        if (t.dataset.tool === 'dims') { const on = t.dataset.on !== '1'; t.dataset.on = on ? '1' : '0'; t.textContent = on ? 'Ocultar cotas' : 'Mostrar cotas'; Stage.setDims(on); }
+        if (t.dataset.tool === 'palapply') Stage.setPalette(parseInt($('pal-a').value.slice(1), 16), parseInt($('pal-b').value.slice(1), 16));
+        if (t.dataset.tool === 'palreset') Stage.setPalette(null);
         if (t.dataset.tool === 'savever') {
           let list = []; try { list = JSON.parse(localStorage.getItem('msb-versions') || '[]'); } catch (x) { list = []; }
           const name = (window.prompt('Nombre de la versión:', 'Versión ' + (list.length + 1)) || '').trim();
@@ -373,6 +456,8 @@
     }
     else if (a === 'center') Stage.focusSelected();
     else if (a === 'front') Stage.bringFront();
+    else if (a === 'unitundo') Stage.undoItem();
+    else if (a === 'ledreset') Stage.setWallImage(null);
   }
 
   function extraRow(ex) {
@@ -590,6 +675,7 @@
       `Fecha: ${fmtDate(state.date)} · ${state.guests} personas · ${state.hours} h · ${state.space} · ${ZONES[state.zone]}.`,
       `Iluminación: ${$('dm-select').selectedOptions[0].text}.`
     ];
+    if (tplKey && WA_INTRO[tplKey]) wa.splice(1, 0, WA_INTRO[tplKey]);
     const sizes = Stage.describe();
     if (sizes.length) wa.push('Medidas en el render: ' + sizes.join('; ') + '.');
     $('prop-sizes').hidden = !sizes.length;
@@ -1213,6 +1299,17 @@
   };
   const fmtN = (v, d = 1) => Number(v).toLocaleString('es-ES', { maximumFractionDigits: d });
 
+  // Nivel de presión sonora aproximado (dB) en un punto, con todos los altavoces a volumen máximo.
+  function splAt(spk, cx, cz) {
+    let e = 0;
+    spk.forEach(s => {
+      const dx = cx - s.x, dz = cz - s.z, d = Math.max(1, Math.hypot(dx, dz));
+      const fx = Math.sin(s.ry), fz = Math.cos(s.ry), ang = Math.acos(Math.max(-1, Math.min(1, (dx * fx + dz * fz) / (Math.hypot(dx, dz) || 1)))) * 180 / Math.PI;
+      const dir = ang < 45 ? 0 : ang < 75 ? -6 : ang < 110 ? -12 : -20;
+      e += Math.pow(10, (SPEC[s.kind].spl - 20 * Math.log10(d) + dir) / 10);
+    });
+    return 10 * Math.log10(e);
+  }
   function drawPlan(P, W, H, withCoverage) {
     const c = document.createElement('canvas'); c.width = W; c.height = H;
     const g = c.getContext('2d');
@@ -1234,14 +1331,7 @@
       for (let x = x0; x < x1; x += step) for (let z = z0; z < z1; z += step) {
         const cx = x + step / 2, cz = z + step / 2;
         if (P.space && !inPoly(P.space, cx, cz)) continue;
-        let e = 0;
-        spk.forEach(s => {
-          const dx = cx - s.x, dz = cz - s.z, d = Math.max(1, Math.hypot(dx, dz));
-          const fx = Math.sin(s.ry), fz = Math.cos(s.ry), ang = Math.acos(Math.max(-1, Math.min(1, (dx * fx + dz * fz) / (Math.hypot(dx, dz) || 1)))) * 180 / Math.PI;
-          const dir = ang < 45 ? 0 : ang < 75 ? -6 : ang < 110 ? -12 : -20;
-          e += Math.pow(10, (SPEC[s.kind].spl - 20 * Math.log10(d) + dir) / 10);
-        });
-        const L = 10 * Math.log10(e), [r, gg, b] = col(L);
+        const L = splAt(spk, cx, cz), [r, gg, b] = col(L);
         g.fillStyle = `rgba(${r},${gg},${b},.35)`; g.fillRect(X(x), Z(z), step * k + 1, step * k + 1);
       }
     }
@@ -1775,7 +1865,7 @@ const Stage = (() => {
     const g = new THREE.Group();
     const bottom = hung ? 0 : h > 1.6 ? 0.6 : 0.9;
     const frame = box(w + 0.08, h + 0.08, 0.1, M.black); frame.position.y = bottom + h / 2; g.add(frame);
-    const s = new THREE.Mesh(new THREE.PlaneGeometry(w, h), M.ledScreen); s.position.set(0, bottom + h / 2, 0.051); g.add(s);
+    const s = new THREE.Mesh(new THREE.PlaneGeometry(w, h), M.ledScreen); s.userData.screen = true; s.position.set(0, bottom + h / 2, 0.051); g.add(s);
     const seams = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.35 });
     for (let x = -w / 2 + 0.5; x < w / 2 - 0.01; x += 0.5) { const l = new THREE.Mesh(new THREE.PlaneGeometry(0.008, h), seams); l.position.set(x, bottom + h / 2, 0.052); g.add(l); }
     for (let y = 0.5; y < h - 0.01; y += 0.5) { const l = new THREE.Mesh(new THREE.PlaneGeometry(w, 0.008), seams); l.position.set(0, bottom + y, 0.052); g.add(l); }
@@ -1852,6 +1942,7 @@ const Stage = (() => {
   const CAP = { lasers: 24, pars: 24, towers: 24, trx: 26, heads: 48, bars: 24, speakers: 24, mics: 24, screens: 24, totems: 24 };
   const KIND = { trx: 'Altavoz Alto TRX315', speaker: 'Altavoz RCF EVOX 12', totem: 'Tótem', screen: 'Pantalla', mic: 'Micrófono', cam: 'Cámara', wall: 'Pantalla LED', booth: 'Cabina DJ', lectern: 'Atril', foh: 'Control de sonido', head: 'Cabeza móvil', tower: 'Torre de truss', truss: 'Truss del escenario' };
   let draggables = [], dragObj = null, selected = null, selBox = null, multi = [];
+  let customPal = null, coverMesh = null, coverOn = false, dimGroup = null, dimsOn = false, measureOn = false, measurePts = [], measureGroup = null;
   const LOOK = { light: 1, warm: 0, dir: 27 };
   const glb = {};
   const KIND_MODEL = { speaker: ['rcf', 'spk'], trx: ['trx', 'trx_extra'], totem: ['totem'], screen: ['screen55'], booth: ['booth'], lectern: ['lectern'], mic: ['mic'], cam: ['stream'], foh: ['foh'] };
@@ -1899,7 +1990,8 @@ const Stage = (() => {
     blobLift(o);
   }
   const fill = (list, n, make) => { while (list.length < n) list.push(make(list.length)); return list; };
-  const notify = () => { window.dispatchEvent(new CustomEvent('msb:montage')); queueCommit(); };
+  const notify = () => { window.dispatchEvent(new CustomEvent('msb:montage')); queueCommit(); refreshOverlays(); };
+  function refreshOverlays() { if (coverOn) buildCover(); if (dimsOn) buildDims(); }
 
   /* Modelos 3D reales (.glb) subidos en WooCommerce: sustituyen al modelo dibujado. */
   function make(kind, fallback) {
@@ -2244,6 +2336,24 @@ const Stage = (() => {
       ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
       ray.setFromCamera(ndc, camera);
     };
+    // Medir: dos toques sobre el suelo; el tercero empieza otra medida.
+    const floorPl = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+    const measureClick = e => {
+      aim(e);
+      if (!ray.ray.intersectPlane(floorPl, hit)) return;
+      if (measurePts.length === 2) measurePts = [];
+      if (!measurePts.length) clearMeasure();
+      const p = hit.clone(); p.y = 0.05;
+      measurePts.push(p); measureDot(p);
+      if (measurePts.length === 2) {
+        const [a, b] = measurePts, m = a.distanceTo(b);
+        const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([a, b]), new THREE.LineBasicMaterial({ color: 0xffffff, depthTest: false }));
+        line.renderOrder = 10; mgroup().add(line);
+        const lab = labelSprite(`${m.toFixed(2).replace('.', ',')} m`, 1.4, 0.36);
+        lab.position.copy(a).add(b).multiplyScalar(0.5); lab.position.y = 0.4; mgroup().add(lab);
+        window.dispatchEvent(new CustomEvent('msb:measure', { detail: { m } }));
+      } else window.dispatchEvent(new CustomEvent('msb:measure', { detail: { m: null } }));
+    };
     const pick = e => {
       aim(e);
       const all = draggables.filter(o => o.visible);
@@ -2259,12 +2369,14 @@ const Stage = (() => {
       if (hq || rec) { e.stopImmediatePropagation(); e.preventDefault(); return; }
       if (e.button !== 0) return;
       if (fg.calib) { e.stopImmediatePropagation(); e.preventDefault(); calibClick(e); return; }
+      if (measureOn) { e.stopImmediatePropagation(); e.preventDefault(); measureClick(e); return; }
       if (SPACE && SPACE.drawing) { e.stopImmediatePropagation(); e.preventDefault(); spaceClick(e); return; }
       down = { x: e.clientX, y: e.clientY, moved: false };
       const o = pick(e);
       if (!o) return;
       if (o.userData.fixed) { down.target = o; return; }
       dragObj = o;
+      remember(o);
       controls.enabled = false;
       const wp = o.getWorldPosition(V3(0, 0, 0));
       plane.constant = -wp.y;
@@ -2290,6 +2402,7 @@ const Stage = (() => {
     });
     const end = e => {
       const tap = down && !down.moved;
+      if (tap && dragObj && dragObj.userData.undo) dragObj.userData.undo.pop();
       if (tap) {
         const tgt = dragObj || down.target || (e.type === 'pointerup' ? pick(e) : null);
         if (e.shiftKey && tgt && tgt.userData.kind !== 'tarima') {
@@ -2300,7 +2413,7 @@ const Stage = (() => {
         } else select(tgt);
       }
       else if (dragObj && dragObj === selected) notify();
-      else if (dragObj) queueCommit();
+      else if (dragObj) { queueCommit(); refreshOverlays(); }
       down = null;
       if (!dragObj) return;
       dragObj = null; controls.enabled = true; canvas.style.cursor = '';
@@ -2334,6 +2447,84 @@ const Stage = (() => {
     }
     u.moved = true;
   }
+  // Registro por equipo: cada cambio guarda la posición anterior para deshacer solo ese equipo.
+  function remember(o) {
+    const u = o && o.userData;
+    if (!u || u.kind === 'tarima' || u.kind === 'truss') return;
+    (u.undo || (u.undo = [])).push({ x: o.position.x, z: o.position.z, ry: o.rotation.y, lift: u.lift || 0, s: o.scale.x, hung: !!u.hung });
+    if (u.undo.length > 20) u.undo.shift();
+  }
+  function undoItem() {
+    const o = selected, u = o && o.userData;
+    if (!u || !u.undo || !u.undo.length) return false;
+    const st = u.undo[u.undo.length - 1];
+    if (st.hung !== !!u.hung) return false;
+    u.undo.pop();
+    u.lift = st.lift; o.scale.setScalar(st.s); o.rotation.y = st.ry;
+    if (u.hung) { o.position.x = st.x; hungLayout(o); } else place(o, st.x, st.z);
+    selFit(o); notify(); return true;
+  }
+  function labelSprite(text, w = 1.8, h = 0.45) {
+    const cv = document.createElement('canvas'); cv.width = 256; cv.height = 64;
+    const cg = cv.getContext('2d');
+    cg.fillStyle = 'rgba(10,10,10,.82)'; cg.fillRect(0, 0, 256, 64);
+    cg.fillStyle = '#ffffff'; cg.font = 'bold 30px Arial, sans-serif'; cg.textAlign = 'center'; cg.textBaseline = 'middle'; cg.fillText(text, 128, 34);
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), depthTest: false, transparent: true }));
+    sp.scale.set(w, h, 1); sp.renderOrder = 10;
+    return sp;
+  }
+  // Zona de cobertura en el suelo, con los mismos colores que el dossier.
+  function buildCover() {
+    if (coverMesh) { scene.remove(coverMesh); coverMesh.material.map.dispose(); coverMesh.material.dispose(); coverMesh.geometry.dispose(); coverMesh = null; }
+    const spk = draggables.filter(o => o.visible && (o.userData.kind === 'speaker' || o.userData.kind === 'trx'))
+      .map(o => ({ x: o.position.x, z: o.position.z, ry: o.rotation.y, kind: o.userData.kind }));
+    if (!spk.length) return;
+    const poly = SPACE && SPACE.closed ? SPACE.pts : null;
+    let x0 = -10, x1 = 10, z0 = -8, z1 = 10;
+    if (poly) { const xs = poly.map(p => p[0]), zs = poly.map(p => p[1]); x0 = Math.min(...xs); x1 = Math.max(...xs); z0 = Math.min(...zs); z1 = Math.max(...zs); }
+    const step = 0.25, cols = Math.ceil((x1 - x0) / step), rows = Math.ceil((z1 - z0) / step);
+    const c = document.createElement('canvas'); c.width = cols; c.height = rows;
+    const g = c.getContext('2d'), img = g.createImageData(cols, rows), d = img.data;
+    const col = v => v >= 106 ? [230, 60, 40] : v >= 100 ? [245, 140, 50] : v >= 94 ? [245, 205, 60] : v >= 88 ? [120, 200, 90] : v >= 82 ? [70, 170, 190] : [110, 130, 210];
+    for (let r = 0; r < rows; r++) for (let q = 0; q < cols; q++) {
+      const cx = x0 + (q + 0.5) * step, cz = z0 + (r + 0.5) * step, i = (r * cols + q) * 4;
+      if (poly && !inPoly(poly, cx, cz)) continue;
+      const [R, G, B] = col(splAt(spk, cx, cz));
+      d[i] = R; d[i + 1] = G; d[i + 2] = B; d[i + 3] = 110;
+    }
+    g.putImageData(img, 0, 0);
+    const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+    coverMesh = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0, z1 - z0), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, toneMapped: false }));
+    coverMesh.rotation.x = -Math.PI / 2;
+    coverMesh.position.set((x0 + x1) / 2, 0.03, (z0 + z1) / 2);
+    coverMesh.renderOrder = 2;
+    scene.add(coverMesh);
+  }
+  // Cotas en el visor: ancho × alto de cada equipo visible.
+  function buildDims() {
+    if (dimGroup) { scene.remove(dimGroup); dimGroup = null; }
+    dimGroup = new THREE.Group();
+    draggables.forEach(o => {
+      if (!o.visible || o.userData.kind === 'tarima') return;
+      const bb = new THREE.Box3(); o.updateMatrixWorld(true);
+      o.traverse(m => { if (m.isMesh && m.visible && !(m.material && m.material.blending === THREE.AdditiveBlending)) bb.expandByObject(m); });
+      if (bb.isEmpty()) return;
+      const s = bb.getSize(new THREE.Vector3()), c = bb.getCenter(new THREE.Vector3());
+      const sp = labelSprite(`${s.x.toFixed(2).replace('.', ',')} × ${s.y.toFixed(2).replace('.', ',')} m`);
+      sp.position.set(c.x, bb.max.y + 0.3, c.z);
+      dimGroup.add(sp);
+    });
+    scene.add(dimGroup);
+  }
+  function clearDims() { if (dimGroup) { scene.remove(dimGroup); dimGroup = null; } }
+  function clearCover() { if (coverMesh) { scene.remove(coverMesh); coverMesh.material.map.dispose(); coverMesh.material.dispose(); coverMesh.geometry.dispose(); coverMesh = null; } }
+  function clearMeasure() { if (measureGroup) { scene.remove(measureGroup); measureGroup = null; } measurePts = []; }
+  function mgroup() { if (!measureGroup) { measureGroup = new THREE.Group(); scene.add(measureGroup); } return measureGroup; }
+  function measureDot(p) {
+    const dot = new THREE.Mesh(new THREE.SphereGeometry(0.08, 12, 8), new THREE.MeshBasicMaterial({ color: 0xE65837, depthTest: false }));
+    dot.position.copy(p); dot.renderOrder = 10; mgroup().add(dot);
+  }
+
   function selectKind(kind) {
     const d = draggables.find(o => o.visible && o.userData.kind === kind);
     if (d) select(d);
@@ -2356,7 +2547,7 @@ const Stage = (() => {
     if (u.kind === 'tarima') return { kind: 'tarima', label: 'Tarima', tarima: Object.assign({}, TAR) };
     if (u.kind === 'truss') return { kind: 'truss', label: KIND.truss, truss: Object.assign({}, TR) };
     if (u.kind === 'tower') return { kind: 'tower', label: KIND.tower, towerH: u.towerH, head: u.head, top: u.top || (u.head ? 'head' : 'none'), lift: u.lift, size: u.size };
-    return { kind: u.kind, label: KIND[u.kind] || 'Equipo', size: u.size, inch: u.inch, lift: u.lift, dims: u.dims ? u.dims.slice() : null, rot: Math.round(THREE.MathUtils.radToDeg(o.rotation.y)), real: !!u.real, hung: !!u.hung, canHang: (u.kind === 'wall' || u.kind === 'screen' || u.kind === 'head') && rig.truss.visible };
+    return { kind: u.kind, label: KIND[u.kind] || 'Equipo', size: u.size, inch: u.inch, lift: u.lift, dims: u.dims ? u.dims.slice() : null, rot: Math.round(THREE.MathUtils.radToDeg(o.rotation.y)), real: !!u.real, hung: !!u.hung, undo: (u.undo || []).length, content: !!u.content, canHang: (u.kind === 'wall' || u.kind === 'screen' || u.kind === 'head') && rig.truss.visible };
   }
 
   function select(o) {
@@ -2384,6 +2575,7 @@ const Stage = (() => {
   function adjust(prop, v) {
     const o = selected;
     if (!o) return null;
+    remember(o);
     const u = o.userData;
     let t = o;
     if (prop === 'size') { u.size = Math.max(0.3, Math.min(3, v)); o.scale.setScalar(u.size); }
@@ -2490,7 +2682,7 @@ const Stage = (() => {
   function update(s) {
     if (!inited || !s) return;
     lastState = s;
-    mode = s.dm; pal = PAL[mode];
+    mode = s.dm; pal = customPal || PAL[mode];
     const p = s.preset, x = s.models;
     const tOn = s.tarimaKnown ? (x.tarima || 0) > 0 : true;
     if (tOn !== TAR.on) { TAR.on = tOn; relevel(); }
@@ -3284,7 +3476,7 @@ const Stage = (() => {
       cam: { pos: camera.position.toArray().map(r3), target: controls.target.toArray().map(r3), fov: r3(bgImg ? venueFov : camera.fov) },
       look: Object.assign({}, LOOK), shadow: rig.floor.material.isShadowMaterial ? rig.floor.material.opacity : null,
       space: SPACE ? { pts: SPACE.pts.map(p => p.map(r3)), closed: !!SPACE.closed } : null,
-      corners: fg.corners ? fg.corners.map(p => p.slice()) : null, lastCalib: fg.lastCalib || null, photoCam, camLock, grid: rig.grid.visible
+      corners: fg.corners ? fg.corners.map(p => p.slice()) : null, lastCalib: fg.lastCalib || null, photoCam, camLock, grid: rig.grid.visible, pal: customPal ? { a: customPal.a, b: customPal.b } : null
     };
   }
   function applyItem(o, st) {
@@ -3303,6 +3495,7 @@ const Stage = (() => {
   }
   function setLayout(L) {
     if (!L || L.v !== 1 || !inited) return;
+    customPal = L.pal ? { a: L.pal.a, b: L.pal.b, rim: L.pal.a, label: 'Paleta propia del cliente' } : null;
     Object.assign(TR, { w: L.truss.w, h: L.truss.h }); buildTrussGeo(); layoutTruss();
     Object.assign(TAR, L.tar); buildTarima(); relevel();
     rig.truss.userData.moved = !!L.truss.moved;
@@ -3324,6 +3517,7 @@ const Stage = (() => {
     controls.update();
     select(null);
     spaceEvent();
+    refreshOverlays();
   }
   const hist = { past: [], future: [] };
   let histLock = 0, commitTimer = null;
@@ -3571,6 +3765,7 @@ const Stage = (() => {
     alignMulti(mode) {
       const L = multi.filter(o => o.visible && !o.userData.hung && o.userData.kind !== 'tarima');
       if (L.length < 2) return false;
+      L.forEach(remember);
       const avg = k => L.reduce((a, o) => a + o.position[k], 0) / L.length;
       const spread = (axis, fixed) => {
         const other = axis === 'x' ? 'z' : 'x';
@@ -3587,8 +3782,40 @@ const Stage = (() => {
       else if (mode === 'distX') spread('x', null);
       else if (mode === 'distZ') spread('z', null);
       else if (mode === 'height') { L.forEach(o => { o.userData.lift = L.reduce((a, b) => a + b.userData.lift, 0) / L.length; place(o, o.position.x, o.position.z); o.userData.moved = true; }); }
+      else if (mode === 'arc') {
+        const sorted = [...L].sort((a, b) => a.position.x - b.position.x), n = sorted.length;
+        const x0 = sorted[0].position.x, x1 = sorted[n - 1].position.x, zEnd = avg('z');
+        const sag = Math.min(2.5, Math.max(0.5, (x1 - x0) * 0.25));
+        sorted.forEach((o, i) => {
+          const t = 2 * i / (n - 1) - 1;
+          place(o, x0 + (x1 - x0) * (t + 1) / 2, zEnd + sag * (1 - t * t)); o.userData.moved = true;
+        });
+      }
       else return false;
       selFit(selected || L[0]); notify(); return true;
+    },
+    undoItem() { return inited ? undoItem() : false; },
+    setMeasure(on) { measureOn = !!on; if (!measureOn) clearMeasure(); return measureOn; },
+    setCoverage(on) { coverOn = !!on; if (coverOn) buildCover(); else clearCover(); return coverOn; },
+    setDims(on) { dimsOn = !!on; if (dimsOn) buildDims(); else clearDims(); return dimsOn; },
+    setPalette(a, b) {
+      customPal = a == null ? null : { a, b, rim: a, label: 'Paleta propia del cliente' };
+      if (lastState) update(lastState);
+      notify(); return !!customPal;
+    },
+    setWallImage(url) {
+      if (!inited || !selected || selected.userData.kind !== 'wall') return false;
+      const w = selected, screens = [];
+      w.traverse(m => { if (m.userData.screen) screens.push(m); });
+      if (!screens.length) return false;
+      if (!url) { screens.forEach(m => { m.material = M.ledScreen; }); w.userData.content = false; notify(); return true; }
+      new THREE.TextureLoader().load(url, t => {
+        t.colorSpace = THREE.SRGBColorSpace;
+        const mat = new THREE.MeshBasicMaterial({ map: t, toneMapped: false });
+        screens.forEach(m => { m.material = mat; });
+        w.userData.content = true; notify();
+      });
+      return true;
     },
     hideSelected() {
       if (!selected || !inited || selected.userData.kind === 'tarima') return false;
@@ -3618,6 +3845,7 @@ const Stage = (() => {
     nudge(dx, dz) {
       if (!selected || !inited || selected.userData.kind === 'tarima' || selected.userData.hung) return false;
       const o = selected;
+      remember(o);
       place(o, o.position.x + dx, o.position.z + dz);
       o.userData.moved = true; selFit(o); notify(); return true;
     },
@@ -3657,6 +3885,7 @@ const Stage = (() => {
     bringFront() {
       if (!selected || !inited) return;
       let o = selected;
+      remember(o);
       if (o.userData.hung) o = hang(o, false);
       o.userData.moved = true; o.userData.lift = 0;
       o.rotation.y = o.userData.kind === 'truss' ? 0 : o.rotation.y;
@@ -3802,12 +4031,13 @@ const Stage = (() => {
     dock.innerHTML = `
       <button type="button" class="dock-head" id="dock-toggle" aria-expanded="true"><span>Panel de trabajo</span><span class="dock-caret" aria-hidden="true">▾</span></button>
       <div class="dock-body" id="dock-body">
-        <div class="dock-sec"><strong>Escena y colores</strong><div class="dock-seg" role="radiogroup">${pals.map(([v, l]) => `<button type="button" role="radio" data-dm="${v}">${l}</button>`).join('')}</div></div>
+        <div class="dock-sec"><strong>Escena y colores</strong><div class="dock-seg" role="radiogroup">${pals.map(([v, l]) => `<button type="button" role="radio" data-dm="${v}">${l}</button>`).join('')}</div><div class="cam-row pal-row"><label>Color principal <input type="color" id="pal-a" value="#e65837" /></label><label>Color de acento <input type="color" id="pal-b" value="#22d3ee" /></label><button type="button" data-tool="palapply">Aplicar colores</button><button type="button" data-tool="palreset">Quitar colores propios</button></div></div>
         <div class="dock-sec" id="dock-cams"><strong>Cámaras</strong><div class="cam-row"><button type="button" data-preset="front">Frente</button><button type="button" data-preset="audience">Público</button><button type="button" data-preset="back">Trasera</button><button type="button" data-save="1">Guardar vista</button></div><div id="cam-saved" class="cam-saved"></div></div>
         <div class="dock-sec"><strong>Total orientativo</strong><div class="dock-total" id="dock-total">0,00 €</div><a class="btn btn-sm btn-pri" id="dock-wa" href="#" target="_blank" rel="noopener">Enviar por WhatsApp</a></div>
         <div class="dock-sec"><strong>Añadir al render</strong><div id="dock-add"></div></div>
         <div class="dock-sec"><strong>Plantilla de evento</strong><div class="cam-row" id="dock-tpl"><button type="button" data-tpl="boda">Boda</button><button type="button" data-tpl="empresa">Empresa</button><button type="button" data-tpl="concierto">Concierto</button><button type="button" data-tpl="conf">Conferencia</button></div></div>
-        <div class="dock-sec"><strong>Herramientas</strong><div class="cam-row"><label class="fit-check"><input type="checkbox" id="dock-human" /> Persona 1,75 m (escala)</label></div><div class="cam-row"><button type="button" data-tool="pres">Modo presentación</button><button type="button" data-tool="csv">Material (CSV)</button><button type="button" data-tool="savever">Guardar versión</button></div><div id="dock-versions" class="cam-saved"></div><div id="dock-warn" class="dock-warn" aria-live="polite"></div></div>
+        <div class="dock-sec"><strong>Fecha y recordatorio</strong><p class="msg" id="dock-date"></p><div class="cam-row"><button type="button" data-tool="ics">Descargar recordatorio (.ics)</button></div></div>
+        <div class="dock-sec"><strong>Herramientas</strong><div class="cam-row"><label class="fit-check"><input type="checkbox" id="dock-human" /> Persona 1,75 m (escala)</label></div><div class="cam-row"><button type="button" data-tool="cover">Mostrar cobertura de sonido</button><button type="button" data-tool="dims">Mostrar cotas</button><button type="button" data-tool="measure">Medir distancia</button></div><p class="msg" id="dock-measure"></p><div class="cam-row"><button type="button" data-tool="pres">Modo presentación</button><button type="button" data-tool="csv">Material (CSV)</button><button type="button" data-tool="savever">Guardar versión</button></div><div id="dock-versions" class="cam-saved"></div><div id="dock-warn" class="dock-warn" aria-live="polite"></div></div>
         <div class="dock-sec" id="dock-list"></div>
         <p class="dock-keys">Atajos: flechas mueven el equipo (Mayús. = 1 m) · Q/E giran · +/− cambian tamaño · D duplicar · C centrar · F al frente · Supr quitar · Esc deseleccionar</p>
       </div>`;
@@ -3817,6 +4047,7 @@ const Stage = (() => {
     dock.addEventListener('click', e => {
       const b = e.target.closest('button[data-dm]');
       if (!b) return;
+      Stage.setPalette(null);
       $('dm-select').value = b.dataset.dm; $('dm-select').dispatchEvent(new Event('change'));
     });
     const setOpen = open => {
@@ -3829,6 +4060,7 @@ const Stage = (() => {
     setOpen(saved === null ? window.matchMedia('(min-width: 900px)').matches : saved === '1');
     const syncPal = () => dock.querySelectorAll('button[data-dm]').forEach(b => b.setAttribute('aria-checked', b.dataset.dm === $('dm-select').value ? 'true' : 'false'));
     $('dm-select').addEventListener('change', syncPal); syncPal();
+    renderDate();
     const label = () => { btn.textContent = document.fullscreenElement === box ? 'Salir de pantalla completa' : 'Pantalla completa'; };
     btn.addEventListener('click', () => {
       if (document.fullscreenElement === box) document.exitFullscreen();

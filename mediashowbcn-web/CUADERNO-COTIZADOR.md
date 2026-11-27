@@ -41,12 +41,10 @@
 - Torre de truss con «Arriba: nada / cabezal móvil / PAR LED».
 - Nota: el modelo 3D de PAR y cabinas es procedural (dibujado en código). No hay archivo .glb; para uno real hace falta escanear o comprar el modelo.
 
-## Estado de las 20 mejoras (7.5.0)
-Hechas (9): 2 plantillas de evento · 5 aviso de equipo fuera del espacio · 7 aviso de carga del truss · 8 aviso de potencia por líneas de 16 A · 10 persona de 1,75 m para escala · 13 guardar versiones (sin foto) · 15 modo presentación · 16 material en CSV · 19 atajos de escena (1-2-3) y cámara (P, T).
+## Estado de las 20 mejoras (7.8.0)
+Hechas (20): 1 alinear en arco · 2 plantillas de evento · 3 medir distancia en el suelo · 4 cobertura de sonido en el visor · 5 aviso de equipo fuera del espacio · 6 aviso de cobertura insuficiente (menos de 88 dB en más del 20 % del espacio) · 7 aviso de carga del truss · 8 aviso de potencia por líneas de 16 A · 9 paleta propia por cliente · 10 persona de 1,75 m para escala · 11 cotas en el visor · 12 deshacer por equipo · 13 guardar versiones (sin foto) · 14 comparar dos versiones · 15 modo presentación · 16 material en CSV · 17 WhatsApp con texto según tipo de evento · 18 fecha, días que faltan y recordatorio .ics · 19 atajos de escena (1-2-3) y cámara (P, T) · 20 imagen propia en la pantalla LED (solo en la sesión).
 
-Pendientes (11): 1 alinear en arco · 3 medir distancias en el suelo · 4 cobertura de sonido en el visor · 6 aviso de altavoz sin cobertura · 9 paleta propia por cliente · 11 cotas en el visor · 12 deshacer por equipo · 14 comparar dos montajes · 17 plantilla de WhatsApp por evento · 18 recordatorio de fecha y disponibilidad · 20 pantalla LED con contenido propio (imagen o vídeo del cliente).
-
-Limitaciones honestas: los avisos son orientativos (valores de catálogo del dossier); las versiones guardadas no incluyen la foto del espacio.
+Limitaciones honestas: los avisos son orientativos (valores de catálogo del dossier); las versiones guardadas no incluyen la foto del espacio; la imagen de la pantalla LED no se guarda en las versiones ni en el archivo de proyecto (la paleta propia sí); el total no se compara entre versiones porque depende del pack activo; el recordatorio es un archivo .ics, no un aviso del navegador.
 
 ## Ideas para la siguiente tanda (orden de utilidad para el cotizador)
 1. Alinear en arco (además de en fila y columna).

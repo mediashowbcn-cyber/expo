@@ -19,5 +19,7 @@ con el plugin «Media Show BCN» y el catálogo de ejemplo de `mock/msb-mock.php
 - `test22.js` / `test24.js`: pantalla completa y panel dentro del visor.
 - `test12.js`: esquinas arrastrables, contorno del espacio y «Adaptar».
 - `test15.js`: enlace para el cliente, aprobación y AR.
+- `test35.js`: versión 7.8 (arco, cobertura, cotas, medir, paleta, deshacer por equipo, fecha .ics, WhatsApp por evento, comparar versiones). El paso de la pantalla LED se salta en este test; lo cubre `test36.js`.
+- `test36.js`: imagen propia en la pantalla LED (subir y quitar).
 
 Cada prueba imprime el resultado y termina con `errors: none` si no hay errores de página.
