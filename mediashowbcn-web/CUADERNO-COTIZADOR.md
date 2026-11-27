@@ -1,7 +1,7 @@
 # Cuaderno del cotizador 3D (para retomar el trabajo)
 
 ## Estado
-- Plugin «Media Show BCN» en la versión **7.5.0**, instalado en mediashowbcn.com (blog 258969453).
+- Plugin «Media Show BCN» en la versión **7.6.0**, instalado en mediashowbcn.com (blog 258969453).
 - Código canónico: `mediashowbcn-web/wordpress/mediashow-bcn/assets/msb.js` (un solo archivo, sin paso de compilación).
   Los fuentes de trabajo antiguos ya no se usan: editar siempre `msb.js` directamente.
 - Three.js r160 como módulo ES (`assets/three-loader.js`). Las fuentes de sus addons vienen de jsDelivr.
@@ -27,6 +27,13 @@
    - HECHO en 7.1.0: acciones sobre el equipo seleccionado (duplicar, quitar de los extras, centrar, al frente); cámaras guardadas por nombre; atajos de teclado (flechas, Q/E, +/−, D, C, F, Supr, Esc).
    - HECHO en 7.2.0: quitar equipos del pack del render (el precio no cambia; se restauran desde la lista); color por equipo (cinco tonos y original); vistas guardadas dentro del archivo de proyecto.
    - HECHO en 7.3.0: selección múltiple (Mayús. + toque en el visor) y acciones en fila, en columna, repartir en X o Z, misma altura y deseleccionar.
+
+## Hecho en 7.6.0
+- Servicios adicionales justo debajo de la cotización, encima del render/imagen/vídeo.
+- Cabezal móvil wash, cabezal beam y láser como unidades sueltas (productos y modelos 3D nuevos).
+- Textos de la ficha de producto en blanco.
+- Lista de imágenes de la tienda: `IMAGENES-TIENDA.md` y `IMAGENES-TIENDA.csv`.
+- Limitación: el cabezal wash y el beam usan el mismo modelo visual (solo cambian el nombre y el precio).
 
 ## Hecho en 7.4.0
 - Extra «PAR LED» (pool propio, 0,9 m de altura por defecto, se arrastra y se selecciona).

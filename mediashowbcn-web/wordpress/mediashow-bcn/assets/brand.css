@@ -31,3 +31,12 @@ label, .woocommerce form .form-row label { color: #F4F0E8; }
 .woocommerce div.product div.images img, .woocommerce ul.products li.product a img { border-radius: 12px; }
 .msb-event-fields { background: #111; border: 1px solid #2a2a2a; border-left: 3px solid #E65837; border-radius: 12px; padding: 14px; }
 ::selection { background: #E65837; color: #0A0A0A; }
+
+/* Textos de la ficha de producto en blanco (no azul claro) */
+.woocommerce div.product .woocommerce-product-details__short-description,
+.woocommerce div.product .woocommerce-product-details__short-description p,
+.woocommerce div.product .summary p,
+.woocommerce div.product .product_meta,
+.woocommerce div.product .product_meta a,
+.woocommerce .woocommerce-product-details__short-description { color: #F4F0E8 !important; }
+.woocommerce div.product .product_meta { color: #A6A49E !important; }

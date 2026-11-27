@@ -156,7 +156,7 @@
     $('hours-select').innerHTML = opts.map(x => `<option value="${x}">${x} horas ${x === h ? '(incluidas)' : '(+' + eur0((x - h) * S.extraHour) + ')'}</option>`).join('');
   }
 
-  const KMAP = { par: 'par', booth1: 'booth', booth2: 'booth', booth3: 'booth', booth4: 'booth', booth5: 'booth', spk: 'speaker', trx_extra: 'trx', tower: 'tower', screen55: 'screen', totem: 'totem', mic: 'mic', stream: 'cam', booth: 'booth', lectern: 'lectern', heads: 'head', led_s: 'wall', led_m: 'wall', led_l: 'wall', foh: 'foh' };
+  const KMAP = { laser: 'laser', head_wash: 'head', head_beam: 'head', par: 'par', booth1: 'booth', booth2: 'booth', booth3: 'booth', booth4: 'booth', booth5: 'booth', spk: 'speaker', trx_extra: 'trx', tower: 'tower', screen55: 'screen', totem: 'totem', mic: 'mic', stream: 'cam', booth: 'booth', lectern: 'lectern', heads: 'head', led_s: 'wall', led_m: 'wall', led_l: 'wall', foh: 'foh' };
   /* Panel de trabajo v7: lista del escenario, acciones sobre el equipo seleccionado, vistas y atajos */
   const REV = {};
   Object.keys(KMAP).forEach(m => { const ex = EXTRAS.find(x => x.model === m); if (ex) REV[KMAP[m]] = ex; });
@@ -1849,7 +1849,7 @@ const Stage = (() => {
   const TR0 = { w: 6.4, h: 3.5 }, TR = Object.assign({}, TR0);
   let SPACE = null, spaceInExport = false;
   const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
-  const CAP = { pars: 24, towers: 24, trx: 26, heads: 48, bars: 24, speakers: 24, mics: 24, screens: 24, totems: 24 };
+  const CAP = { lasers: 24, pars: 24, towers: 24, trx: 26, heads: 48, bars: 24, speakers: 24, mics: 24, screens: 24, totems: 24 };
   const KIND = { trx: 'Altavoz Alto TRX315', speaker: 'Altavoz RCF EVOX 12', totem: 'Tótem', screen: 'Pantalla', mic: 'Micrófono', cam: 'Cámara', wall: 'Pantalla LED', booth: 'Cabina DJ', lectern: 'Atril', foh: 'Control de sonido', head: 'Cabeza móvil', tower: 'Torre de truss', truss: 'Truss del escenario' };
   let draggables = [], dragObj = null, selected = null, selBox = null, multi = [];
   const LOOK = { light: 1, warm: 0, dir: 27 };
@@ -2043,6 +2043,18 @@ const Stage = (() => {
   function buildExtraPar() {
     const p = buildPar(), g = p.g;
     tag(g, 'par'); g.userData.lift = 0.9; g.userData.par = p;
+    scene.add(g); draggables.push(g); contact(g);
+    return g;
+  }
+
+  // Láser: cuerpo pequeño y haz fino rojo que apunta al frente.
+  function buildLaser() {
+    const g = new THREE.Group();
+    g.add(box(0.14, 0.12, 0.1, M.black));
+    const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 8, 6), new THREE.MeshBasicMaterial({ color: 0xff2a2a, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+    beam.rotation.x = Math.PI / 2; beam.position.z = 4; g.add(beam);
+    g.userData.beamMat = beam.material;
+    tag(g, 'laser'); g.userData.lift = 0.6;
     scene.add(g); draggables.push(g); contact(g);
     return g;
   }
@@ -2487,7 +2499,7 @@ const Stage = (() => {
     cfg = {
       base: s.guests <= 60 ? 2 : s.guests <= 150 ? 4 : 6,
       extraSpk: x.spk || 0,
-      heads: x.headsN != null ? x.headsN : (full ? 4 : 0) + 6 * (x.heads || 0),
+      heads: (x.headsN != null ? x.headsN : (full ? 4 : 0) + 6 * (x.heads || 0)) + (x.head_wash || 0) + (x.head_beam || 0),
       bars: (p === 'corporate' ? 2 : 0) + 4 * (x.bars || 0),
       pars: p === 'corporate' ? 2 : 0,
       mics: ({ starter: 1, corporate: 2, premium: 4, integral: 4 }[p] || 2) + (x.mic || 0),
@@ -2617,6 +2629,15 @@ const Stage = (() => {
     });
     rig.haze.visible = cfg.haze;
 
+    const nlz = vis(x.laser || 0, 'lasers');
+    rig.lasers = rig.lasers || [];
+    fill(rig.lasers, nlz, () => buildLaser());
+    rig.lasers.forEach((o, i) => {
+      o.visible = i < nlz;
+      if (!o.visible || o.userData.moved) return;
+      const side = i % 2 ? 1 : -1, row = Math.floor(i / 2);
+      place(o, side * (2.2 + row * 0.8), -1.2 - (row % 2) * 0.4, false, 0);
+    });
     const npx = vis(x.par || 0, 'pars');
     rig.xpars = rig.xpars || [];
     fill(rig.xpars, npx, () => buildExtraPar());
@@ -2664,6 +2685,8 @@ const Stage = (() => {
     if (cfg.dj) leg.push('DJ');
     if (cfg.lectern) leg.push('Atril');
     if (npx) leg.push(`${npx} PAR LED`);
+    if (nlz) leg.push(`${nlz} láser${nlz > 1 ? 'es' : ''}`);
+    if (x.head_wash || x.head_beam) leg.push(`${(x.head_wash || 0) + (x.head_beam || 0)} cabezal${(x.head_wash || 0) + (x.head_beam || 0) > 1 ? 'es' : ''} individual${(x.head_wash || 0) + (x.head_beam || 0) > 1 ? 'es' : ''}`);
     if (cfg.booth) leg.push(`Cabina DJ ${bv}`);
     leg.push(pal.label);
     $('stage-legend').innerHTML = leg.map(t => `<span>${t}</span>`).join('');
@@ -3815,8 +3838,10 @@ const Stage = (() => {
   }
   // La cotización va justo debajo del visor, a todo el ancho.
   (function placeQuote() {
-    const qs = document.querySelector('.quote-summary'), sb = document.querySelector('.stage-box');
+    const qs = document.querySelector('.quote-summary'), sb = document.querySelector('.stage-box'), ex = document.querySelector('.extras-box');
     if (qs && sb && sb.nextElementSibling !== qs) sb.insertAdjacentElement('afterend', qs);
+    // Servicios adicionales justo debajo de la cotización, antes del render, imagen y vídeo.
+    if (qs && ex && qs.nextElementSibling !== ex) qs.insertAdjacentElement('afterend', ex);
   })();
   setupFS();
   setupWork();
