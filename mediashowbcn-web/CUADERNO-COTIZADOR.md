@@ -41,6 +41,12 @@
 - Torre de truss con «Arriba: nada / cabezal móvil / PAR LED».
 - Nota: el modelo 3D de PAR y cabinas es procedural (dibujado en código). No hay archivo .glb; para uno real hace falta escanear o comprar el modelo.
 
+## Versión 7.10
+- Mobiliario como extras con cantidad (mesa alta, silla, silla de fiesta, lounge): presupuesto, render y planilla van a la vez.
+- Planilla técnica bajo la cotización: resumen por equipo, posición X/Z de cada uno, consumo, peso y CSV.
+- Tienda: productos nuevos en borrador (mobiliario y artículos impresos). Hay que poner precio y publicarlos; el botón «Revisar y crear páginas y productos que falten» los crea sin tocar los existentes.
+- Pendiente: arquería/truss multiple, tamaños de truss, esquineros y bases; render de PAR y láseres.
+
 ## Estado de las 20 mejoras (7.8.0)
 Hechas (20): 1 alinear en arco · 2 plantillas de evento · 3 medir distancia en el suelo · 4 cobertura de sonido en el visor · 5 aviso de equipo fuera del espacio · 6 aviso de cobertura insuficiente (menos de 88 dB en más del 20 % del espacio) · 7 aviso de carga del truss · 8 aviso de potencia por líneas de 16 A · 9 paleta propia por cliente · 10 persona de 1,75 m para escala · 11 cotas en el visor · 12 deshacer por equipo · 13 guardar versiones (sin foto) · 14 comparar dos versiones · 15 modo presentación · 16 material en CSV · 17 WhatsApp con texto según tipo de evento · 18 fecha, días que faltan y recordatorio .ics · 19 atajos de escena (1-2-3) y cámara (P, T) · 20 imagen propia en la pantalla LED (solo en la sesión).
 

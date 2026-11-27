@@ -213,7 +213,7 @@ function msb_seed_product( $d, $cat ) {
 	$p->set_regular_price( (string) $d['price'] );
 	$p->set_short_description( $d['desc'] ?? '' );
 	$p->set_virtual( true );
-	$p->set_status( 'publish' );
+	$p->set_status( $d['status'] ?? 'publish' );
 	$p->set_catalog_visibility( $d['visibility'] ?? 'visible' );
 	$p->set_menu_order( $d['order'] ?? 0 );
 	if ( $cat ) {
@@ -286,7 +286,21 @@ function msb_setup_products() {
 		array( 'MSB-SMOKE', 'Humo / fuego frío', 120, 1, 'smoke', 'Máquina de humo o fuego frío.' ),
 		array( 'MSB-RENDER', 'Render 3D de tu evento en 4K', 49, 1, '', 'Imagen 4K y vídeo de tu montaje sobre la foto de tu espacio, sin marca de agua. Entrega en 48 h.' ),
 	);
-	foreach ( $extra_defs as $i => $d ) {
+	// Mobiliario y artículos impresos nuevos: se crean en borrador, sin precio.
+	// Media Show BCN fija el precio y publica cada uno; hasta entonces no aparecen en el cotizador.
+	$draft_defs = array(
+		array( 'MSB-MESA-ALTA', 'Mesa alta de cóctel', '', 20, 'mesa_alta', 'Mesa alta de cóctel con mantel, de 0,8 m de diámetro.' ),
+		array( 'MSB-SILLA', 'Silla', '', 200, 'silla', 'Silla sencilla para invitados.' ),
+		array( 'MSB-SILLA-FIESTA', 'Silla de fiesta', '', 200, 'silla_fiesta', 'Silla blanca de fiesta, de respaldo alto.' ),
+		array( 'MSB-LOUNGE', 'Mobiliario lounge (sofá y mesa baja)', '', 10, 'lounge', 'Sofá y mesa baja para una zona lounge.' ),
+		array( 'MSB-LANYARD', 'Lanyards personalizados', '', 500, '', 'Cordones para acreditaciones, con tu logo.' ),
+		array( 'MSB-HABLADOR', 'Habladores de mesa', '', 200, '', 'Habladores impresos para mesa, con tu logo o el nombre del evento.' ),
+		array( 'MSB-TARJETAS', 'Tarjetas de presentación', '', 500, '', 'Tarjetas de visita impresas.' ),
+		array( 'MSB-FLYER', 'Flyers impresos', '', 1000, '', 'Flyers impresos para el evento.' ),
+		array( 'MSB-LONA', 'Lona publicitaria', '', 10, '', 'Lona impresa para la fachada o el escenario.' ),
+		array( 'MSB-FRANELA', 'Franelas personalizadas', '', 200, '', 'Camisetas personalizadas para el equipo o los invitados.' ),
+	);
+	foreach ( array_merge( $extra_defs, $draft_defs ) as $i => $d ) {
 		msb_seed_product(
 			array(
 				'sku'        => $d[0],
@@ -294,6 +308,7 @@ function msb_setup_products() {
 				'price'      => $d[2],
 				'desc'       => $d[5],
 				'order'      => $i,
+				'status'     => $i >= count( $extra_defs ) ? 'draft' : 'publish',
 				'meta'       => array( '_msb_tipo' => 'extra', '_msb_max' => $d[3], '_msb_modelo' => $d[4] ),
 			),
 			$extras

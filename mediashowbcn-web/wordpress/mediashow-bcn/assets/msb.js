@@ -156,7 +156,7 @@
     $('hours-select').innerHTML = opts.map(x => `<option value="${x}">${x} horas ${x === h ? '(incluidas)' : '(+' + eur0((x - h) * S.extraHour) + ')'}</option>`).join('');
   }
 
-  const KMAP = { bars: 'bar', laser: 'laser', head_wash: 'head', head_beam: 'head', par: 'par', booth1: 'booth', booth2: 'booth', booth3: 'booth', booth4: 'booth', booth5: 'booth', spk: 'speaker', trx_extra: 'trx', tower: 'tower', screen55: 'screen', totem: 'totem', mic: 'mic', stream: 'cam', booth: 'booth', lectern: 'lectern', heads: 'head', led_s: 'wall', led_m: 'wall', led_l: 'wall', foh: 'foh' };
+  const KMAP = { mesa_alta: 'mesa_alta', silla: 'silla', silla_fiesta: 'silla_fiesta', lounge: 'lounge', bars: 'bar', laser: 'laser', head_wash: 'head', head_beam: 'head', par: 'par', booth1: 'booth', booth2: 'booth', booth3: 'booth', booth4: 'booth', booth5: 'booth', spk: 'speaker', trx_extra: 'trx', tower: 'tower', screen55: 'screen', totem: 'totem', mic: 'mic', stream: 'cam', booth: 'booth', lectern: 'lectern', heads: 'head', led_s: 'wall', led_m: 'wall', led_l: 'wall', foh: 'foh' };
   /* Panel de trabajo v7: lista del escenario, acciones sobre el equipo seleccionado, vistas y atajos */
   const REV = {};
   Object.keys(KMAP).forEach(m => { const ex = EXTRAS.find(x => x.model === m); if (ex) REV[KMAP[m]] = ex; });
@@ -691,6 +691,7 @@
     $('reserve-btn').setAttribute('aria-disabled', ok ? 'false' : 'true');
 
     Stage.update({ preset: pk ? pk.preset : 'corporate', models: Object.assign({}, models, state.headsN != null ? { headsN: state.headsN } : {}), dm: state.dm, guests: state.guests, tarimaKnown: !!TARIMA });
+    if (typeof renderPlan === 'function') renderPlan();
   }
 
   function toggleProposal() {
@@ -986,6 +987,52 @@
     });
   }
 
+  /* Planilla técnica: resumen por equipo y posición de cada uno; se actualiza con el montaje. */
+  function setupPlan() {
+    const ex = document.querySelector('.extras-box');
+    if (!ex || $('plan-box')) return;
+    const box = document.createElement('details');
+    box.className = 'plan-box'; box.id = 'plan-box'; box.open = true;
+    box.innerHTML = `<summary class="qs-head"><span class="eyebrow">Planilla técnica</span><strong id="plan-count">Sin equipos</strong></summary>
+      <div class="plan-body">
+        <div class="cam-row"><button type="button" data-plan="csv">Descargar planilla (CSV)</button></div>
+        <div id="plan-table"></div>
+        <p class="msg">Posiciones en metros desde el centro del escenario: X de izquierda a derecha y Z de fondo a delante. Se actualiza al añadir o quitar equipos.</p>
+      </div>`;
+    ex.insertAdjacentElement('afterend', box);
+    box.addEventListener('click', e => { if (e.target.closest('button[data-plan="csv"]')) exportPlanCSV(); });
+    window.addEventListener('msb:montage', renderPlan);
+    renderPlan();
+  }
+  function planItems() {
+    const P = Stage.planData ? Stage.planData() : null;
+    if (!P) return null;
+    return P.items.slice().sort((a, b) => (a.kind < b.kind ? -1 : a.kind > b.kind ? 1 : a.x - b.x));
+  }
+  function renderPlan() {
+    const box = $('plan-table'), cnt = $('plan-count');
+    if (!box || !cnt) return;
+    const items = planItems();
+    if (!items) return;
+    cnt.textContent = items.length ? `${items.length} equipo${items.length > 1 ? 's' : ''} en el plano` : 'Sin equipos';
+    if (!items.length) { box.innerHTML = '<p class="msg">Añade equipos desde el presupuesto o desde «Añadir al render». Aparecerán aquí con su posición.</p>'; return; }
+    const count = {}; items.forEach(it => { count[it.kind] = (count[it.kind] || 0) + 1; });
+    const watts = items.reduce((a, it) => a + (SPEC[it.kind] ? SPEC[it.kind].w : 0), 0);
+    const kg = items.reduce((a, it) => a + (SPEC[it.kind] ? SPEC[it.kind].kg : 0), 0);
+    const resumen = Object.keys(count).map(k => `<tr><td>${esc(SPEC[k] ? SPEC[k].name : k)}</td><td class="n">${count[k]}</td></tr>`).join('');
+    const det = items.map((it, i) => `<tr><td>${i + 1}</td><td>${esc(it.label)}</td><td class="n">${fmtN(it.x, 2)}</td><td class="n">${fmtN(it.z, 2)}</td><td class="n">${Math.round(it.ry * 180 / Math.PI)}°</td></tr>`).join('');
+    box.innerHTML = `<table class="plan-tbl"><thead><tr><th>Equipo</th><th class="n">Cant.</th></tr></thead><tbody>${resumen}</tbody>
+      <tfoot><tr><td colspan="2">Consumo ≈ ${fmtN(watts / 1000, 1)} kW · peso ≈ ${fmtN(kg, 0)} kg (orientativo)</td></tr></tfoot></table>
+      <details class="plan-det"><summary>Posición de cada equipo</summary><table class="plan-tbl"><thead><tr><th>#</th><th>Equipo</th><th class="n">X (m)</th><th class="n">Z (m)</th><th class="n">Giro</th></tr></thead><tbody>${det}</tbody></table></details>`;
+  }
+  function exportPlanCSV() {
+    const items = planItems();
+    if (!items || !items.length) { $('export-msg').textContent = 'Todavía no hay equipos en el plano.'; return; }
+    const rows = [['#', 'Equipo', 'X (m)', 'Z (m)', 'Giro (°)', 'Consumo (W)', 'Peso (kg)']];
+    items.forEach((it, i) => { const sp = SPEC[it.kind] || { w: 0, kg: 0 }; rows.push([i + 1, it.label, fmtN(it.x, 2), fmtN(it.z, 2), Math.round(it.ry * 180 / Math.PI), sp.w, sp.kg]); });
+    const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(';')).join('\n');
+    download(new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' }), 'mediashowbcn-planilla.csv');
+  }
   /* Barra del visor: seleccionar, mover, acercar y ajustar el tamaño del equipo. */
   function setupViewerTools() {
     const box = document.querySelector('.stage-box');
@@ -1324,7 +1371,11 @@
     bar: { name: 'Barra LED', w: 60, kg: 3 },
     par: { name: 'PAR LED', w: 120, kg: 5 },
     wall: { name: 'Pantalla LED (por m²)', w: 200, kg: 30 },
-    haze: { name: 'Máquina de humo / haze', w: 900, kg: 10 }
+    haze: { name: 'Máquina de humo / haze', w: 900, kg: 10 },
+    mesa_alta: { name: 'Mesa alta de cóctel (Ø 0,8 m)', w: 0, kg: 12 },
+    silla: { name: 'Silla', w: 0, kg: 5 },
+    silla_fiesta: { name: 'Silla de fiesta', w: 0, kg: 5 },
+    lounge: { name: 'Set lounge (sofá y mesa baja)', w: 0, kg: 60 }
   };
   const fmtN = (v, d = 1) => Number(v).toLocaleString('es-ES', { maximumFractionDigits: d });
 
@@ -1969,7 +2020,7 @@ const Stage = (() => {
   let SPACE = null, spaceInExport = false;
   const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
   const CAP = { lasers: 24, pars: 24, towers: 24, trx: 26, heads: 48, bars: 24, speakers: 24, mics: 24, screens: 24, totems: 24 };
-  const KIND = { trx: 'Altavoz Alto TRX315', speaker: 'Altavoz RCF EVOX 12', totem: 'Tótem', screen: 'Pantalla', mic: 'Micrófono', cam: 'Cámara', wall: 'Pantalla LED', booth: 'Cabina DJ', lectern: 'Atril', foh: 'Control de sonido', head: 'Cabeza móvil', tower: 'Torre de truss', truss: 'Truss del escenario', bar: 'Barra de luz LED' };
+  const KIND = { trx: 'Altavoz Alto TRX315', speaker: 'Altavoz RCF EVOX 12', totem: 'Tótem', screen: 'Pantalla', mic: 'Micrófono', cam: 'Cámara', wall: 'Pantalla LED', booth: 'Cabina DJ', lectern: 'Atril', foh: 'Control de sonido', head: 'Cabeza móvil', tower: 'Torre de truss', truss: 'Truss del escenario', bar: 'Barra de luz LED', mesa_alta: 'Mesa alta de cóctel', silla: 'Silla', silla_fiesta: 'Silla de fiesta', lounge: 'Set lounge' };
   let draggables = [], dragObj = null, selected = null, selBox = null, multi = [];
   let customPal = null, coverMesh = null, coverOn = false, dimGroup = null, dimsOn = false, measureOn = false, measurePts = [], measureGroup = null;
   let moveOn = true;
@@ -2556,6 +2607,29 @@ const Stage = (() => {
     dot.position.copy(p); dot.renderOrder = 10; mgroup().add(dot);
   }
 
+  // Mobiliario: volúmenes sencillos en metros. Su cantidad la marca el presupuesto.
+  const FURN = ['mesa_alta', 'silla', 'silla_fiesta', 'lounge'];
+  const FURN_MAT = {};
+  const furnMat = hex => FURN_MAT[hex] || (FURN_MAT[hex] = new THREE.MeshStandardMaterial({ color: hex, roughness: 0.6, metalness: 0.05 }));
+  function buildFurn(kind) {
+    const g = new THREE.Group();
+    const add = (geo, hex, x, y, z) => { const m = new THREE.Mesh(geo, furnMat(hex)); m.position.set(x, y, z); m.castShadow = true; g.add(m); return m; };
+    if (kind === 'mesa_alta') {
+      add(new THREE.CylinderGeometry(0.4, 0.4, 0.04, 24), 0x161616, 0, 1.1, 0);
+      add(new THREE.CylinderGeometry(0.03, 0.03, 1.06, 8), 0x9aa3ad, 0, 0.55, 0);
+      add(new THREE.CylinderGeometry(0.25, 0.25, 0.03, 20), 0x161616, 0, 0.015, 0);
+    } else if (kind === 'silla' || kind === 'silla_fiesta') {
+      const fiesta = kind === 'silla_fiesta', c = fiesta ? 0xf5f5f5 : 0x161616;
+      add(new THREE.BoxGeometry(0.42, 0.05, 0.42), c, 0, 0.46, 0);
+      add(new THREE.BoxGeometry(0.42, fiesta ? 0.6 : 0.5, 0.04), c, 0, fiesta ? 0.79 : 0.71, -0.19);
+      [[-0.18, -0.18], [0.18, -0.18], [-0.18, 0.18], [0.18, 0.18]].forEach(([x, z]) => add(new THREE.BoxGeometry(0.03, 0.44, 0.03), 0x9aa3ad, x, 0.22, z));
+    } else if (kind === 'lounge') {
+      add(new THREE.BoxGeometry(1.6, 0.35, 0.8), 0x2a2a2a, 0, 0.25, 0);
+      add(new THREE.BoxGeometry(1.6, 0.45, 0.2), 0x2a2a2a, 0, 0.6, -0.3);
+      add(new THREE.BoxGeometry(0.6, 0.4, 0.6), 0xdddddd, 0, 0.2, 1.0);
+    }
+    return g;
+  }
   function selectKind(kind) {
     const d = draggables.find(o => o.visible && o.userData.kind === kind) || (kind === 'bar' ? (rig.bars.find(b => b.g.visible) || {}).g : null);
     if (d) select(d);
@@ -2795,6 +2869,18 @@ const Stage = (() => {
       h.g.position.set(side * (3.95 + Math.floor(col / 6) * 0.6), 0, -2.2 + (col % 6) * 0.75);
     });
 
+    rig.furn = rig.furn || {};
+    FURN.forEach(k => {
+      const n = Math.min(x[k] || 0, 200);
+      rig.furn[k] = rig.furn[k] || [];
+      fill(rig.furn[k], n, () => addDraggable(buildFurn(k), k));
+      rig.furn[k].forEach((o, i) => {
+        o.visible = i < n;
+        if (!o.visible || o.userData.moved) return;
+        const col = i % 8, row = Math.floor(i / 8);
+        place(o, -5.6 + col * 1.5, 5.5 + row * 1.5);
+      });
+    });
     const nb = vis(cfg.bars, 'bars');
     fill(rig.bars, nb, () => { const b = buildBar(); b.g.userData.kind = 'bar'; scene.add(b.g); return b; });
     rig.bars.forEach((b, i) => {
@@ -4184,6 +4270,7 @@ const Stage = (() => {
   setupFS();
   setupWork();
   setupViewerTools();
+  setupPlan();
   renderCams();
   // En pantallas pequeñas la cotización empieza plegada para dejar sitio al visor.
   { const qs = document.querySelector('.quote-summary'); if (qs) qs.open = false; }
