@@ -3413,6 +3413,11 @@ const Stage = (() => {
     });
     document.addEventListener('fullscreenchange', () => { label(); window.dispatchEvent(new Event('resize')); });
   }
+  // La cotización va justo debajo del visor, a todo el ancho.
+  (function placeQuote() {
+    const qs = document.querySelector('.quote-summary'), sb = document.querySelector('.stage-box');
+    if (qs && sb && sb.nextElementSibling !== qs) sb.insertAdjacentElement('afterend', qs);
+  })();
   setupFS();
   setupWork();
   // En pantallas pequeñas la cotización empieza plegada para dejar sitio al visor.

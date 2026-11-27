@@ -384,8 +384,10 @@ details.fit-sec[open] { gap: 10px; }
 
 /* Cotizador en pantallas anchas y tablet horizontal: el visor llena la altura y la cotización queda a un lado */
 @media (min-width: 900px) {
-  .quoter-grid { grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; }
-  #canvas-3d { height: clamp(460px, calc(100vh - 210px), 920px); }
-  .quote-summary { top: 76px; max-height: calc(100vh - 92px); overflow-y: auto; overscroll-behavior: contain; }
+  .quoter-grid { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  #canvas-3d { height: clamp(460px, calc(100vh - 230px), 900px); }
   .stage-bar { flex-wrap: wrap; }
+  .quote-summary { position: static; max-height: none; overflow: visible; margin-top: 4px; }
+  .qs-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 6px 32px; align-items: start; }
+  .qs-body > .proposal-box, .qs-body > #pack-hint { grid-column: 1 / -1; }
 }
