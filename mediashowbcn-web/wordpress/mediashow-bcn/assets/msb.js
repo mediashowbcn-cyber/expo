@@ -174,9 +174,59 @@
     render();
   };
   const KNAME = { speaker: 'Altavoz RCF', trx: 'Altavoz TRX315', tower: 'Torre de truss', screen: 'Pantalla 55"', totem: 'Tótem', mic: 'Micro', cam: 'Cámara', head: 'Cabezal móvil', wall: 'Pantalla LED', booth: 'Cabina DJ', lectern: 'Atril', foh: 'Mesa de control' };
+  const TPL = {
+    boda: { pack: 26, asistentes: 150, extras: [{ id: 66, cantidad: 2 }, { id: 33, cantidad: 1 }], dm: 'amber' },
+    empresa: { pack: 25, asistentes: 100, extras: [{ id: 39 }], dm: 'corp' },
+    concierto: { pack: 27, asistentes: 250, extras: [{ id: 29 }, { id: 31, cantidad: 2 }], dm: 'dm' },
+    conf: { pack: 25, asistentes: 120, extras: [{ id: 39 }], dm: 'corp' }
+  };
+  function applyTemplate(k) {
+    const t = TPL[k];
+    if (!t) return;
+    EXTRAS.forEach(ex => { state.extras[ex.id] = 0; });
+    applyConfig(Object.assign({}, t, { extras: t.extras }));
+    state.dm = t.dm; $('dm-select').value = t.dm; $('dm-select').dispatchEvent(new Event('change'));
+    render();
+  }
+  // Avisos de montaje: fuera del espacio, carga del truss y potencia (orientativos).
+  function renderWarn() {
+    const box = $('dock-warn');
+    if (!box || !Stage.planData) return;
+    const P = Stage.planData();
+    if (!P) return;
+    const warn = [];
+    const out = Stage.outsideCount();
+    if (out) warn.push(`${out} equipo${out > 1 ? 's' : ''} fuera del espacio dibujado.`);
+    const load = Stage.loadCount() * SPEC.wall.kg + P.headsOnTruss * SPEC.head.kg;
+    if (P.truss && load > 500) warn.push(`Carga colgada del truss ≈ ${fmtN(load, 0)} kg (límite orientativo 500 kg). Revisa el vano y los puntos de anclaje.`);
+    let watts = 0;
+    P.items.forEach(it => { if (SPEC[it.kind]) watts += SPEC[it.kind].w; });
+    watts += P.headsOnTruss * SPEC.head.w + P.floorHeads.length * SPEC.head.w;
+    if (watts > 3000) warn.push(`Consumo ≈ ${fmtN(watts / 1000, 1)} kW: más de una línea de 16 A (${Math.ceil(watts / 3000)} líneas).`);
+    box.innerHTML = warn.length ? warn.map(w => `<p>${esc(w)}</p>`).join('') : '<p class="ok">Sin avisos de montaje.</p>';
+  }
+  // Material en CSV para el técnico (mismo recuento que el dossier)
+  function exportCSV() {
+    const P = Stage.planData();
+    if (!P) return;
+    const count = {};
+    P.items.forEach(it => { count[it.kind] = (count[it.kind] || 0) + 1; });
+    const rows = [['Equipo', 'Cantidad', 'Consumo (W)', 'Peso (kg)']];
+    Object.keys(count).forEach(k => { const sp = SPEC[k] || { name: k, w: 0, kg: 0 }; rows.push([sp.name, count[k], sp.w * count[k], sp.kg * count[k]]); });
+    if (P.headsOnTruss + P.floorHeads.length) { const n = P.headsOnTruss + P.floorHeads.length; rows.push([SPEC.head.name, n, SPEC.head.w * n, SPEC.head.kg * n]); }
+    const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(';')).join('\n');
+    download(new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' }), 'mediashowbcn-material.csv');
+  }
+  function renderVersions() {
+    const box = $('dock-versions');
+    if (!box) return;
+    let list = []; try { list = JSON.parse(localStorage.getItem('msb-versions') || '[]'); } catch (e) { list = []; }
+    box.innerHTML = list.map((v, i) => `<span class="cam-chip"><button type="button" data-ver="${i}">${esc(v.name)}</button><button type="button" data-verdel="${i}" aria-label="Borrar versión ${esc(v.name)}">×</button></span>`).join('');
+  }
   function renderWork() {
     const box = $('work-list');
     if (!box) return;
+    renderWarn();
     const sel = Stage.selInfo ? Stage.selInfo() : null;
     const mc = Stage.multiCount ? Stage.multiCount() : 0;
     let mbar = '';
@@ -234,6 +284,41 @@
       if (b.dataset.act) act(b.dataset.act);
     });
     window.addEventListener('msb:select', renderWork);
+    window.addEventListener('msb:montage', renderWarn);
+    $('dock-tpl').addEventListener('click', e => { const b = e.target.closest('button[data-tpl]'); if (b) applyTemplate(b.dataset.tpl); });
+    $('dock-human').addEventListener('change', e => Stage.setHuman(e.target.checked));
+    $('dock-body').addEventListener('click', e => {
+      const t = e.target.closest('button[data-tool]');
+      if (t) {
+        if (t.dataset.tool === 'pres') { const b = document.querySelector('.stage-box'); b.classList.toggle('presentation'); t.textContent = b.classList.contains('presentation') ? 'Salir de presentación' : 'Modo presentación'; }
+        if (t.dataset.tool === 'csv') exportCSV();
+        if (t.dataset.tool === 'savever') {
+          let list = []; try { list = JSON.parse(localStorage.getItem('msb-versions') || '[]'); } catch (x) { list = []; }
+          const name = (window.prompt('Nombre de la versión:', 'Versión ' + (list.length + 1)) || '').trim();
+          if (!name) return;
+          const P = project(); if (!P) return;
+          delete P.photo; delete P.mask;
+          list.unshift({ name: name.slice(0, 30), at: new Date().toISOString(), P: P });
+          list = list.slice(0, 8);
+          try { localStorage.setItem('msb-versions', JSON.stringify(list)); } catch (x) { $('export-msg').textContent = 'No hay espacio en el navegador para guardar la versión. Borra alguna.'; }
+          renderVersions();
+        }
+        return;
+      }
+      const v = e.target.closest('button[data-ver]'), d = e.target.closest('button[data-verdel]');
+      let list = []; try { list = JSON.parse(localStorage.getItem('msb-versions') || '[]'); } catch (x) { list = []; }
+      if (v) { const ver = list[Number(v.dataset.ver)]; if (ver) loadProject(ver.P).then(() => { $('export-msg').textContent = 'Versión restaurada. La foto del espacio no se guarda en las versiones: vuelve a subirla si la necesitas.'; }).catch(() => { $('export-msg').textContent = 'No se ha podido restaurar la versión.'; }); }
+      if (d) { list.splice(Number(d.dataset.verdel), 1); try { localStorage.setItem('msb-versions', JSON.stringify(list)); } catch (x) { /* sin almacenamiento */ } renderVersions(); }
+    });
+    renderVersions();
+    // Atajos de escena y cámara
+    document.addEventListener('keydown', e => {
+      if ($('view-quoter').hidden || e.ctrlKey || e.metaKey || e.altKey || /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) return;
+      const map = { '1': 'dm', '2': 'amber', '3': 'corp' };
+      if (map[e.key] && !Stage.selInfo()) { $('dm-select').value = map[e.key]; $('dm-select').dispatchEvent(new Event('change')); e.preventDefault(); return; }
+      if (!Stage.selInfo() && (e.key === 'p' || e.key === 'P')) { Stage.cam('audience'); e.preventDefault(); }
+      if (!Stage.selInfo() && (e.key === 't' || e.key === 'T')) { Stage.cam('back'); e.preventDefault(); }
+    });
     window.addEventListener('msb:montage', renderWork);
     // Cámaras
     const camsBox = $('dock-cams');
@@ -3595,6 +3680,22 @@ const Stage = (() => {
     getLayout() { return inited ? getLayout() : null; },
     exportGLB,
     planData() { return inited ? planData() : null; },
+    outsideCount() {
+      if (!inited || !SPACE || !SPACE.closed || SPACE.pts.length < 3) return 0;
+      return draggables.filter(o => o.visible && !o.userData.hung && o.userData.kind !== 'tarima' && !insidePoly(SPACE.pts, o.position.x, o.position.z)).length;
+    },
+    setHuman(on) {
+      if (!inited) return;
+      if (!rig.human) {
+        const g = new THREE.Group();
+        const body = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.24, 1.35, 16), M.black); body.position.y = 0.9; g.add(body);
+        const head = new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 12), M.desk); head.position.y = 1.7; g.add(head);
+        g.position.set(-5.2, 0, 3.4); g.userData.kind = 'human'; g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+        scene.add(g); rig.human = g;
+      }
+      rig.human.visible = !!on;
+    },
+    loadCount() { return inited ? draggables.filter(o => o.visible && o.userData.hung && o.userData.kind === 'wall').reduce((a, o) => a + o.userData.dims[0] * o.userData.dims[1], 0) : 0; },
     productShot(k, first) { return inited ? productShot(k, first) : () => {}; },
     autoForeground(r) { return inited ? autoForeground(r) : { ok: false, n: 0 }; },
     setBeat(fn) { beatFn = fn || null; if (!fn && bloom) bloom.strength = bloomOn; if (!fn && cfg && lastState) update(lastState); },
@@ -3682,6 +3783,8 @@ const Stage = (() => {
         <div class="dock-sec" id="dock-cams"><strong>Cámaras</strong><div class="cam-row"><button type="button" data-preset="front">Frente</button><button type="button" data-preset="audience">Público</button><button type="button" data-preset="back">Trasera</button><button type="button" data-save="1">Guardar vista</button></div><div id="cam-saved" class="cam-saved"></div></div>
         <div class="dock-sec"><strong>Total orientativo</strong><div class="dock-total" id="dock-total">0,00 €</div><a class="btn btn-sm btn-pri" id="dock-wa" href="#" target="_blank" rel="noopener">Enviar por WhatsApp</a></div>
         <div class="dock-sec"><strong>Añadir al render</strong><div id="dock-add"></div></div>
+        <div class="dock-sec"><strong>Plantilla de evento</strong><div class="cam-row" id="dock-tpl"><button type="button" data-tpl="boda">Boda</button><button type="button" data-tpl="empresa">Empresa</button><button type="button" data-tpl="concierto">Concierto</button><button type="button" data-tpl="conf">Conferencia</button></div></div>
+        <div class="dock-sec"><strong>Herramientas</strong><div class="cam-row"><label class="fit-check"><input type="checkbox" id="dock-human" /> Persona 1,75 m (escala)</label></div><div class="cam-row"><button type="button" data-tool="pres">Modo presentación</button><button type="button" data-tool="csv">Material (CSV)</button><button type="button" data-tool="savever">Guardar versión</button></div><div id="dock-versions" class="cam-saved"></div><div id="dock-warn" class="dock-warn" aria-live="polite"></div></div>
         <div class="dock-sec" id="dock-list"></div>
         <p class="dock-keys">Atajos: flechas mueven el equipo (Mayús. = 1 m) · Q/E giran · +/− cambian tamaño · D duplicar · C centrar · F al frente · Supr quitar · Esc deseleccionar</p>
       </div>`;

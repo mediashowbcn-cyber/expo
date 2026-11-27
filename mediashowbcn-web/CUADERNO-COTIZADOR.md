@@ -1,7 +1,7 @@
 # Cuaderno del cotizador 3D (para retomar el trabajo)
 
 ## Estado
-- Plugin «Media Show BCN» en la versión **7.4.0**, instalado en mediashowbcn.com (blog 258969453).
+- Plugin «Media Show BCN» en la versión **7.5.0**, instalado en mediashowbcn.com (blog 258969453).
 - Código canónico: `mediashowbcn-web/wordpress/mediashow-bcn/assets/msb.js` (un solo archivo, sin paso de compilación).
   Los fuentes de trabajo antiguos ya no se usan: editar siempre `msb.js` directamente.
 - Three.js r160 como módulo ES (`assets/three-loader.js`). Las fuentes de sus addons vienen de jsDelivr.
@@ -33,6 +33,13 @@
 - Cinco modelos de cabina DJ (exclusivos: elegir uno quita el resto).
 - Torre de truss con «Arriba: nada / cabezal móvil / PAR LED».
 - Nota: el modelo 3D de PAR y cabinas es procedural (dibujado en código). No hay archivo .glb; para uno real hace falta escanear o comprar el modelo.
+
+## Estado de las 20 mejoras (7.5.0)
+Hechas (9): 2 plantillas de evento · 5 aviso de equipo fuera del espacio · 7 aviso de carga del truss · 8 aviso de potencia por líneas de 16 A · 10 persona de 1,75 m para escala · 13 guardar versiones (sin foto) · 15 modo presentación · 16 material en CSV · 19 atajos de escena (1-2-3) y cámara (P, T).
+
+Pendientes (11): 1 alinear en arco · 3 medir distancias en el suelo · 4 cobertura de sonido en el visor · 6 aviso de altavoz sin cobertura · 9 paleta propia por cliente · 11 cotas en el visor · 12 deshacer por equipo · 14 comparar dos montajes · 17 plantilla de WhatsApp por evento · 18 recordatorio de fecha y disponibilidad · 20 pantalla LED con contenido propio (imagen o vídeo del cliente).
+
+Limitaciones honestas: los avisos son orientativos (valores de catálogo del dossier); las versiones guardadas no incluyen la foto del espacio.
 
 ## Ideas para la siguiente tanda (orden de utilidad para el cotizador)
 1. Alinear en arco (además de en fila y columna).
