@@ -457,7 +457,7 @@ mark.pendiente { background: #fde68a; color: #0A0A0A; padding: 0 4px; border-rad
 .dock-sec[hidden] { display: none !important; }
 .sec-x { float: right; background: none; border: 0; color: #A6A49E; font-size: 16px; line-height: 1; cursor: pointer; padding: 0 2px; }
 .sec-x:hover { color: #F4F0E8; }
-.viewer-tools { position: absolute; left: 12px; bottom: 12px; z-index: 11; display: flex; flex-wrap: wrap; gap: 6px; max-width: calc(100% - 24px); }
+.viewer-tools { position: relative; display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 12px; background: var(--bg-elev); border-top: 1px solid var(--line); }
 .viewer-tools button { background: rgba(10,10,10,.88); color: #F4F0E8; border: 1px solid #2a2a2a; border-radius: 999px; padding: 7px 12px; font: 600 12.5px/1 'Work Sans', system-ui, sans-serif; cursor: pointer; backdrop-filter: blur(6px); }
 .viewer-tools button:hover { border-color: #E65837; }
 .viewer-tools button[aria-pressed="true"] { border-color: #E65837; background: rgba(230,88,55,.25); }

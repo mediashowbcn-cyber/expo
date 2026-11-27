@@ -1194,7 +1194,8 @@ tr{break-inside:avoid}
       <button type="button" data-vt="zout" title="Aleja la cámara">Alejar</button>
       <button type="button" data-vt="big" title="Agranda el equipo seleccionado (o todos los seleccionados)">Agrandar</button>
       <button type="button" data-vt="small" title="Achica el equipo seleccionado (o todos los seleccionados)">Achicar</button>`;
-    box.appendChild(bar);
+    const sb = box.querySelector('.stage-bar');
+    box.insertBefore(bar, sb || null);
     bar.addEventListener('click', e => {
       const b = e.target.closest('button[data-vt]');
       if (!b) return;
