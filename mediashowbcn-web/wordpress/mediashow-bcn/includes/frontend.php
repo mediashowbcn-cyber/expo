@@ -83,6 +83,8 @@ add_action(
 					'logout' => add_query_arg( 'msb_acceso', 'salir', home_url( '/' ) ),
 					'nombre' => wp_get_current_user()->first_name,
 					'propuesta' => msb_propuesta_product_id() ? get_permalink( msb_propuesta_product_id() ) : '',
+					'google'   => msb_google_activo(),
+					'entrar'   => wp_login_url( home_url( '/#cotizador' ) ),
 					'estado' => isset( $_GET['acceso'] ) ? sanitize_key( wp_unslash( $_GET['acceso'] ) ) : '', // phpcs:ignore WordPress.Security.NonceVerification
 				),
 			)

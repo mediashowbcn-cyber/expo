@@ -1146,6 +1146,11 @@ tr{break-inside:avoid}
     if (!box) return;
     const A = D.acceso || {}, inside = (D.access || 'publico') === 'cliente';
     box.hidden = false;
+    window.abrirCuenta = () => { switchView('quoter'); setTimeout(() => box.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60); };
+    const hc = $('header-cuenta'); if (hc) hc.textContent = inside ? 'Mi cuenta' : 'Entrar / Registrarse';
+    const gb = $('google-btn'); if (gb) gb.hidden = !A.google || inside;
+    if (A.estado === 'google_error') { $('acceso-state').textContent = 'No hemos podido entrar con Google. Prueba de nuevo o usa tu correo.'; }
+    if (A.estado === 'no_disponible') { $('acceso-state').textContent = 'El acceso con Google todavía no está activo. Usa tu correo.'; }
     document.body.classList.toggle('is-public', !inside);
     $('acceso-forms').hidden = inside;
     $('acceso-in').hidden = !inside;

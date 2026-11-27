@@ -504,3 +504,7 @@ mark.pendiente { background: #fde68a; color: #0A0A0A; padding: 0 4px; border-rad
 .acceso-pasos li { counter-increment: paso; position: relative; padding: 12px 14px 12px 52px; border: 1px solid var(--line, #2a2a2a); border-radius: 12px; font-size: 14px; color: var(--gray, #A6A49E); }
 .acceso-pasos li::before { content: counter(paso); position: absolute; left: 14px; top: 12px; width: 26px; height: 26px; border-radius: 50%; background: var(--accent, #E65837); color: #0A0A0A; font-weight: 700; display: grid; place-items: center; }
 .acceso-pasos strong { color: var(--white, #F4F0E8); display: block; margin-bottom: 2px; }
+
+/* v7.19: entrada con Google y botón de cuenta en la cabecera */
+.acceso-google { display: grid; gap: 8px; margin: 0 0 14px; justify-items: start; }
+.acceso-google p { margin: 0; font-size: 13.5px; }

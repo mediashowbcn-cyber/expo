@@ -338,3 +338,103 @@ add_action(
 		}
 	}
 );
+
+/* ---------- Entrar o registrarse con cuenta de Google (OAuth 2.0 / OpenID Connect) ---------- */
+
+function msb_google_activo() {
+	return '' !== (string) msb_opt( 'google_client_id' ) && '' !== (string) msb_opt( 'google_client_secret' );
+}
+
+function msb_google_redirect_uri() {
+	return add_query_arg( 'msb_acceso', 'google_cb', home_url( '/' ) );
+}
+
+add_action(
+	'init',
+	function () {
+		if ( empty( $_GET['msb_acceso'] ) || ! in_array( $_GET['msb_acceso'], array( 'google', 'google_cb' ), true ) ) { // phpcs:ignore WordPress.Security.NonceVerification
+			return;
+		}
+		if ( ! msb_google_activo() ) {
+			wp_safe_redirect( add_query_arg( 'acceso', 'no_disponible', home_url( '/#cotizador' ) ) );
+			exit;
+		}
+		if ( 'google' === $_GET['msb_acceso'] ) { // phpcs:ignore WordPress.Security.NonceVerification
+			$state = wp_generate_password( 32, false );
+			set_transient( 'msb_gstate_' . $state, 1, 10 * MINUTE_IN_SECONDS );
+			wp_redirect( // phpcs:ignore WordPress.Security.SafeRedirect.wp_redirect_wp_redirect
+				add_query_arg(
+					array(
+						'client_id'     => msb_opt( 'google_client_id' ),
+						'redirect_uri'  => msb_google_redirect_uri(),
+						'response_type' => 'code',
+						'scope'         => 'openid email profile',
+						'state'         => $state,
+						'prompt'        => 'select_account',
+					),
+					'https://accounts.google.com/o/oauth2/v2/auth'
+				)
+			);
+			exit;
+		}
+		// Vuelta de Google.
+		$state = sanitize_text_field( wp_unslash( $_GET['state'] ?? '' ) ); // phpcs:ignore WordPress.Security.NonceVerification
+		$code  = sanitize_text_field( wp_unslash( $_GET['code'] ?? '' ) ); // phpcs:ignore WordPress.Security.NonceVerification
+		$fallo = add_query_arg( 'acceso', 'google_error', home_url( '/#cotizador' ) );
+		if ( ! $code || ! get_transient( 'msb_gstate_' . $state ) ) {
+			wp_safe_redirect( $fallo );
+			exit;
+		}
+		delete_transient( 'msb_gstate_' . $state );
+		$tok = wp_remote_post(
+			'https://oauth2.googleapis.com/token',
+			array(
+				'timeout' => 15,
+				'body'    => array(
+					'code'          => $code,
+					'client_id'     => msb_opt( 'google_client_id' ),
+					'client_secret' => msb_opt( 'google_client_secret' ),
+					'redirect_uri'  => msb_google_redirect_uri(),
+					'grant_type'    => 'authorization_code',
+				),
+			)
+		);
+		$t = is_wp_error( $tok ) ? null : json_decode( wp_remote_retrieve_body( $tok ), true );
+		if ( empty( $t['access_token'] ) ) {
+			wp_safe_redirect( $fallo );
+			exit;
+		}
+		$info = wp_remote_get( 'https://openidconnect.googleapis.com/v1/userinfo', array( 'timeout' => 15, 'headers' => array( 'Authorization' => 'Bearer ' . $t['access_token'] ) ) );
+		$u    = is_wp_error( $info ) ? null : json_decode( wp_remote_retrieve_body( $info ), true );
+		$mail = sanitize_email( $u['email'] ?? '' );
+		if ( ! is_email( $mail ) || empty( $u['email_verified'] ) ) {
+			wp_safe_redirect( $fallo );
+			exit;
+		}
+		$uid = email_exists( $mail );
+		if ( ! $uid ) {
+			$uid = wp_insert_user(
+				array(
+					'user_login'   => 'cliente_' . wp_generate_password( 12, false ),
+					'user_email'   => $mail,
+					'user_pass'    => wp_generate_password( 40 ),
+					'display_name' => sanitize_text_field( $u['name'] ?? $mail ),
+					'first_name'   => sanitize_text_field( $u['given_name'] ?? '' ),
+					'role'         => MSB_ROLE_CLIENTE,
+				)
+			);
+			if ( is_wp_error( $uid ) ) {
+				wp_safe_redirect( $fallo );
+				exit;
+			}
+			update_user_meta( $uid, 'msb_privacidad_fecha', current_time( 'mysql' ) );
+			msb_lead_guardar( array( 'nombre' => $u['name'] ?? '', 'email' => $mail, 'user_id' => $uid, 'origen' => 'otro' ), 'Registro con Google' );
+		}
+		update_user_meta( $uid, 'msb_verificado', 1 ); // el correo lo confirma Google
+		wp_set_current_user( $uid );
+		wp_set_auth_cookie( $uid, true );
+		wp_safe_redirect( add_query_arg( 'acceso', 'ok', home_url( '/#cotizador' ) ) );
+		exit;
+	},
+	5
+);

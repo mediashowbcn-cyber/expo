@@ -62,6 +62,7 @@ $msb_ld = array(
 			</nav>
 			<div class="head-ctas">
 				<a class="btn btn-sm" href="<?php echo esc_url( $msb_tel ); ?>">24/7 · <?php echo esc_html( msb_opt( 'phone_label' ) ); ?></a>
+				<button type="button" class="btn btn-sm" id="header-cuenta" onclick="abrirCuenta()">Entrar / Registrarse</button>
 				<button type="button" class="btn btn-pri btn-sm" onclick="switchView('quoter')">Cotizador 3D →</button>
 			</div>
 		</div>
@@ -207,6 +208,7 @@ $msb_ld = array(
 			<li><strong>Pide la propuesta completa: 120 €.</strong> Incluye plano, planilla, render y presupuesto en PDF. Si reservas en los 30 días siguientes, se descuenta del depósito.</li>
 			<li><strong>Reserva la fecha con el <?php echo esc_html( (float) msb_opt( 'deposit' ) ); ?> %.</strong> El resto se paga antes del evento. Las condiciones están en <a href="<?php echo esc_url( $msb_links['condiciones'] ); ?>">condiciones de reserva</a>.</li>
 		</ol>
+		<div class="acceso-google"><a class="btn btn-lg" id="google-btn" href="<?php echo esc_url( add_query_arg( 'msb_acceso', 'google', home_url( '/' ) ) ); ?>" hidden>Continuar con Google</a><p class="msg">Si tienes cuenta de Gmail, entra con un clic. O usa tu correo: te enviamos un enlace, sin contraseña.</p></div>
 		<div class="acceso-grid" id="acceso-forms">
 			<form class="acceso-form" id="registro-form" novalidate>
 				<strong>Crear cuenta gratis</strong>
