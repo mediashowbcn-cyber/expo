@@ -1467,11 +1467,11 @@ function siteRender(){
  $('siteWrap').innerHTML=`
  <div class="stop"><div data-a="site-go" data-id="top" style="cursor:pointer"><img class="logo-d" alt="Media Show Barcelona" data-logo="d"><img class="logo-l" alt="Media Show Barcelona" data-logo="l"></div>
   <nav class="links" aria-label="Secciones">${mgo('s-modulos','Módulos')}${mgo('s-veinte','Gestión')}${mgo('s-como','Cómo funciona')}${mgo('s-planes','Planes')}${mgo('s-faq','FAQ')}${mgo('s-contacto','Contacto')}</nav>
-  <div class="ctas"><button class="btn pri" data-a="site-enter" type="button">Entrar a la plataforma</button></div></div>
+  <div class="ctas"><button class="btn pri" data-a="site-go" data-id="s-contacto" type="button">Pedir demo</button></div></div>
  <section class="hero" id="top"><div class="eyebrow acc">Plataforma de gestión para productoras de eventos</div>
   <h1 style="margin-top:14px">Del presupuesto al <em>último cable recogido.</em></h1>
-  <p class="lead">Cotizador, calendario de bolos, crew, inventario, clientes, facturación y 20 módulos más. Una sola plataforma, una sola base de datos, todo el equipo en la misma página.</p><div class="card tight brand-strip" style="margin-top:22px;max-width:820px"><div style="font-family:var(--display);font-size:clamp(20px,2.6vw,28px);color:var(--accent-t);letter-spacing:.5px;margin-bottom:12px">“La producción no debe notarse… debe sentirse.”</div><div class="grid g4" style="gap:10px"><div><b>01 · Experiencia real</b><div class="hint">Producción profesional sin espacio para la improvisación.</div></div><div><b>02 · Impacto total</b><div class="hint">Potencia, claridad y presencia visual impecable.</div></div><div><b>03 · Precisión suiza</b><div class="hint">Montaje seguro, puntualidad y coordinación absoluta.</div></div><div><b>04 · Imagen premium</b><div class="hint">Equipos de última generación y ejecución cuidada.</div></div></div></div>
-  <div class="row"><button class="btn pri" data-a="site-enter" type="button" style="padding:14px 22px">Entrar a la plataforma</button><button class="btn" data-a="site-go" data-id="s-contacto" type="button" style="padding:14px 22px">Solicitar información</button></div>
+  <p class="lead">Presupuesto, calendario, equipo, material y cobros en una sola plataforma. Su equipo lo ve todo en vivo, sin hojas de cálculo ni cadenas de WhatsApp.</p><div class="card tight brand-strip" style="margin-top:22px;max-width:820px"><div style="font-family:var(--display);font-size:clamp(20px,2.6vw,28px);color:var(--accent-t);letter-spacing:.5px;margin-bottom:12px">“La producción no debe notarse… debe sentirse.”</div><div class="grid g4" style="gap:10px"><div><b>01 · Experiencia real</b><div class="hint">Producción profesional sin espacio para la improvisación.</div></div><div><b>02 · Impacto total</b><div class="hint">Potencia, claridad y presencia visual impecable.</div></div><div><b>03 · Precisión suiza</b><div class="hint">Montaje seguro, puntualidad y coordinación absoluta.</div></div><div><b>04 · Imagen premium</b><div class="hint">Equipos de última generación y ejecución cuidada.</div></div></div></div>
+  <div class="row"><button class="btn pri" data-a="site-go" data-id="s-contacto" type="button" style="padding:14px 22px">Pedir una demo de 20 minutos</button><button class="btn" data-a="site-go" data-id="s-planes" type="button" style="padding:14px 22px">Ver planes y precios</button><a class="hint" href="#panel" data-a="site-enter" style="align-self:center;text-decoration:underline">Acceso del equipo</a></div>
   <div class="card mission" style="max-width:640px;margin-top:44px"><div class="row" style="justify-content:space-between"><span class="live"><i></i> EN DIRECTO</span><span class="pill">${sample.real?'Su próximo show':'Vista de ejemplo'}</span></div><div class="eyebrow" style="margin-top:12px">Próximo show en</div><div class="count">${countdown(sample.t)}</div><div style="font-size:15px"><b>${esc(sample.n)}</b></div><div class="hint" style="margin-top:4px">Crew asignado · material comprobado · saldo al día</div></div>
  </section>
  <section class="sblock" style="padding:34px 0"><div class="grid g4"><div class="kpi"><b>6</b><span>módulos de núcleo</span></div><div class="kpi"><b>20</b><span>módulos de gestión</span></div><div class="kpi"><b>1</b><span>base de datos compartida</span></div><div class="kpi"><b>0</b><span>hojas de cálculo sueltas</span></div></div></section>
@@ -1487,6 +1487,7 @@ function siteRender(){
   <div><b>03</b><div><h3 style="font-size:19px">Produzca, facture y aprenda</h3><p class="hint" style="font-size:14px;max-width:560px">Hoja de llamada para el equipo, checklists por fase, incidencias, factura y pagos. Todo queda en el historial del cliente.</p></div></div></div></section>
  <section class="sblock" id="s-planes"><div class="eyebrow acc">Planes</div><h2>Un plan para cada tamaño de equipo.</h2><p class="sub">Precios provisionales mientras validamos la plataforma con Media Show. Se editan en Ajustes.</p>
   <div class="plans">${S.cfg.plans.map(p=>`<div class="card plan ${p.hot?'hot':''}">${p.hot?'<span class="badge2" style="align-self:flex-start">Recomendado</span>':''}<h3 class="display" style="font-size:34px;font-weight:400">${esc(p.name)}</h3><div class="pr">${euro(p.price).replace(',00','')}<small>${esc(p.unit||'')}</small></div><p class="hint">${esc(p.desc||'')}</p><ul>${(p.feat||[]).map(f=>`<li>${esc(f)}</li>`).join('')}</ul><button class="btn ${p.hot?'pri':''} block" data-a="site-go" data-id="s-contacto" type="button" style="margin-top:auto">Solicitar acceso</button></div>`).join('')}</div></section>
+ <div class="card" style="margin-top:22px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between"><div><b>¿No sabe cuál le conviene?</b><div class="hint">En la demo miramos su equipo, sus eventos y le decimos cuál encaja.</div></div><button class="btn pri" data-a="site-go" data-id="s-contacto" type="button">Pedir una demo de 20 minutos</button></div>
  <section class="sblock" id="s-faq"><div class="eyebrow acc">Preguntas frecuentes</div><h2>Lo que suelen preguntar.</h2><div style="margin-top:24px">${FAQ.map(([q,a])=>`<details class="faq"><summary>${esc(q)}</summary><p>${esc(a)}</p></details>`).join('')}</div></section>
  <section class="sblock" id="s-contacto"><div class="split"><div><div class="eyebrow acc">Contacto</div><h2>Hablemos de su próximo show.</h2><p class="sub">Cuéntenos qué necesita y le respondemos en menos de 24 horas laborables.</p><div style="margin-top:22px;display:grid;gap:8px;font-size:15px"><div><span class="hint">WhatsApp</span><br><b>${esc(B.phone)}</b></div><div><span class="hint">Correo</span><br><b>${esc(B.email)}</b></div><div><span class="hint">Instagram</span><br><b>@mediashowbcn</b></div><div><span class="hint">Oficina</span><br><b>Cowork Rambla Catalunya, Carrer de Còrsega 284, Barcelona</b></div></div></div>
   <form class="card" id="leadForm" novalidate><div class="formgrid"><div class="field"><label for="lf_name">Nombre *</label><input id="lf_name" autocomplete="name"></div><div class="field"><label for="lf_company">Empresa</label><input id="lf_company" autocomplete="organization"></div><div class="field"><label for="lf_email">Correo electrónico</label><input id="lf_email" type="email" autocomplete="email"></div><div class="field"><label for="lf_phone">Teléfono / WhatsApp</label><input id="lf_phone" type="tel" autocomplete="tel"></div><div class="field"><label for="lf_type">Tipo de evento</label><select id="lf_type">${S.cfg.eventTypes.map(t=>`<option>${esc(t.name)}</option>`).join('')}</select></div><div class="field"><label for="lf_guests">Asistentes aprox.</label><input id="lf_guests" inputmode="numeric"></div><div class="field full"><label for="lf_msg">Cuéntenos su evento</label><textarea id="lf_msg" rows="3"></textarea></div></div><div id="lfMsg" class="err" style="margin-top:8px"></div><button class="btn pri block" type="submit" style="margin-top:14px">Enviar solicitud</button><p class="hint" style="margin-top:8px">Necesitamos al menos su nombre y un correo o teléfono.</p></form></div></section>
@@ -10614,5 +10615,98 @@ route=getRoute();renderRoute(false);initStore();
 </script>
 
 
+<style id="msfNavCss">
+.nav-oc{display:none!important}.nav-edit a.nav-oc{display:flex!important;opacity:.45}
+.grp.nav-grp{cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none}
+.grp.nav-grp:after{content:"▾";font-size:12px;opacity:.7}.grp.nav-grp.closed:after{content:"▸"}
+.nav-tools{display:grid;gap:6px;margin:14px 6px 8px;padding-top:12px;border-top:1px solid var(--line)}
+.nav-tools button{background:var(--surf2);color:var(--fg);border:1px solid var(--line);border-radius:9px;padding:8px 10px;font:600 12.5px var(--sans);cursor:pointer;text-align:left}
+.nav-tools button[aria-pressed="true"]{border-color:var(--accent)}
+.nav-edit a{outline:1px dashed var(--line);outline-offset:-1px}
+</style>
+<script>
+/* Menú personalizable (solo en este navegador): ocultar elementos sin borrarlos, plegar grupos y tema claro u oscuro. */
+(function () {
+  var KH = 'msf-nav-ocultos', KC = 'msf-nav-plegados', KT = 'msf-tema';
+  function leer(k, d) { try { var v = JSON.parse(localStorage.getItem(k)); return v == null ? d : v; } catch (e) { return d; } }
+  function guardar(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+  var ocultos = leer(KH, []), plegados = leer(KC, []), editando = false;
+
+  function aplicarTema() {
+    var t = null; try { t = localStorage.getItem(KT); } catch (e) {}
+    if (t === 'claro' || t === 'oscuro') document.documentElement.setAttribute('data-theme', t === 'claro' ? 'light' : 'dark');
+    else document.documentElement.removeAttribute('data-theme');
+  }
+  function temaActual() {
+    var d = document.documentElement.getAttribute('data-theme');
+    if (d === 'light') return 'claro';
+    if (d === 'dark') return 'oscuro';
+    return window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'claro' : 'oscuro';
+  }
+  function aplicar() {
+    var nav = document.getElementById('nav'); if (!nav) return;
+    var grupo = '';
+    Array.prototype.forEach.call(nav.children, function (el) {
+      if (el.classList.contains('grp')) {
+        grupo = el.textContent.trim(); el.classList.add('nav-grp'); el.dataset.grp = grupo;
+        el.classList.toggle('closed', plegados.indexOf(grupo) >= 0);
+        return;
+      }
+      if (el.tagName !== 'A') return;
+      var r = (el.getAttribute('href') || '').replace('#', '');
+      var oc = ocultos.indexOf(r) >= 0;
+      var plegado = plegados.indexOf(grupo) >= 0;
+      el.dataset.grp = grupo;
+      el.classList.toggle('nav-oc', oc);
+      el.style.display = (!editando && (oc || plegado)) ? 'none' : '';
+    });
+    var tools = nav.querySelector('.nav-tools');
+    if (!tools) {
+      tools = document.createElement('div'); tools.className = 'nav-tools';
+      tools.innerHTML = '<button type="button" data-nt="editar">Personalizar menú</button><button type="button" data-nt="tema"></button><button type="button" data-nt="mostrar"></button>';
+      nav.appendChild(tools);
+    }
+    var be = tools.querySelector('[data-nt="editar"]'), bt = tools.querySelector('[data-nt="tema"]'), bm = tools.querySelector('[data-nt="mostrar"]');
+    be.textContent = editando ? 'Listo' : 'Personalizar menú'; be.setAttribute('aria-pressed', editando ? 'true' : 'false');
+    bt.textContent = 'Tema: ' + temaActual() + ' (cambiar)';
+    bm.textContent = ocultos.length ? 'Mostrar ocultos (' + ocultos.length + ')' : 'Sin elementos ocultos';
+    bm.disabled = !ocultos.length;
+    nav.classList.toggle('nav-edit', editando);
+  }
+  document.addEventListener('click', function (ev) {
+    var nav = document.getElementById('nav'); if (!nav) return;
+    var t = ev.target.closest && ev.target.closest('#nav .nav-tools button');
+    if (t) {
+      ev.preventDefault();
+      var a = t.dataset.nt;
+      if (a === 'editar') editando = !editando;
+      if (a === 'tema') { localStorage.setItem(KT, temaActual() === 'claro' ? 'oscuro' : 'claro'); aplicarTema(); }
+      if (a === 'mostrar') { ocultos = []; guardar(KH, ocultos); }
+      aplicar(); return;
+    }
+    var grp = ev.target.closest && ev.target.closest('#nav .grp.nav-grp');
+    if (grp) {
+      var g = grp.dataset.grp;
+      plegados = plegados.indexOf(g) >= 0 ? plegados.filter(function (x) { return x !== g; }) : plegados.concat([g]);
+      guardar(KC, plegados); aplicar(); ev.preventDefault(); return;
+    }
+    var link = ev.target.closest && ev.target.closest('#nav a');
+    if (link && editando) {
+      ev.preventDefault(); ev.stopPropagation();
+      var r = (link.getAttribute('href') || '').replace('#', '');
+      ocultos = ocultos.indexOf(r) >= 0 ? ocultos.filter(function (x) { return x !== r; }) : ocultos.concat([r]);
+      guardar(KH, ocultos); aplicar();
+    }
+  }, true);
+  aplicarTema();
+  // Flow reconstruye el menú muchas veces: se observa el contenedor y se vuelve a aplicar la personalización.
+  var nav = document.getElementById('nav');
+  if (nav && window.MutationObserver) {
+    new MutationObserver(function () { aplicar(); }).observe(nav, { childList: true });
+  }
+  aplicar();
+  window.addEventListener('hashchange', aplicar);
+})();
+</script>
 </body>
 </html>

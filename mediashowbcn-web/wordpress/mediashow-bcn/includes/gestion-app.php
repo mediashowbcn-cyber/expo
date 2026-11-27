@@ -60,9 +60,6 @@ function msb_gestion_permiso() {
 	if ( ! current_user_can( 'manage_woocommerce' ) ) {
 		return new WP_Error( 'msb_no_permiso', 'Solo el equipo de Media Show puede usar la gestión.', array( 'status' => 403 ) );
 	}
-	if ( ! msb_2fa_sesion_ok() ) {
-		return new WP_Error( 'msb_2fa', 'Verifica tu acceso en dos pasos en /gestion/.', array( 'status' => 401 ) );
-	}
 	return true;
 }
 
@@ -255,9 +252,6 @@ function msb_gestion_pagina() {
 	if ( ! current_user_can( 'manage_woocommerce' ) ) {
 		wp_safe_redirect( wp_login_url( home_url( '/gestion/' ) ) );
 		exit;
-	}
-	if ( ! msb_2fa_sesion_ok() ) {
-		msb_2fa_pantalla( home_url( '/?pagename=gestion' ) ); // no se muestra Flow hasta verificar
 	}
 	nocache_headers();
 	header( 'X-Robots-Tag: noindex, nofollow' );
