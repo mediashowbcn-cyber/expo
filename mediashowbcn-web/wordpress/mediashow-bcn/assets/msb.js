@@ -369,6 +369,7 @@
     $('quote-total').textContent = eur(q.total);
     $('quote-total-sm').textContent = eur(q.total);
     renderWork();
+    if ($('dock-total')) { $('dock-total').textContent = eur(q.total); $('dock-wa').href = $('wa-quote-btn').href; $('dock-wa').setAttribute('aria-disabled', $('wa-quote-btn').getAttribute('aria-disabled')); }
     $('quote-deposit').textContent = eur(q.deposit);
     $('dep-pct').textContent = S.deposit;
     $('reserve-amount').textContent = eur(q.deposit);
@@ -3402,16 +3403,42 @@ const Stage = (() => {
   else if (packParam && packById(packParam)) openQuoterWithPack(packParam);
   else if (location.hash === '#cotizador') switchView('quoter', false);
 
-  /* Visor a pantalla completa */
+  /* Visor a pantalla completa con panel de ajustes: escena, añadir equipos, lista y total */
   function setupFS() {
     const box = document.querySelector('.stage-box'), btn = $('fs-btn');
     if (!box || !btn) return;
+    const dock = document.createElement('div');
+    dock.className = 'stage-dock'; dock.id = 'stage-dock'; dock.hidden = true;
+    const pals = [['dm', 'Show naranja y cian'], ['amber', 'Gala ámbar cálido'], ['corp', 'Corporativo limpio']];
+    dock.innerHTML = `
+      <div class="dock-sec"><strong>Escena y colores</strong><div class="dock-seg" role="radiogroup">${pals.map(([v, l]) => `<button type="button" role="radio" data-dm="${v}">${l}</button>`).join('')}</div></div>
+      <div class="dock-sec"><strong>Total orientativo</strong><div class="dock-total" id="dock-total">0,00 €</div><a class="btn btn-sm btn-pri" id="dock-wa" href="#" target="_blank" rel="noopener">Enviar por WhatsApp</a></div>
+      <div class="dock-sec"><strong>Añadir al render</strong><div id="dock-add"></div></div>
+      <div class="dock-sec" id="dock-list"></div>`;
+    box.appendChild(dock);
+    dock.addEventListener('click', e => {
+      const b = e.target.closest('button[data-dm]');
+      if (!b) return;
+      $('dm-select').value = b.dataset.dm; $('dm-select').dispatchEvent(new Event('change'));
+    });
+    const addBar = $('add-bar'), workBox = $('work-box');
+    const home = { add: { p: addBar.parentNode, n: addBar.nextSibling }, work: { p: workBox.parentNode, n: workBox.nextSibling } };
+    const back = () => { home.add.p.insertBefore(addBar, home.add.n); home.work.p.insertBefore(workBox, home.work.n); };
+    const syncPal = () => dock.querySelectorAll('button[data-dm]').forEach(b => b.setAttribute('aria-checked', b.dataset.dm === $('dm-select').value ? 'true' : 'false'));
+    $('dm-select').addEventListener('change', syncPal); syncPal();
     const label = () => { btn.textContent = document.fullscreenElement === box ? 'Salir de pantalla completa' : 'Pantalla completa'; };
     btn.addEventListener('click', () => {
       if (document.fullscreenElement === box) document.exitFullscreen();
       else if (box.requestFullscreen) box.requestFullscreen().catch(() => {});
     });
-    document.addEventListener('fullscreenchange', () => { label(); window.dispatchEvent(new Event('resize')); });
+    document.addEventListener('fullscreenchange', () => {
+      const on = document.fullscreenElement === box;
+      label();
+      dock.hidden = !on;
+      if (on) { $('dock-add').appendChild(addBar); $('dock-list').appendChild(workBox); }
+      else back();
+      window.dispatchEvent(new Event('resize'));
+    });
   }
   // La cotización va justo debajo del visor, a todo el ancho.
   (function placeQuote() {
@@ -3421,7 +3448,7 @@ const Stage = (() => {
   setupFS();
   setupWork();
   // En pantallas pequeñas la cotización empieza plegada para dejar sitio al visor.
-  if (window.matchMedia('(max-width: 899px)').matches) { const qs = document.querySelector('.quote-summary'); if (qs) qs.open = false; }
+  { const qs = document.querySelector('.quote-summary'); if (qs) qs.open = false; }
   $('insp-focus').addEventListener('click', () => Stage.focusSelected());
   $('insp-front').addEventListener('click', () => Stage.bringFront());
 })();

@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       Media Show BCN — Web y Cotizador 3D
  * Description:       Web oficial de Media Show BCN con cotizador técnico 3D. Packs, extras y equipos se gestionan como productos de WooCommerce con sus fotos; la reserva del 50 % se paga en el checkout.
- * Version:           2.8.0
+ * Version:           2.9.0
  * Author:            Media Show BCN
  * Requires at least: 6.2
  * Requires PHP:      7.4
@@ -12,7 +12,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'MSB_VERSION', '2.8.0' );
+define( 'MSB_VERSION', '2.9.0' );
 define( 'MSB_FILE', __FILE__ );
 define( 'MSB_DIR', plugin_dir_path( __FILE__ ) );
 define( 'MSB_URL', plugin_dir_url( __FILE__ ) );
