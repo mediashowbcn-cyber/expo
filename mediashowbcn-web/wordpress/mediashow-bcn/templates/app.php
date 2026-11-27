@@ -240,7 +240,7 @@ $msb_ld = array(
 							<label class="fit-check"><input type="checkbox" id="insp-towhead" /> Cabeza móvil arriba</label></div>
 						<label class="fit-row" id="insp-lift-row" for="insp-lift"><span>Altura sobre el suelo <output id="insp-lift-val"></output></span><input type="range" id="insp-lift" min="0" max="400" step="5" /></label>
 						<p class="insp-real" id="insp-real" hidden>Modelo 3D real del equipo</p>
-						<div class="insp-btns"><span id="insp-rot" class="insp-btns"><button type="button" class="btn btn-sm" data-rot="-15">↺ 15°</button><button type="button" class="btn btn-sm" data-rot="15">↻ 15°</button></span><button type="button" class="btn btn-sm" id="insp-reset">Restablecer</button></div>
+						<div class="insp-btns"><span id="insp-rot" class="insp-btns"><button type="button" class="btn btn-sm" data-rot="-15">↺ 15°</button><button type="button" class="btn btn-sm" data-rot="15">↻ 15°</button></span><button type="button" class="btn btn-sm" id="insp-focus">Centrar</button><button type="button" class="btn btn-sm" id="insp-front">Traer al frente</button><button type="button" class="btn btn-sm" id="insp-reset">Restablecer</button></div>
 					</div>
 				      <details class="fit-panel" id="fit-panel" hidden open>
 				        <summary id="fit-sum">Encajar con la foto</summary>
@@ -296,6 +296,7 @@ $msb_ld = array(
 							<button type="button" class="btn btn-sm cam-preset" onclick="setCamPreset('back')">Trasera 360°</button>
 							<button type="button" class="btn btn-sm" id="cam-photo" hidden onclick="setCamPreset('photo')">Vista de la foto</button>
 							<button type="button" class="btn btn-sm" onclick="resetLayout()">Recolocar</button>
+							<button type="button" class="btn btn-sm" id="fs-btn">Pantalla completa</button>
 							<button type="button" class="btn btn-sm btn-pri" id="ar-btn">Ver en tu espacio (AR)</button>
 						</div>
 					</div>
@@ -389,8 +390,8 @@ $msb_ld = array(
 					<p class="msg" id="space-note"></p>
 				</div>
 
-				<div class="panel-box">
-					<h3>2. Servicios adicionales</h3>
+				<details class="panel-box extras-box">
+					<summary class="extras-sum"><h3>2. Servicios adicionales</h3><span>Toca para añadir o ajustar extras</span></summary>
 					<div id="extras-list"></div>
 					<div class="logo-panel" id="logo-panel" hidden>
 						<div class="logo-thumb" id="logo-thumb" aria-hidden="true"></div>
@@ -405,11 +406,13 @@ $msb_ld = array(
 							<p class="msg" id="logo-msg" role="status"></p>
 						</div>
 					</div>
-				</div>
+				</details>
 			</div>
 
-			<aside class="quote-summary" aria-label="Resumen del presupuesto">
-				<div class="eyebrow">Cotización orientativa</div>
+			<details class="quote-summary" open aria-label="Resumen del presupuesto">
+				<summary class="qs-head"><span class="eyebrow">Cotización orientativa</span><strong id="quote-total-sm">0,00 €</strong></summary>
+				<div class="qs-body">
+				<div class="eyebrow" hidden>Cotización orientativa</div>
 				<div id="pack-badge" style="font-weight:700;font-size:16px;"></div>
 				<div class="total-big" id="quote-total" aria-live="polite">0,00 €</div>
 				<div style="font-size:12px;color:var(--gray);">IVA incluido · Reserva <span id="dep-pct"></span> %: <strong id="quote-deposit" style="color:var(--white);">0,00 €</strong></div>
@@ -437,7 +440,8 @@ $msb_ld = array(
 					<p class="p-muted" style="margin-top:8px;">Media Show BCN · <?php echo esc_html( msb_opt( 'base' ) ); ?> · 24/7 (IA): <?php echo esc_html( msb_opt( 'phone_label' ) ); ?> · WhatsApp: <?php echo esc_html( msb_opt( 'whatsapp_label' ) ); ?> · <?php echo esc_html( msb_opt( 'email' ) ); ?></p>
 					<button type="button" class="btn btn-sm no-print" style="margin-top:12px;background:var(--bg);" onclick="printProposal()">Imprimir o guardar en PDF</button>
 				</div>
-			</aside>
+				</div>
+			</details>
 		</div>
 	</div>
 	</main>

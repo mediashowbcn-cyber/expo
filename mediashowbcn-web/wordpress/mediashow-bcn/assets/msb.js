@@ -335,6 +335,7 @@
     const pk = q.pack;
     $('pack-badge').textContent = pk ? `Pack ${pk.name} (${pk.max === null ? 'a medida' : pk.min + '–' + pk.max + ' pers.'})` : 'Sin packs publicados';
     $('quote-total').textContent = eur(q.total);
+    $('quote-total-sm').textContent = eur(q.total);
     $('quote-deposit').textContent = eur(q.deposit);
     $('dep-pct').textContent = S.deposit;
     $('reserve-amount').textContent = eur(q.deposit);
@@ -3204,6 +3205,27 @@ const Stage = (() => {
     init,
     update,
     headCount() { return cfg ? cfg.heads : 0; },
+    focusSelected() {
+      if (!selected || !inited) return;
+      const p = selected.getWorldPosition(V3(0, 0, 0));
+      controls.target.set(p.x, p.y + 0.8, p.z);
+      // Con foto calibrada la cámara no se mueve: se mantiene la perspectiva.
+      if (!camLock) {
+        const off = camera.position.clone().sub(controls.target);
+        const dist = Math.min(7, Math.max(3.5, off.length()));
+        camera.position.copy(controls.target).addScaledVector(off.normalize(), dist);
+      }
+      controls.update();
+    },
+    bringFront() {
+      if (!selected || !inited) return;
+      let o = selected;
+      if (o.userData.hung) o = hang(o, false);
+      o.userData.moved = true; o.userData.lift = 0;
+      o.rotation.y = o.userData.kind === 'truss' ? 0 : o.rotation.y;
+      place(o, 0, 3.5);
+      select(o); notify();
+    },
     setActive(v) { active = v; if (v) { resize(); queueCommit(); } },
     setLogo(img) { logoImg = img; if (inited) { drawTotem(); drawLed(clock.getElapsedTime()); } },
     resetLayout() { if (inited) resetLayout(); },
@@ -3316,4 +3338,19 @@ const Stage = (() => {
   if (cfgParam) applyConfig(cfgParam);
   else if (packParam && packById(packParam)) openQuoterWithPack(packParam);
   else if (location.hash === '#cotizador') switchView('quoter', false);
+
+  /* Visor a pantalla completa */
+  function setupFS() {
+    const box = document.querySelector('.stage-box'), btn = $('fs-btn');
+    if (!box || !btn) return;
+    const label = () => { btn.textContent = document.fullscreenElement === box ? 'Salir de pantalla completa' : 'Pantalla completa'; };
+    btn.addEventListener('click', () => {
+      if (document.fullscreenElement === box) document.exitFullscreen();
+      else if (box.requestFullscreen) box.requestFullscreen().catch(() => {});
+    });
+    document.addEventListener('fullscreenchange', () => { label(); window.dispatchEvent(new Event('resize')); });
+  }
+  setupFS();
+  $('insp-focus').addEventListener('click', () => Stage.focusSelected());
+  $('insp-front').addEventListener('click', () => Stage.bringFront());
 })();
