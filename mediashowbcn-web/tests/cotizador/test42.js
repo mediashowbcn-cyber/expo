@@ -1,0 +1,27 @@
+const { chromium } = require('playwright');
+const route = require('./route160.js');
+(async () => {
+  const b = await chromium.launch({ args: ['--use-gl=swiftshader', '--enable-webgl', '--ignore-gpu-blocklist'] });
+  const ctx = await b.newContext({ viewport: { width: 1280, height: 800 } });
+  const p = await ctx.newPage();
+  const errs = []; p.on('pageerror', e => errs.push(e.message));
+  await p.route('**/*', route);
+  await p.goto('http://localhost:8099/', { waitUntil: 'domcontentloaded', timeout: 90000 });
+  await p.waitForFunction(() => window.THREE && THREE.REVISION);
+  await p.evaluate(() => { msbApplyConfig({ pack: 25, asistentes: 100, extras: [{ id: 58, cantidad: 3 }, { id: 90, cantidad: 4 }] }); openQuoterWithPack(25); });
+  await p.waitForTimeout(2000);
+  const ok = (n, c) => console.log((c ? 'PASS ' : 'FAIL ') + n);
+  const popupP = ctx.waitForEvent('page', { timeout: 60000 });
+  await p.evaluate(() => printProposal());
+  const pop = await popupP;
+  await pop.waitForLoadState('domcontentloaded').catch(() => {});
+  await pop.waitForTimeout(800);
+  const info = await pop.evaluate(() => ({ pages: document.querySelectorAll('section.page').length, imgs: [...document.images].map(i => i.src.slice(0, 20)), total: (document.querySelector('.total') || {}).textContent, planilla: document.querySelectorAll('table')[2] ? document.querySelectorAll('table')[2].rows.length : 0 }));
+  console.log(JSON.stringify(info));
+  ok('propuesta con 5 páginas A4', info.pages === 5);
+  ok('lleva render, plano y cobertura (3 imágenes)', info.imgs.length === 3 && info.imgs.every(s => s.startsWith('data:image')));
+  ok('total presente', /€/.test(info.total || ''));
+  ok('planilla con filas de equipos', info.planilla >= 5);
+  ok('sin errores de página', errs.filter(e => !/ERR_FAILED|Failed to load/.test(e)).length === 0);
+  await b.close();
+})().catch(e => { console.error('ERR', e.message); process.exit(1); });

@@ -1,0 +1,25 @@
+const { chromium } = require('playwright');
+const route = require('./route160.js');
+(async () => {
+  const b = await chromium.launch({ args: ['--use-gl=swiftshader', '--enable-webgl', '--ignore-gpu-blocklist'] });
+  const p = await b.newPage({ viewport: { width: 1280, height: 800 } });
+  const errs = []; p.on('pageerror', e => errs.push(e.message));
+  await p.route('**/*', route);
+  await p.goto('http://localhost:8099/', { waitUntil: 'domcontentloaded', timeout: 90000 });
+  await p.waitForFunction(() => window.THREE && THREE.REVISION);
+  await p.evaluate(() => { msbApplyConfig({ pack: 25, asistentes: 100, extras: [{ id: 50 }] }); openQuoterWithPack(25); });
+  await p.waitForTimeout(1500);
+  console.log('quote open by default:', await p.evaluate(() => document.querySelector('.quote-summary').open));
+  await p.click('#fs-btn'); await p.waitForTimeout(800);
+  console.log('fullscreen:', await p.evaluate(() => document.fullscreenElement && document.fullscreenElement.className));
+  console.log('dock visible:', await p.isVisible('#stage-dock'), '| add bar in dock:', await p.evaluate(() => !!document.querySelector('#dock-add #add-bar')), '| list in dock:', await p.evaluate(() => !!document.querySelector('#dock-list #work-box')));
+  await p.click('#stage-dock button[data-dm="amber"]'); await p.waitForTimeout(400);
+  console.log('dm after amber:', await p.inputValue('#dm-select'));
+  await p.click('#stage-dock #add-bar button:has-text("+ Micro")').catch(() => {}); await p.waitForTimeout(300);
+  console.log('dock total:', await p.textContent('#dock-total'));
+  await p.screenshot({ path: 's22-full.png' });
+  await p.keyboard.press('Escape'); await p.waitForTimeout(600);
+  console.log('restored add bar:', await p.evaluate(() => document.querySelector('.stage-box #add-bar') ? true : !!document.querySelector('#add-bar')), 'dock hidden:', !(await p.isVisible('#stage-dock')));
+  console.log('errors:', errs.filter(e => !/ERR_FAILED|Failed to load/.test(e)).join('; ') || 'none');
+  await b.close();
+})().catch(e => { console.error('ERR', e.message); process.exit(1); });

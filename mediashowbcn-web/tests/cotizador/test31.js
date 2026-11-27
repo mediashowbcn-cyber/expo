@@ -1,0 +1,23 @@
+const { chromium } = require('playwright');
+const route = require('./route160.js');
+(async () => {
+  const b = await chromium.launch({ args: ['--use-gl=swiftshader', '--enable-webgl', '--ignore-gpu-blocklist'] });
+  const p = await b.newPage({ viewport: { width: 1280, height: 800 } });
+  const errs = []; p.on('pageerror', e => errs.push(e.message));
+  await p.route('**/*', route);
+  await p.goto('http://localhost:8099/', { waitUntil: 'domcontentloaded', timeout: 90000 });
+  await p.waitForFunction(() => window.THREE && THREE.REVISION);
+  await p.evaluate(() => { msbApplyConfig({ pack: 24, asistentes: 50, extras: [{ id: 70, cantidad: 4 }, { id: 74, cantidad: 1 }] }); openQuoterWithPack(24); });
+  await p.waitForTimeout(1800);
+  console.log('legend:', await p.textContent('#stage-legend'));
+  await p.evaluate(() => { msbApplyConfig({ pack: 24, asistentes: 50, extras: [{ id: 70, cantidad: 4 }, { id: 71 }] }); });
+  await p.waitForTimeout(800);
+  console.log('cabina 1 + pars:', await p.textContent('#stage-legend'));
+  await p.evaluate(() => { msbApplyConfig({ pack: 24, asistentes: 50, extras: [{ id: 70, cantidad: 4 }, { id: 75 }] }); });
+  await p.waitForTimeout(800);
+  console.log('cabina 5:', await p.textContent('#stage-legend'));
+  console.log('work rows:', await p.$$eval('#work-list .work-row', r => r.map(x => x.innerText.replace(/\s+/g,' '))));
+  console.log('errors:', errs.filter(e => !/ERR_FAILED|Failed to load/.test(e)).join('; ') || 'none');
+  await p.locator('#canvas-3d').screenshot({ path: 's31.png' });
+  await b.close();
+})().catch(e => { console.error('ERR', e.message); process.exit(1); });

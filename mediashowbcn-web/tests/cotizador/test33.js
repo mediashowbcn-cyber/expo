@@ -1,0 +1,26 @@
+const { chromium } = require('playwright');
+const route = require('./route160.js');
+(async () => {
+  const b = await chromium.launch({ args: ['--use-gl=swiftshader', '--enable-webgl', '--ignore-gpu-blocklist'] });
+  const p = await b.newPage({ viewport: { width: 1280, height: 800 } });
+  p.on('dialog', d => d.accept('Prueba v1'));
+  const errs = []; p.on('pageerror', e => errs.push(e.message));
+  await p.route('**/*', route);
+  await p.goto('http://localhost:8099/', { waitUntil: 'domcontentloaded', timeout: 90000 });
+  await p.waitForFunction(() => window.THREE && THREE.REVISION);
+  await p.evaluate(() => { localStorage.removeItem('msb-versions'); openQuoterWithPack(25); });
+  await p.waitForTimeout(1500);
+  await p.click('#dock-tpl button[data-tpl="concierto"]'); await p.waitForTimeout(600);
+  console.log('template legend:', await p.textContent('#stage-legend'));
+  await p.check('#dock-human'); await p.waitForTimeout(200);
+  console.log('warn:', await p.textContent('#dock-warn'));
+  await p.click('#dock-body button[data-tool="csv"]').catch(() => {});
+  await p.click('#dock-body button[data-tool="savever"]'); await p.waitForTimeout(400);
+  console.log('versions:', await p.$$eval('#dock-versions .cam-chip', c => c.length));
+  await p.click('#dock-body button[data-tool="pres"]'); await p.waitForTimeout(200);
+  console.log('presentation class:', await p.evaluate(() => document.querySelector('.stage-box').classList.contains('presentation')));
+  await p.keyboard.press('2'); await p.waitForTimeout(200);
+  console.log('key 2 scene:', await p.inputValue('#dm-select'));
+  console.log('errors:', errs.filter(e => !/ERR_FAILED|Failed to load/.test(e)).join('; ') || 'none');
+  await b.close();
+})().catch(e => { console.error('ERR', e.message); process.exit(1); });
