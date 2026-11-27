@@ -298,6 +298,7 @@ function msb_setup_products() {
 		array( 'MSB-TARJETAS', 'Tarjetas de presentación', '', 500, '', 'Tarjetas de visita impresas.' ),
 		array( 'MSB-FLYER', 'Flyers impresos', '', 1000, '', 'Flyers impresos para el evento.' ),
 		array( 'MSB-PASACABLES', 'Pasacables de goma (1 m)', '', 20, 'pasacables', 'Rampa de goma para pasar cables por el suelo sin tropiezos.' ),
+		array( 'MSB-ARCO', 'Arco de truss suelto (6,4 × 3,5 m)', '', 12, 'arco', 'Arco de truss de aluminio para colgar o colocar en el suelo. Se coloca uno a uno.' ),
 		array( 'MSB-LONA', 'Lona publicitaria', '', 10, '', 'Lona impresa para la fachada o el escenario.' ),
 		array( 'MSB-FRANELA', 'Franelas personalizadas', '', 200, '', 'Camisetas personalizadas para el equipo o los invitados.' ),
 	);

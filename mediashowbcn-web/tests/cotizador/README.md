@@ -23,6 +23,7 @@ con el plugin «Media Show BCN» y el catálogo de ejemplo de `mock/msb-mock.php
 - `test36.js`: imagen propia en la pantalla LED (subir y quitar).
 - `test37.js`: panel movible, secciones ocultables, barra del visor (seleccionar todo, individual, mover, zoom, tamaño) y selector de más equipos.
 - `test38.js`: barras de luz seleccionables, movibles con flechas y deshacibles.
+- `test43.js`: arco de truss suelto en la planilla y en la lista; campo de número de arcos en el inspector.
 - `test42.js`: propuesta para imprimir o guardar en PDF (5 páginas A4, imágenes y total).
 - `test40.js`: cabina DJ por variante (booth1) y pasacables en el plano.
 - `test39.js`: mobiliario (mesas, sillas) desde el presupuesto, planilla técnica que se actualiza y CSV.

@@ -156,7 +156,7 @@
     $('hours-select').innerHTML = opts.map(x => `<option value="${x}">${x} horas ${x === h ? '(incluidas)' : '(+' + eur0((x - h) * S.extraHour) + ')'}</option>`).join('');
   }
 
-  const KMAP = { pasacables: 'pasacables', mesa_alta: 'mesa_alta', silla: 'silla', silla_fiesta: 'silla_fiesta', lounge: 'lounge', bars: 'bar', laser: 'laser', head_wash: 'head', head_beam: 'head', par: 'par', booth1: 'booth', booth2: 'booth', booth3: 'booth', booth4: 'booth', booth5: 'booth', spk: 'speaker', trx_extra: 'trx', tower: 'tower', screen55: 'screen', totem: 'totem', mic: 'mic', stream: 'cam', booth: 'booth', lectern: 'lectern', heads: 'head', led_s: 'wall', led_m: 'wall', led_l: 'wall', foh: 'foh' };
+  const KMAP = { arco: 'arco', pasacables: 'pasacables', mesa_alta: 'mesa_alta', silla: 'silla', silla_fiesta: 'silla_fiesta', lounge: 'lounge', bars: 'bar', laser: 'laser', head_wash: 'head', head_beam: 'head', par: 'par', booth1: 'booth', booth2: 'booth', booth3: 'booth', booth4: 'booth', booth5: 'booth', spk: 'speaker', trx_extra: 'trx', tower: 'tower', screen55: 'screen', totem: 'totem', mic: 'mic', stream: 'cam', booth: 'booth', lectern: 'lectern', heads: 'head', led_s: 'wall', led_m: 'wall', led_l: 'wall', foh: 'foh' };
   /* Panel de trabajo v7: lista del escenario, acciones sobre el equipo seleccionado, vistas y atajos */
   const REV = {};
   Object.keys(KMAP).forEach(m => { const ex = EXTRAS.find(x => x.model === m); if (ex) REV[KMAP[m]] = ex; });
@@ -999,7 +999,7 @@ tr{break-inside:avoid}
     $('insp-hang-row').hidden = !(d.kind === 'wall' || d.kind === 'screen' || d.kind === 'head');
     if (d.kind === 'wall' || d.kind === 'screen') { $('insp-hang').checked = !!d.hung; $('insp-hang').disabled = !d.canHang && !d.hung; $('insp-hang-note').hidden = d.canHang || d.hung; }
     if (tru) {
-      $('insp-trw').value = d.truss.w; $('insp-trh').value = d.truss.h;
+      $('insp-trw').value = d.truss.w; $('insp-trh').value = d.truss.h; $('insp-trn').value = d.truss.n || 1;
       $('insp-trheads').value = state.headsN != null ? state.headsN : (Stage.headCount ? Stage.headCount() : 0);
       ['insp-inch-row', 'insp-dims-row', 'insp-size-row', 'insp-lift-row', 'insp-tarima-row', 'insp-tower-row', 'insp-real'].forEach(id => { $(id).hidden = true; });
       $('insp-rot').hidden = false;
@@ -1044,7 +1044,8 @@ tr{break-inside:avoid}
       set('tarima', { w: r($('insp-tw').value), d: r($('insp-td').value), h: r($('insp-th').value) });
     };
     ['insp-tw', 'insp-td', 'insp-th'].forEach(id => $(id).addEventListener('change', tdims));
-    const trs = () => { const r = v => Math.round(Number(v) * 4) / 4; set('truss', { w: r($('insp-trw').value), h: r($('insp-trh').value) }); };
+    const trs = () => { const r = v => Math.round(Number(v) * 4) / 4; set('truss', { w: r($('insp-trw').value), h: r($('insp-trh').value), n: Math.round(Number($('insp-trn').value) || 1) }); };
+    $('insp-trn').addEventListener('change', trs);
     $('insp-trw').addEventListener('change', trs); $('insp-trh').addEventListener('change', trs);
     $('insp-trheads').addEventListener('change', () => {
       const n = Math.max(0, Math.min(48, Math.round(Number($('insp-trheads').value) || 0)));
@@ -1481,7 +1482,8 @@ tr{break-inside:avoid}
     silla: { name: 'Silla', w: 0, kg: 5 },
     silla_fiesta: { name: 'Silla de fiesta', w: 0, kg: 5 },
     lounge: { name: 'Set lounge (sofá y mesa baja)', w: 0, kg: 60 },
-    pasacables: { name: 'Pasacables de goma (1 m)', w: 0, kg: 4 }
+    pasacables: { name: 'Pasacables de goma (1 m)', w: 0, kg: 4 },
+    arco: { name: 'Arco de truss suelto (6,4 × 3,5 m)', w: 0, kg: 60 }
   };
   const fmtN = (v, d = 1) => Number(v).toLocaleString('es-ES', { maximumFractionDigits: d });
 
@@ -2122,11 +2124,11 @@ const Stage = (() => {
   /* ---------- Montaje: altura de tarima, colecciones que crecen y ajustes por equipo ---------- */
   const TAR0 = { on: true, w: 7.2, d: 4.2, h: 0.4 }, TAR = Object.assign({}, TAR0), BACK = -2.6;
   let SH = 0.4;
-  const TR0 = { w: 6.4, h: 3.5 }, TR = Object.assign({}, TR0);
+  const TR0 = { w: 6.4, h: 3.5, n: 1 }, TR = Object.assign({}, TR0);
   let SPACE = null, spaceInExport = false;
   const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
   const CAP = { lasers: 24, pars: 24, towers: 24, trx: 26, heads: 48, bars: 24, speakers: 24, mics: 24, screens: 24, totems: 24 };
-  const KIND = { trx: 'Altavoz Alto TRX315', speaker: 'Altavoz RCF EVOX 12', totem: 'Tótem', screen: 'Pantalla', mic: 'Micrófono', cam: 'Cámara', wall: 'Pantalla LED', booth: 'Cabina DJ', lectern: 'Atril', foh: 'Control de sonido', head: 'Cabeza móvil', tower: 'Torre de truss', truss: 'Truss del escenario', bar: 'Barra de luz LED', mesa_alta: 'Mesa alta de cóctel', silla: 'Silla', silla_fiesta: 'Silla de fiesta', lounge: 'Set lounge', pasacables: 'Pasacables de goma' };
+  const KIND = { trx: 'Altavoz Alto TRX315', speaker: 'Altavoz RCF EVOX 12', totem: 'Tótem', screen: 'Pantalla', mic: 'Micrófono', cam: 'Cámara', wall: 'Pantalla LED', booth: 'Cabina DJ', lectern: 'Atril', foh: 'Control de sonido', head: 'Cabeza móvil', tower: 'Torre de truss', truss: 'Truss del escenario', bar: 'Barra de luz LED', mesa_alta: 'Mesa alta de cóctel', silla: 'Silla', silla_fiesta: 'Silla de fiesta', lounge: 'Set lounge', pasacables: 'Pasacables de goma', arco: 'Arco de truss suelto' };
   let draggables = [], dragObj = null, selected = null, selBox = null, multi = [];
   let customPal = null, coverMesh = null, coverOn = false, dimGroup = null, dimsOn = false, measureOn = false, measurePts = [], measureGroup = null;
   let moveOn = true;
@@ -2223,11 +2225,15 @@ const Stage = (() => {
   /* Truss del fondo: ancho y alto ajustables; las cabezas, los PAR y lo colgado son hijos suyos. */
   function buildTrussGeo() {
     if (rig.trussGeo) rig.truss.remove(rig.trussGeo);
-    const g = new THREE.Group(), hw = TR.w / 2;
-    trussRun(V3(-hw, 0, 0), V3(-hw, TR.h, 0), M.alu, g);
-    trussRun(V3(hw, 0, 0), V3(hw, TR.h, 0), M.alu, g);
-    trussRun(V3(-hw - 0.15, TR.h - 0.15, 0), V3(hw + 0.15, TR.h - 0.15, 0), M.alu, g);
-    [-hw, hw].forEach(x => { const p = box(0.6, 0.02, 0.6, M.pole); p.position.set(x, 0.01, 0); g.add(p); });
+    const g = new THREE.Group(), hw = TR.w / 2, n = Math.max(1, Math.round(TR.n || 1)), aw = TR.w / n;
+    // Un arco por tramo: el vano total se reparte entre los arcos (1 = un solo arco).
+    for (let i = 0; i < n; i++) {
+      const x0 = -hw + i * aw, x1 = x0 + aw;
+      trussRun(V3(x0, 0, 0), V3(x0, TR.h, 0), M.alu, g);
+      trussRun(V3(x1, 0, 0), V3(x1, TR.h, 0), M.alu, g);
+      trussRun(V3(x0 - 0.15, TR.h - 0.15, 0), V3(x1 + 0.15, TR.h - 0.15, 0), M.alu, g);
+      [x0, x1].forEach(x => { const p = box(0.6, 0.02, 0.6, M.pole); p.position.set(x, 0.01, 0); g.add(p); });
+    }
     g.traverse(o => { if (o.isMesh) o.castShadow = true; });
     rig.trussGeo = g; rig.truss.add(g);
   }
@@ -2246,6 +2252,7 @@ const Stage = (() => {
   }
   function setTruss(v) {
     if (v.w !== undefined) TR.w = Math.max(2, Math.min(16, v.w));
+    if (v.n !== undefined) TR.n = Math.max(1, Math.min(4, Math.round(v.n)));
     if (v.h !== undefined) TR.h = Math.max(2, Math.min(7, v.h));
     buildTrussGeo(); layoutTruss();
     place(rig.truss, rig.truss.position.x, rig.truss.position.z);
@@ -2714,7 +2721,7 @@ const Stage = (() => {
   }
 
   // Mobiliario: volúmenes sencillos en metros. Su cantidad la marca el presupuesto.
-  const FURN = ['mesa_alta', 'silla', 'silla_fiesta', 'lounge', 'pasacables'];
+  const FURN = ['mesa_alta', 'silla', 'silla_fiesta', 'lounge', 'pasacables', 'arco'];
   const FURN_MAT = {};
   const furnMat = hex => FURN_MAT[hex] || (FURN_MAT[hex] = new THREE.MeshStandardMaterial({ color: hex, roughness: 0.6, metalness: 0.05 }));
   function buildFurn(kind) {
@@ -2733,6 +2740,13 @@ const Stage = (() => {
       add(new THREE.BoxGeometry(1.6, 0.35, 0.8), 0x2a2a2a, 0, 0.25, 0);
       add(new THREE.BoxGeometry(1.6, 0.45, 0.2), 0x2a2a2a, 0, 0.6, -0.3);
       add(new THREE.BoxGeometry(0.6, 0.4, 0.6), 0xdddddd, 0, 0.2, 1.0);
+    } else if (kind === 'arco') {
+      // Arco de truss suelto (6,4 × 3,5 m), con las mismas piezas que el truss del escenario.
+      trussRun(V3(-3.2, 0, 0), V3(-3.2, 3.5, 0), M.alu, g);
+      trussRun(V3(3.2, 0, 0), V3(3.2, 3.5, 0), M.alu, g);
+      trussRun(V3(-3.35, 3.35, 0), V3(3.35, 3.35, 0), M.alu, g);
+      [-3.2, 3.2].forEach(x => { const p = box(0.6, 0.02, 0.6, M.pole); p.position.set(x, 0.01, 0); g.add(p); });
+      g.traverse(o => { if (o.isMesh) o.castShadow = true; });
     } else if (kind === 'pasacables') {
       // Rampa de goma de 1 m con tres cables que pasan por debajo hacia el escenario.
       const ramp = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.05, 0.4), furnMat(0x161616));
@@ -2853,7 +2867,7 @@ const Stage = (() => {
       (rig[k] || []).filter(o => o.visible && o.userData.inch !== 55).forEach(o => { sizes[o.userData.inch] = (sizes[o.userData.inch] || 0) + 1; });
       Object.keys(sizes).forEach(i => out.push(`${sizes[i]} ${name}${sizes[i] > 1 ? (name === 'tótem' ? 's' : 's') : ''} de ${i}"`));
     });
-    if (rig.truss.visible && (TR.w !== TR0.w || TR.h !== TR0.h)) out.push(`Truss de ${String(TR.w).replace('.', ',')} m de ancho × ${String(TR.h).replace('.', ',')} m de alto`);
+    if (rig.truss.visible && (TR.w !== TR0.w || TR.h !== TR0.h || TR.n !== TR0.n)) out.push(`Truss de ${TR.n} arco${TR.n > 1 ? 's' : ''}, ${String(TR.w).replace('.', ',')} m de vano × ${String(TR.h).replace('.', ',')} m de alto`);
     const hid = draggables.filter(o => o.userData.removed).length;
     if (hid) out.push(`${hid} equipo${hid > 1 ? 's' : ''} del pack quitado${hid > 1 ? 's' : ''} del render (el precio del pack no cambia)`);
     const hungN = draggables.filter(o => o.visible && o.userData.hung).map(o => o.userData.kind === 'wall' ? 'pantalla LED' : 'pantalla');
@@ -2991,8 +3005,8 @@ const Stage = (() => {
       rig.furn[k].forEach((o, i) => {
         o.visible = i < n;
         if (!o.visible || o.userData.moved) return;
-        const col = i % 8, row = Math.floor(i / 8);
-        place(o, -5.6 + col * 1.5, 5.5 + row * 1.5);
+        const col = i % 8, row = Math.floor(i / 8), sp = k === 'arco' ? 7 : 1.5;
+        place(o, -5.6 + col * sp, 5.5 + row * (k === 'arco' ? 5 : 1.5));
       });
     });
     const nb = vis(cfg.bars, 'bars');
@@ -3668,7 +3682,7 @@ const Stage = (() => {
     const bars = rig.bars.filter(b => b.g.visible).map(b => ({ x: b.g.position.x, z: b.g.position.z, onStage: b.g.position.y > 0.2 }));
     return {
       items, floorHeads, bars, headsOnTruss: onTruss, pars: rig.pars[0] && rig.pars[0].g.visible ? rig.pars.length : 0,
-      truss: rig.truss.visible ? { x: tw.x, z: tw.z, ry: rig.truss.rotation.y, w: TR.w, h: TR.h } : null,
+      truss: rig.truss.visible ? { x: tw.x, z: tw.z, ry: rig.truss.rotation.y, w: TR.w, h: TR.h, n: TR.n } : null,
       tarima: TAR.on && rig.tarima.visible ? { w: TAR.w, d: TAR.d, h: TAR.h, back: BACK } : null,
       haze: !!(rig.haze && rig.haze.visible),
       space: SPACE && SPACE.closed ? SPACE.pts.map(p => p.slice()) : null
@@ -3702,10 +3716,12 @@ const Stage = (() => {
     const items = { walls: {} };
     POOLS.forEach(k => { items[k] = (rig[k] || []).map(itemState); });
     items.bars = rig.bars.map(b => itemState(b.g));
+    items.furn = {};
+    FURN.forEach(k => { items.furn[k] = ((rig.furn && rig.furn[k]) || []).map(itemState); });
     SINGLE.forEach(k => { items[k] = [itemState(rig[k])]; });
     Object.keys(rig.walls).forEach(k => { items.walls[k] = itemState(rig.walls[k]); });
     return {
-      v: 1, items, truss: Object.assign(itemState(rig.truss), { w: TR.w, h: TR.h }), tar: { w: TAR.w, d: TAR.d, h: TAR.h },
+      v: 1, items, truss: Object.assign(itemState(rig.truss), { w: TR.w, h: TR.h, n: TR.n }), tar: { w: TAR.w, d: TAR.d, h: TAR.h },
       cam: { pos: camera.position.toArray().map(r3), target: controls.target.toArray().map(r3), fov: r3(bgImg ? venueFov : camera.fov) },
       look: Object.assign({}, LOOK), shadow: rig.floor.material.isShadowMaterial ? rig.floor.material.opacity : null,
       space: SPACE ? { pts: SPACE.pts.map(p => p.map(r3)), closed: !!SPACE.closed } : null,
@@ -3729,13 +3745,14 @@ const Stage = (() => {
   function setLayout(L) {
     if (!L || L.v !== 1 || !inited) return;
     customPal = L.pal ? { a: L.pal.a, b: L.pal.b, rim: L.pal.a, label: 'Paleta propia del cliente' } : null;
-    Object.assign(TR, { w: L.truss.w, h: L.truss.h }); buildTrussGeo(); layoutTruss();
+    Object.assign(TR, { w: L.truss.w, h: L.truss.h, n: L.truss.n || 1 }); buildTrussGeo(); layoutTruss();
     Object.assign(TAR, L.tar); buildTarima(); relevel();
     rig.truss.userData.moved = !!L.truss.moved;
     if (L.truss.moved) { rig.truss.rotation.y = L.truss.ry; place(rig.truss, L.truss.x, L.truss.z); }
     update(lastState);
     POOLS.forEach(k => (L.items[k] || []).forEach((st, i) => { if (rig[k][i]) rig[k][i] = applyItem(rig[k][i], st); }));
     (L.items.bars || []).forEach((st, i) => { if (rig.bars[i]) applyItem(rig.bars[i].g, st); });
+    FURN.forEach(k => ((L.items.furn || {})[k] || []).forEach((st, i) => { if (rig.furn && rig.furn[k] && rig.furn[k][i]) applyItem(rig.furn[k][i], st); }));
     SINGLE.forEach(k => { rig[k] = applyItem(rig[k], (L.items[k] || [])[0]); });
     Object.keys(L.items.walls || {}).forEach(k => { if (rig.walls[k]) rig.walls[k] = applyItem(rig.walls[k], L.items.walls[k]); });
     camera.position.fromArray(L.cam.pos); controls.target.fromArray(L.cam.target);

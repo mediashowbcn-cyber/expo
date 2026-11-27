@@ -227,7 +227,7 @@ $msb_ld = array(
 							<div class="insp-dims"><input type="number" id="insp-tw" min="1" max="20" step="0.5" aria-label="Ancho de la tarima en metros" /> × <input type="number" id="insp-td" min="1" max="12" step="0.5" aria-label="Fondo de la tarima en metros" /> × <input type="number" id="insp-th" min="0.2" max="1.5" step="0.1" aria-label="Alto de la tarima en metros" /></div>
 							<small>El precio se calcula por m².</small></div>
 						<div class="fit-row" id="insp-truss-row"><span>Ancho × alto del truss (m)</span>
-							<div class="insp-dims"><input type="number" id="insp-trw" min="2" max="16" step="0.5" aria-label="Ancho del truss en metros" /> × <input type="number" id="insp-trh" min="2" max="7" step="0.25" aria-label="Alto del truss en metros" /></div>
+							<div class="insp-dims"><input type="number" id="insp-trn" min="1" max="4" step="1" aria-label="Número de arcos" /> arcos</div><div class="insp-dims"><input type="number" id="insp-trw" min="2" max="16" step="0.5" aria-label="Ancho del truss en metros" /> × <input type="number" id="insp-trh" min="2" max="7" step="0.25" aria-label="Alto del truss en metros" /></div>
 							<div class="fit-row"><span>Cabezas móviles en el truss</span>
 							<div class="insp-dims"><input type="number" id="insp-trheads" min="0" max="48" step="1" aria-label="Número de cabezas móviles en el truss" /></div>
 							<small>Escribe el número exacto. Se cobran por packs de 6, redondeando hacia arriba.</small></div>
