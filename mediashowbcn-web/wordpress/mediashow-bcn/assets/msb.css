@@ -508,3 +508,7 @@ mark.pendiente { background: #fde68a; color: #0A0A0A; padding: 0 4px; border-rad
 /* v7.19: entrada con Google y botón de cuenta en la cabecera */
 .acceso-google { display: grid; gap: 8px; margin: 0 0 14px; justify-items: start; }
 .acceso-google p { margin: 0; font-size: 13.5px; }
+
+/* v7.19.1: el cotizador 3D solo se ve después de registrarse o entrar */
+.is-public #view-quoter > *:not(#acceso-box) { display: none !important; }
+.is-public #acceso-box { margin-top: 8px; }
