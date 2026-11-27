@@ -700,9 +700,114 @@
     if (open) $('proposal-box').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
-  function printProposal() {
-    $('proposal-box').classList.add('open');
-    window.print();
+  /* Propuesta para imprimir o guardar en PDF: varias páginas A4 con portada y render,
+     presupuesto, plano con planilla, resumen técnico y condiciones con espacio para aceptar. */
+  async function printProposal() {
+    const msg = $('export-msg');
+    const P = Stage.planData ? Stage.planData() : null;
+    if (!P) { msg.textContent = 'Abre el cotizador 3D antes de imprimir la propuesta.'; return; }
+    // Se abre la pestaña de inmediato (el navegador bloquea ventanas abiertas después de una espera).
+    const w = window.open('', '_blank');
+    msg.textContent = 'Preparando la propuesta…';
+    let render = '';
+    try { render = await blobToDataURL(await Stage.snapshot({ w: 1600, h: 900 })); } catch (e) { render = ''; }
+    const html = proposalHTML(P, render);
+    if (!w) { download(new Blob([html], { type: 'text/html' }), 'mediashowbcn-propuesta.html'); msg.textContent = 'Propuesta descargada. Ábrela y pulsa «Imprimir / guardar PDF».'; return; }
+    w.document.open(); w.document.write(html); w.document.close();
+    msg.textContent = 'Propuesta abierta en una pestaña nueva. Pulsa «Imprimir / guardar PDF».';
+  }
+  function blobToDataURL(b) { return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(b); }); }
+  function proposalHTML(P, render) {
+    const q = computeQuote(), pk = q.pack, name = $('client-name').value.trim() || 'Cliente';
+    const ref = 'MSB-' + new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const plan = drawPlan(P, 1400, 1000, false), cover = drawPlan(P, 1400, 1000, true);
+    const approved = !!(D.share && D.share.status === 'aprobada');
+    const items = planItems() || [];
+    const count = {}; items.forEach(it => { count[it.kind] = (count[it.kind] || 0) + 1; });
+    const rows = Object.keys(count).map(k => ({ name: SPEC[k] ? SPEC[k].name : KIND[k] || k, q: count[k], w: (SPEC[k] ? SPEC[k].w : 0) * count[k], kg: (SPEC[k] ? SPEC[k].kg : 0) * count[k] }));
+    const totW = rows.reduce((a, r) => a + r.w, 0), totKg = rows.reduce((a, r) => a + r.kg, 0);
+    const amps = totW / 230, lines = Math.max(1, Math.ceil(totW / 3000));
+    const meta = `${fmtDate(state.date)} · ${state.guests} personas · ${state.hours} h · ${state.space} · ${ZONES[state.zone]}`;
+    const hero = render || cover.url;
+    const planRows = items.map((it, i) => `<tr><td>${i + 1}</td><td>${esc(it.label)}</td><td class="n">${fmtN(it.x, 2)}</td><td class="n">${fmtN(it.z, 2)}</td><td class="n">${Math.round(it.ry * 180 / Math.PI)}°</td></tr>`).join('');
+    return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Propuesta ${esc(ref)} · ${esc(name)} · Media Show BCN</title>
+<style>
+@page { size: A4; margin: 14mm; }
+*{box-sizing:border-box}
+body{font:13px/1.5 "Work Sans",Arial,sans-serif;color:#0A0A0A;margin:0;padding:24px;background:#eee}
+.page{background:#fff;max-width:900px;margin:0 auto 24px;padding:28px 32px;min-height:260mm;page-break-after:always;break-after:page;box-shadow:0 2px 12px rgba(0,0,0,.12)}
+.page:last-child{page-break-after:auto;break-after:auto}
+h1{font:400 44px/1 "Bebas Neue",Impact,sans-serif;letter-spacing:.5px;margin:0 0 6px}
+h2{font:400 28px/1 "Bebas Neue",Impact,sans-serif;letter-spacing:.5px;margin:0 0 10px;color:#E65837;break-after:avoid}
+.brand{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #E65837;padding-bottom:10px;margin-bottom:16px}
+.brand b{font:400 30px 'Bebas Neue',Impact,sans-serif}
+.meta{color:#555;margin:2px 0}
+img{width:100%;border:1px solid #ddd;border-radius:6px;break-inside:avoid;display:block}
+table{border-collapse:collapse;width:100%;margin:6px 0 12px}
+td,th{border-bottom:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top}
+th{background:#f4f0e8}
+td.n,th.n{text-align:right;white-space:nowrap}
+tr{break-inside:avoid}
+.kpi{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0}
+.kpi div{background:#f4f0e8;border-left:4px solid #E65837;padding:10px}
+.kpi b{display:block;font-size:20px}
+.total{font:400 40px/1 "Bebas Neue",Impact,sans-serif;color:#B9401F}
+.note{font-size:11.5px;color:#666}
+.estado{display:inline-block;padding:4px 10px;border-radius:999px;font-weight:700;font-size:12px;background:${approved ? '#dcfce7' : '#fff4ef'};color:${approved ? '#166534' : '#B9401F'}}
+.firma{margin-top:28px;display:grid;grid-template-columns:1fr 1fr;gap:24px}
+.firma div{border-top:1px solid #0A0A0A;padding-top:6px;font-size:12px;color:#555;min-height:60px}
+.tools{position:fixed;top:12px;right:12px}
+.tools button{background:#E65837;color:#0A0A0A;border:0;border-radius:8px;padding:10px 16px;font-weight:700;cursor:pointer}
+@media print{ body{padding:0;background:#fff} .page{box-shadow:none;margin:0;padding:0;max-width:none;min-height:0} .tools{display:none} }
+</style></head><body>
+<div class="tools"><button onclick="print()">Imprimir / guardar PDF</button></div>
+
+<section class="page">
+  <div class="brand"><div><h1>Propuesta técnica</h1><p class="meta">${esc(name)} · ${esc(meta)}</p><p class="meta">${pk ? 'Pack ' + esc(pk.name) + ' · ' : ''}Ref. ${esc(ref)}</p></div>
+  <div style="text-align:right"><b>MEDIA SHOW BCN</b><br><span class="meta">mediashowbcn.com · 615 78 20 87</span><br><span class="estado">${approved ? 'Propuesta aprobada' : 'Pendiente de aprobación'}</span></div></div>
+  <img src="${hero}" alt="Render del montaje">
+  <p class="note">Render orientativo del montaje sobre la foto del espacio. Los equipos y el resultado final pueden variar ligeramente.</p>
+  <div class="kpi"><div>Personas<b>${state.guests}</b></div><div>Duración<b>${state.hours} h</b></div><div>Consumo<b>${fmtN(totW / 1000, 1)} kW</b>${fmtN(amps, 0)} A a 230 V</div></div>
+</section>
+
+<section class="page">
+  <h2>Presupuesto</h2>
+  <table><tr><th>Concepto</th><th class="n">Importe</th></tr>${q.lines.map(l => `<tr><td>${esc(l.label)}</td><td class="n">${l.cents === null ? 'A consultar' : eur(l.cents)}</td></tr>`).join('')}
+  <tr><th>Total con IVA (${S.iva} %)</th><th class="n">${eur(q.total)}</th></tr></table>
+  <p><b>Reserva (${S.deposit} %):</b> ${eur(q.deposit)} para confirmar la fecha. El resto se paga antes del evento.</p>
+  ${q.pending ? `<p class="note">Hay ${q.pending} concepto${q.pending > 1 ? 's' : ''} a consultar: su precio se confirma antes de reservar.</p>` : ''}
+  <p class="note">Precios orientativos sobre la configuración de esta propuesta. Válidos mientras no cambie el montaje ni la fecha.</p>
+  <p class="total" style="margin-top:14px">${eur(q.total)}</p>
+  <p class="note">Total con IVA incluido.</p>
+</section>
+
+<section class="page">
+  <h2>Plano del montaje</h2>
+  <img src="${plan.url}" alt="Plano cenital con cotas">
+  <p class="note">Plano con cotas. Medidas en metros desde el centro del escenario.</p>
+  <h2 style="margin-top:14px">Planilla de equipos</h2>
+  <table><tr><th>#</th><th>Equipo</th><th class="n">X (m)</th><th class="n">Z (m)</th><th class="n">Giro</th></tr>${planRows || '<tr><td colspan="5">Sin equipos en el plano.</td></tr>'}</table>
+</section>
+
+<section class="page">
+  <h2>Resumen técnico</h2>
+  <table><tr><th>Equipo</th><th class="n">Cantidad</th><th class="n">Consumo (W)</th><th class="n">Peso (kg)</th></tr>${rows.map(r => `<tr><td>${esc(r.name)}</td><td class="n">${r.q}</td><td class="n">${fmtN(r.w, 0)}</td><td class="n">${fmtN(r.kg, 0)}</td></tr>`).join('')}
+  <tr><th>Total</th><th></th><th class="n">${fmtN(totW, 0)}</th><th class="n">${fmtN(totKg, 0)}</th></tr></table>
+  <p><b>Líneas de corriente:</b> ${lines} × 16 A como mínimo. Consumos y pesos orientativos: el técnico confirma la potencia disponible, los puntos de anclaje y los accesos de carga del recinto.</p>
+  <h2 style="margin-top:16px">Cobertura de sonido</h2>
+  <img src="${cover.url}" alt="Mapa de cobertura de sonido">
+  <p class="note">Nivel aproximado a volumen máximo, en campo libre. Sirve para ver zonas con poco o demasiado nivel.</p>
+</section>
+
+<section class="page">
+  <h2>Condiciones y aceptación</h2>
+  <p>Esta propuesta es un presupuesto orientativo. La reserva se confirma al pagar el porcentaje indicado. Las condiciones completas de reserva, cambios y cancelación están en mediashowbcn.com, en «Condiciones de reserva».</p>
+  <p>Para aceptarla, firma aquí o aprueba la propuesta en el enlace que te hemos enviado.</p>
+  <div class="firma"><div>Nombre y firma del cliente</div><div>Fecha</div></div>
+  <p class="note" style="margin-top:28px">Documento generado el ${esc(fmtDate(new Date().toISOString().slice(0, 10)))}. Media Show BCN · ${esc(ref)}.</p>
+</section>
+</body></html>`;
   }
 
   /* Logo del cliente: se ve en el 3D y se adjunta a la reserva como PNG. */

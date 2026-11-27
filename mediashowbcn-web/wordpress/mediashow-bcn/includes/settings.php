@@ -20,6 +20,7 @@ function msb_defaults() {
 		'extra_hour'     => 75,
 		'ionos_agent'    => 'ebc6fb14-da07-4847-b119-e3212e99dabb',
 		'ionos_widget'   => 0,
+		'flow_webhook'   => '',
 		'brand_style'      => 1,
 		'chat_enabled'     => 1,
 		'chat_model'       => 'claude-opus-5-5',
@@ -48,6 +49,7 @@ function msb_sanitize_settings( $in ) {
 	$out['deposit']        = isset( $in['deposit'] ) ? min( 100, max( 1, (float) $in['deposit'] ) ) : $d['deposit'];
 	$out['included_hours'] = isset( $in['included_hours'] ) ? min( 24, max( 1, (int) $in['included_hours'] ) ) : $d['included_hours'];
 	$out['extra_hour']     = isset( $in['extra_hour'] ) ? max( 0, (float) $in['extra_hour'] ) : $d['extra_hour'];
+	$out['flow_webhook']   = isset( $in['flow_webhook'] ) ? esc_url_raw( trim( $in['flow_webhook'] ) ) : $d['flow_webhook'];
 	$out['ionos_agent']    = isset( $in['ionos_agent'] ) ? preg_replace( '/[^a-f0-9-]/i', '', $in['ionos_agent'] ) : $d['ionos_agent'];
 	$out['ionos_widget']   = empty( $in['ionos_widget'] ) ? 0 : 1;
 	$out['chat_enabled']     = empty( $in['chat_enabled'] ) ? 0 : 1;
@@ -105,6 +107,7 @@ function msb_settings_page() {
 		'included_hours' => array( 'Horas incluidas en cada pack', 'number' ),
 		'extra_hour'     => array( 'Precio hora extra (€, sin IVA)', 'number' ),
 		'ionos_agent'    => array( 'ID del asistente IA de IONOS', 'text' ),
+		'flow_webhook'   => array( 'URL de MediaShowFlow: recibe un aviso al aprobar una propuesta (vacío = desactivado)', 'text' ),
 	);
 	$status = isset( $_GET['msb_setup'] ) ? sanitize_key( $_GET['msb_setup'] ) : ''; // phpcs:ignore WordPress.Security.NonceVerification
 	?>

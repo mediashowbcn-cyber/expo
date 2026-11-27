@@ -148,7 +148,38 @@ function msb_ajax_share_approve() {
 		'Propuesta 3D aprobada' . ( $client ? ': ' . $client : '' ),
 		"El cliente ha aprobado la propuesta «{$post->post_title}».\n\nVer el montaje: " . add_query_arg( 'msb_montaje', $token, home_url( '/' ) ) . "#cotizador\nPropuestas: " . admin_url( 'edit.php?post_type=msb_montaje' )
 	);
+	msb_notify_flow( $post, $token, $client );
 	wp_send_json_success();
+}
+
+/**
+ * Avisa a MediaShowFlow de que el cliente ha aprobado la propuesta.
+ * Envío en segundo plano: si el servicio no responde, la aprobación se guarda igualmente.
+ */
+function msb_notify_flow( $post, $token, $client ) {
+	$hook = msb_opt( 'flow_webhook' );
+	if ( ! $hook ) {
+		return;
+	}
+	list( , $url ) = msb_share_dir();
+	wp_remote_post(
+		$hook,
+		array(
+			'timeout'  => 5,
+			'blocking' => false,
+			'headers'  => array( 'Content-Type' => 'application/json' ),
+			'body'     => wp_json_encode(
+				array(
+					'evento'       => 'propuesta_aprobada',
+					'propuesta'    => $post->post_title,
+					'cliente'      => $client,
+					'aprobada_en'  => current_time( 'c' ),
+					'datos_url'    => $url . $token . '.json',
+					'montaje_url'  => add_query_arg( 'msb_montaje', $token, home_url( '/' ) ) . '#cotizador',
+				)
+			),
+		)
+	);
 }
 
 /** Datos de la propuesta abierta por el enlace (si lo hay). */
