@@ -381,3 +381,11 @@ details.fit-sec[open] { gap: 10px; }
 .work-qty { display: inline-flex; align-items: center; gap: 6px; }
 .work-qty button { width: 30px; height: 30px; border-radius: 8px; border: 1px solid #2a2a2a; background: #0f0f10; color: #F4F0E8; font-size: 16px; cursor: pointer; }
 .work-qty output { min-width: 22px; text-align: center; font-weight: 700; color: #F4F0E8; }
+
+/* Cotizador en pantallas anchas y tablet horizontal: el visor llena la altura y la cotización queda a un lado */
+@media (min-width: 900px) {
+  .quoter-grid { grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; }
+  #canvas-3d { height: clamp(460px, calc(100vh - 210px), 920px); }
+  .quote-summary { top: 76px; max-height: calc(100vh - 92px); overflow-y: auto; overscroll-behavior: contain; }
+  .stage-bar { flex-wrap: wrap; }
+}

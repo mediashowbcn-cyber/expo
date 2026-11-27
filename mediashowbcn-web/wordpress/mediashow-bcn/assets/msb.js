@@ -3415,6 +3415,8 @@ const Stage = (() => {
   }
   setupFS();
   setupWork();
+  // En pantallas pequeñas la cotización empieza plegada para dejar sitio al visor.
+  if (window.matchMedia('(max-width: 899px)').matches) { const qs = document.querySelector('.quote-summary'); if (qs) qs.open = false; }
   $('insp-focus').addEventListener('click', () => Stage.focusSelected());
   $('insp-front').addEventListener('click', () => Stage.bringFront());
 })();
