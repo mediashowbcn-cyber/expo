@@ -132,6 +132,13 @@ function msb_settings_page() {
 			<button class="button">Revisar y crear páginas y productos que falten</button>
 		</form>
 
+		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="margin:0 0 28px;" onsubmit="return confirm('Esto reemplaza el texto de Aviso legal, Política de privacidad y Condiciones de reserva por la versión nueva. Si has editado esas páginas a mano, copia antes tus cambios. ¿Continuar?');">
+			<?php wp_nonce_field( 'msb_legal' ); ?>
+			<input type="hidden" name="action" value="msb_legal" />
+			<button class="button">Actualizar textos legales (aviso, privacidad y condiciones)</button>
+			<p class="description">Usa la versión más reciente de los textos del plugin. Hazlo solo si no has editado esas páginas, o copia antes tus cambios.</p>
+		</form>
+
 		<h2>Ajustes</h2>
 		<form method="post" action="options.php">
 			<?php settings_fields( 'msb' ); ?>

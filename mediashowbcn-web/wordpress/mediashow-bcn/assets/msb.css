@@ -433,3 +433,8 @@ details.fit-sec[open] { gap: 10px; }
 .dock-warn p { margin: 0 0 6px; font-size: 12.5px; line-height: 1.4; color: #E65837; }
 .dock-warn p.ok { color: #22c55e; }
 .stage-box.presentation .stage-dock, .stage-box.presentation .work-box { display: none !important; }
+/* Textos legales: bloque de resumen y datos pendientes de confirmar */
+.resumen { margin: 0 0 20px; padding: 14px 18px; border: 1px solid #E65837; border-left: 4px solid #E65837; border-radius: 10px; background: #1b120f; }
+.resumen strong { display: block; margin-bottom: 6px; color: #F4F0E8; }
+.resumen ul { margin: 0; padding-left: 18px; }
+mark.pendiente { background: #fde68a; color: #0A0A0A; padding: 0 4px; border-radius: 3px; }

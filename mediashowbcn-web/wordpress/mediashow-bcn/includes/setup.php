@@ -68,6 +68,38 @@ add_action(
 	}
 );
 
+/* Reemplaza el texto de las páginas legales por la versión del plugin. Solo lo hace el administrador al pulsarlo. */
+add_action(
+	'admin_post_msb_legal',
+	function () {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( 'No tienes permiso para hacer esto.' );
+		}
+		check_admin_referer( 'msb_legal' );
+		msb_setup_pages();
+		$pages = (array) get_option( 'msb_pages', array() );
+		$links = array(
+			'{{aviso}}'       => get_permalink( $pages['aviso'] ),
+			'{{privacidad}}'  => get_permalink( $pages['privacidad'] ),
+			'{{condiciones}}' => get_permalink( $pages['condiciones'] ),
+		);
+		foreach ( array( 'aviso' => 'aviso', 'privacidad' => 'privacidad', 'condiciones' => 'condiciones' ) as $key => $file ) {
+			if ( empty( $pages[ $key ] ) ) {
+				continue;
+			}
+			$html = (string) file_get_contents( MSB_DIR . 'templates/legal/' . $file . '.html' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+			wp_update_post(
+				array(
+					'ID'           => $pages[ $key ],
+					'post_content' => "<!-- wp:html -->\n" . strtr( $html, $links ) . "\n<!-- /wp:html -->",
+				)
+			);
+		}
+		wp_safe_redirect( admin_url( 'admin.php?page=msb&msb_legal=done' ) );
+		exit;
+	}
+);
+
 add_action(
 	'admin_post_msb_setup',
 	function () {
