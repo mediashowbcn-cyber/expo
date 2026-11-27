@@ -254,6 +254,18 @@ function msb_setup_products() {
 		);
 	}
 
+	msb_seed_product(
+		array(
+			'sku'   => 'MSB-PROPUESTA',
+			'name'  => 'Propuesta técnica completa',
+			'price' => 120,
+			'desc'  => 'Render 4K, plano con cotas, planilla, presupuesto y dossier técnico de tu montaje. Se descuenta al reservar si reservas en los 30 días siguientes.',
+			'order' => 0,
+			'meta'  => array( '_msb_tipo' => 'propuesta' ),
+		),
+		null
+	);
+
 	$extra_defs = array(
 		array( 'MSB-LED-S', 'Pantalla LED Kit S · 2 × 1,5 m (3 m²)', 900, 1, 'led_s', 'Pantalla LED modular de 3 m² con estructura.' ),
 		array( 'MSB-LED-M', 'Pantalla LED Kit M · 3 × 2 m (6 m²)', '', 1, 'led_m', 'Pantalla LED modular de 6 m² con estructura.' ),

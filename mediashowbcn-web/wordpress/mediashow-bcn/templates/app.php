@@ -195,6 +195,41 @@ $msb_ld = array(
 	</div>
 
 	<div id="view-quoter" hidden>
+	<section class="acceso-box" id="acceso-box" aria-labelledby="acceso-title" hidden>
+		<div class="acceso-head">
+			<div><h3 id="acceso-title">Tu cuenta Media Show BCN</h3>
+			<p class="msg" id="acceso-state">Gratis puedes montar tu espacio en 3D con marca de agua. Con cuenta gratuita desbloqueas el plano, la planilla, el PDF, el render final y la compra.</p></div>
+			<p><a class="btn btn-sm btn-pri" id="propuesta-link" href="#" hidden>Propuesta técnica completa · 120 €</a></p>
+		</div>
+		<div class="acceso-grid" id="acceso-forms">
+			<form class="acceso-form" id="registro-form" novalidate>
+				<strong>Crear cuenta gratis</strong>
+				<label>Nombre o empresa<input name="nombre" type="text" autocomplete="name" required /></label>
+				<label>Correo electrónico<input name="email" type="email" autocomplete="email" required /></label>
+				<label>Teléfono<input name="telefono" type="tel" autocomplete="tel" required /></label>
+				<label>Tipo de evento<select name="tipo" required><option value="">Elige…</option><option value="boda">Boda</option><option value="empresa">Evento de empresa</option><option value="concierto">Concierto o fiesta</option><option value="conferencia">Conferencia</option><option value="otro">Otro</option></select></label>
+				<div class="acceso-two"><label>Fecha aproximada<input name="fecha" type="date" /></label><label>Personas<input name="personas" type="number" min="1" max="5000" /></label></div>
+				<label>Ciudad o municipio<input name="ciudad" type="text" autocomplete="address-level2" /></label>
+				<label>Empresa o asociación (opcional)<input name="empresa" type="text" /></label>
+				<label>¿Cómo nos conociste?<select name="origen"><option value="">Elige…</option><option value="recomendacion">Me lo recomendaron</option><option value="redes">Redes sociales</option><option value="buscador">Buscador</option><option value="evento">Asistí a un evento vuestro</option><option value="otro">Otro</option></select></label>
+				<label class="fit-check"><input name="privacidad" type="checkbox" required /> He leído la <a href="#" data-legal="privacidad" target="_blank" rel="noopener">política de privacidad</a> y acepto que guardéis mis datos para preparar mi propuesta.</label>
+				<label class="fit-check"><input name="comunicaciones" type="checkbox" /> Quiero recibir ideas y novedades de Media Show BCN (opcional).</label>
+				<label class="acceso-web" aria-hidden="true">Web<input name="web" type="text" tabindex="-1" autocomplete="off" /></label>
+				<button type="submit" class="btn btn-sm btn-pri">Crear mi cuenta</button>
+				<p class="msg" role="status"></p>
+			</form>
+			<form class="acceso-form" id="entrar-form" novalidate>
+				<strong>Ya tengo cuenta</strong>
+				<label>Correo electrónico<input name="email" type="email" autocomplete="email" required /></label>
+				<button type="submit" class="btn btn-sm">Enviarme un enlace para entrar</button>
+				<p class="msg" role="status"></p>
+			</form>
+		</div>
+		<div class="acceso-in" id="acceso-in" hidden>
+			<p class="msg" id="acceso-in-msg"></p>
+			<a class="btn btn-sm" id="acceso-salir" href="#">Salir de mi cuenta</a>
+		</div>
+	</section>
 		<div class="container quoter-grid">
 			<div>
 				<h2 class="sec-title" style="margin-top:4px;">Cotizador técnico 3D</h2>
@@ -323,9 +358,9 @@ $msb_ld = array(
 				      <p class="msg" style="margin:0 0 8px;">Descarga la propuesta en Full HD (1920 × 1080) para enviarla o compartirla.</p>
 				      <div class="logo-actions" style="margin:0;">
 				        <button type="button" class="btn btn-sm" id="shot-btn">Imagen 1080p</button>
-				        <button type="button" class="btn btn-sm" id="video-btn">Vídeo 1080p · 10 s</button>
-				        <button type="button" class="btn btn-sm btn-pri" id="hq-btn">Render final HQ</button>
-				        <button type="button" class="btn btn-sm" id="dossier-btn">Dossier técnico (PDF)</button>
+				        <button type="button" class="btn btn-sm pro-only" id="video-btn">Vídeo 1080p · 10 s</button>
+				        <button type="button" class="btn btn-sm btn-pri pro-only" id="hq-btn">Render final HQ</button>
+				        <button type="button" class="btn btn-sm pro-only" id="dossier-btn">Dossier técnico (PDF)</button>
 				      </div>
 				      <label class="fit-row" for="bloom-range" style="margin-top:10px;"><span>Brillo de luces y pantallas <output id="bloom-val"></output></span><input type="range" id="bloom-range" min="0" max="1.5" step="0.05" value="0.5" /></label>
 				      <div class="pro-opts pro-only" hidden>
@@ -361,7 +396,7 @@ $msb_ld = array(
 				    <label for="project-input" class="btn btn-sm" style="margin:0;">Abrir proyecto</label>
 				  </div>
 				  <p class="msg" id="project-msg" role="status"></p>
-				  <div class="share-box" id="share-box" hidden>
+				  <div class="share-box pro-only" id="share-box" hidden>
 				    <strong>Enviar al cliente</strong>
 				    <span class="msg" style="margin:0;">Crea un enlace privado: el cliente ve el montaje en 3D y en su sala (AR), el presupuesto, y puede aprobarlo y pagar la reserva.</span>
 				    <button type="button" class="btn btn-sm btn-pri" id="share-btn">Crear enlace para el cliente</button>
@@ -443,7 +478,7 @@ $msb_ld = array(
 					<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-top:10px;"><span class="p-muted" style="font-weight:600;">Total con IVA</span><span class="p-total" id="prop-total">0,00 €</span></div>
 					<p class="p-muted" style="border-top:1px solid var(--rule-crudo);padding-top:10px;margin-top:10px;">Importe orientativo, sujeto a disponibilidad de fecha, visita técnica y condiciones del recinto. Validez: 15 días. Reserva y resto antes del evento según las condiciones de reserva.</p>
 					<p class="p-muted" style="margin-top:8px;">Media Show BCN · <?php echo esc_html( msb_opt( 'base' ) ); ?> · 24/7 (IA): <?php echo esc_html( msb_opt( 'phone_label' ) ); ?> · WhatsApp: <?php echo esc_html( msb_opt( 'whatsapp_label' ) ); ?> · <?php echo esc_html( msb_opt( 'email' ) ); ?></p>
-					<button type="button" class="btn btn-sm no-print" style="margin-top:12px;background:var(--bg);" onclick="printProposal()">Imprimir o guardar en PDF</button>
+					<button type="button" class="btn btn-sm no-print pro-only" style="margin-top:12px;background:var(--bg);" onclick="printProposal()">Imprimir o guardar en PDF</button>
 				</div>
 				</div>
 			</details>

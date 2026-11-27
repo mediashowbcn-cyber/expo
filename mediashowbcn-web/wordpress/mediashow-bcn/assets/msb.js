@@ -1099,6 +1099,7 @@ tr{break-inside:avoid}
     if (!ex || $('plan-box')) return;
     const box = document.createElement('details');
     box.className = 'plan-box'; box.id = 'plan-box'; box.open = true;
+    box.classList.add('pro-only');
     box.innerHTML = `<summary class="qs-head"><span class="eyebrow">Planilla técnica</span><strong id="plan-count">Sin equipos</strong></summary>
       <div class="plan-body">
         <div class="cam-row"><button type="button" data-plan="csv">Descargar planilla (CSV)</button></div>
@@ -1138,6 +1139,47 @@ tr{break-inside:avoid}
     items.forEach((it, i) => { const sp = SPEC[it.kind] || { w: 0, kg: 0 }; rows.push([i + 1, it.label, fmtN(it.x, 2), fmtN(it.z, 2), Math.round(it.ry * 180 / Math.PI), sp.w, sp.kg]); });
     const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(';')).join('\n');
     download(new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' }), 'mediashowbcn-planilla.csv');
+  }
+  /* Cuenta de cliente: registro, entrada por correo y los dos niveles del cotizador. */
+  function setupAccount() {
+    const box = $('acceso-box');
+    if (!box) return;
+    const A = D.acceso || {}, inside = (D.access || 'publico') === 'cliente';
+    box.hidden = false;
+    document.body.classList.toggle('is-public', !inside);
+    $('acceso-forms').hidden = inside;
+    $('acceso-in').hidden = !inside;
+    box.querySelectorAll('[data-legal="privacidad"]').forEach(a => { if (D.privacy) a.href = D.privacy; });
+    if (inside) {
+      $('acceso-state').textContent = `Estás dentro${A.nombre ? ', ' + A.nombre : ''}. Tienes el cotizador completo: plano, planilla, PDF, render final y compra.`;
+      $('acceso-salir').href = A.logout || '#';
+    } else if (A.estado === 'caducado') {
+      $('acceso-state').textContent = 'Ese enlace ha caducado o ya se ha usado. Pide uno nuevo desde «Ya tengo cuenta».';
+    } else if (A.estado === 'ok') {
+      $('acceso-state').textContent = 'Cuenta confirmada.';
+    }
+    // Sin cuenta: la marca de agua es obligatoria en las imágenes.
+    const mk = $('export-mark');
+    if (mk && !inside) { mk.checked = true; mk.disabled = true; }
+    const pl = $('propuesta-link');
+    if (pl && A.propuesta) { pl.href = A.propuesta; pl.hidden = false; }
+    if (inside) return;
+    const send = (form, action) => form.addEventListener('submit', async e => {
+      e.preventDefault();
+      if (!form.reportValidity()) return;
+      const msg = form.querySelector('.msg'), btn = form.querySelector('button[type="submit"]');
+      btn.disabled = true; msg.textContent = 'Enviando…'; msg.classList.remove('err');
+      try {
+        const fd = new FormData(form); fd.append('action', action); fd.append('nonce', A.nonce || '');
+        const j = await (await fetch(D.ajax, { method: 'POST', body: fd, credentials: 'same-origin' })).json();
+        msg.textContent = j.success ? j.data.message : ((j.data && j.data.message) || 'No se ha podido completar. Inténtalo de nuevo.');
+        msg.classList.toggle('err', !j.success);
+        if (j.success && action === 'msb_registro') form.reset();
+      } catch (err) { msg.textContent = 'Sin conexión. Inténtalo de nuevo.'; msg.classList.add('err'); }
+      btn.disabled = false;
+    });
+    send($('registro-form'), 'msb_registro');
+    send($('entrar-form'), 'msb_entrar');
   }
   /* Barra del visor: seleccionar, mover, acercar y ajustar el tamaño del equipo. */
   function setupViewerTools() {
@@ -4317,7 +4359,7 @@ const Stage = (() => {
         <div class="dock-sec"><strong>Añadir al render</strong><div id="dock-add"></div></div>
         <div class="dock-sec"><strong>Plantilla de evento</strong><div class="cam-row" id="dock-tpl"><button type="button" data-tpl="boda">Boda</button><button type="button" data-tpl="empresa">Empresa</button><button type="button" data-tpl="concierto">Concierto</button><button type="button" data-tpl="conf">Conferencia</button></div></div>
         <div class="dock-sec"><strong>Fecha y recordatorio</strong><p class="msg" id="dock-date"></p><div class="cam-row"><button type="button" data-tool="ics">Descargar recordatorio (.ics)</button></div></div>
-        <div class="dock-sec"><strong>Herramientas</strong><div class="cam-row"><label class="fit-check"><input type="checkbox" id="dock-human" /> Persona 1,75 m (escala)</label></div><div class="cam-row"><button type="button" data-tool="cover">Mostrar cobertura de sonido</button><button type="button" data-tool="dims">Mostrar cotas</button><button type="button" data-tool="measure">Medir distancia</button></div><p class="msg" id="dock-measure"></p><div class="cam-row"><button type="button" data-tool="pres">Modo presentación</button><button type="button" data-tool="csv">Material (CSV)</button><button type="button" data-tool="savever">Guardar versión</button></div><div id="dock-versions" class="cam-saved"></div><div id="dock-warn" class="dock-warn" aria-live="polite"></div></div>
+        <div class="dock-sec"><strong>Herramientas</strong><div class="cam-row"><label class="fit-check"><input type="checkbox" id="dock-human" /> Persona 1,75 m (escala)</label></div><div class="cam-row"><button type="button" data-tool="cover">Mostrar cobertura de sonido</button><button type="button" data-tool="dims">Mostrar cotas</button><button type="button" data-tool="measure">Medir distancia</button></div><p class="msg" id="dock-measure"></p><div class="cam-row"><button type="button" data-tool="pres">Modo presentación</button><button type="button" class="pro-only" data-tool="csv">Material (CSV)</button><button type="button" data-tool="savever">Guardar versión</button></div><div id="dock-versions" class="cam-saved"></div><div id="dock-warn" class="dock-warn" aria-live="polite"></div></div>
         <div class="dock-sec" id="dock-list"></div>
         <p class="dock-keys">Atajos: flechas mueven el equipo (Mayús. = 1 m) · Q/E giran · +/− cambian tamaño · D duplicar · C centrar · F al frente · Supr quitar · Esc deseleccionar</p>
       </div>`;
@@ -4402,6 +4444,7 @@ const Stage = (() => {
   setupWork();
   setupViewerTools();
   setupPlan();
+  setupAccount();
   renderCams();
   // En pantallas pequeñas la cotización empieza plegada para dejar sitio al visor.
   { const qs = document.querySelector('.quote-summary'); if (qs) qs.open = false; }

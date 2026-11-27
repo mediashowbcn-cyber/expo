@@ -77,6 +77,14 @@ add_action(
 				'share'    => msb_share_for_request(),
 				'shareNonce' => wp_create_nonce( 'msb_share_view' ),
 				'adminNonce' => current_user_can( 'manage_woocommerce' ) ? wp_create_nonce( 'msb_share' ) : '',
+				'access'     => msb_access_level(),
+				'acceso'     => array(
+					'nonce'  => wp_create_nonce( 'msb_acceso' ),
+					'logout' => add_query_arg( 'msb_acceso', 'salir', home_url( '/' ) ),
+					'nombre' => wp_get_current_user()->first_name,
+					'propuesta' => msb_propuesta_product_id() ? get_permalink( msb_propuesta_product_id() ) : '',
+					'estado' => isset( $_GET['acceso'] ) ? sanitize_key( wp_unslash( $_GET['acceso'] ) ) : '', // phpcs:ignore WordPress.Security.NonceVerification
+				),
 			)
 		);
 		wp_add_inline_script( 'msb-app', 'window.MSB = ' . wp_json_encode( $data ) . ';', 'before' );

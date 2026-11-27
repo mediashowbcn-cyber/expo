@@ -475,3 +475,18 @@ mark.pendiente { background: #fde68a; color: #0A0A0A; padding: 0 4px; border-rad
 .plan-tbl th, .plan-tbl td { border-bottom: 1px solid #2a2a2a; padding: 5px 6px; text-align: left; }
 .plan-tbl td.n, .plan-tbl th.n { text-align: right; }
 .plan-det > summary { cursor: pointer; margin: 6px 0; font-weight: 600; }
+
+/* v7.13: cuenta de cliente y niveles del cotizador */
+.is-public .pro-only { display: none !important; }
+.acceso-box { margin: 0 0 16px; padding: 16px; border: 1px solid var(--line, #2a2a2a); border-radius: 12px; background: var(--bg-card, #111); }
+.acceso-head h3 { font-family: 'Bebas Neue', sans-serif; font-size: 26px; margin: 0; letter-spacing: .5px; }
+.acceso-grid { display: grid; grid-template-columns: 1fr; gap: 18px; margin-top: 12px; }
+@media (min-width: 900px) { .acceso-grid { grid-template-columns: 1.6fr 1fr; } }
+.acceso-form { display: grid; gap: 10px; align-content: start; }
+.acceso-form label { display: grid; gap: 4px; font-size: 13px; }
+.acceso-form label.fit-check { display: flex; gap: 8px; align-items: flex-start; }
+.acceso-form input, .acceso-form select { background: #0f0f10; color: #F4F0E8; border: 1px solid #2a2a2a; border-radius: 8px; padding: 8px 10px; font: inherit; }
+.acceso-two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.acceso-web { position: absolute; left: -9999px; }
+.acceso-form .err { color: #f87171; }
+.acceso-in { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
