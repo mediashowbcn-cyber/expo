@@ -1,0 +1,25 @@
+const { chromium } = require('playwright');
+const route = require('./route160.js');
+(async () => {
+  const b = await chromium.launch({ args: ['--use-gl=swiftshader', '--enable-webgl', '--ignore-gpu-blocklist'] });
+  const p = await b.newPage({ viewport: { width: 1280, height: 800 } });
+  const errs = []; p.on('pageerror', e => errs.push(e.message));
+  await p.route('**/*', route);
+  await p.goto('http://localhost:8099/', { waitUntil: 'domcontentloaded', timeout: 90000 });
+  await p.waitForFunction(() => window.THREE && THREE.REVISION);
+  const email = 'solicitud.' + Date.now() + '@example.com';
+  await p.evaluate(() => { msbApplyConfig({ pack: 25, asistentes: 100, extras: [{ id: 58, cantidad: 2 }] }); openQuoterWithPack(25); });
+  await p.waitForTimeout(1500);
+  await p.evaluate(() => { document.querySelector('.quote-summary').open = true; document.getElementById('solicitud-form').scrollIntoView(); });
+  await p.fill('#solicitud-form input[name="nombre"]', 'Marc Prueba');
+  await p.fill('#solicitud-form input[name="telefono"]', '611223344');
+  await p.fill('#solicitud-form input[name="email"]', email);
+  await p.check('#solicitud-form input[name="privacidad"]');
+  await p.click('#solicitud-form button[type="submit"]');
+  await p.waitForTimeout(3000);
+  const msg = await p.textContent('#solicitud-form .msg[role="status"]');
+  console.log('mensaje:', msg, '| email:', email);
+  console.log('errores:', errs.filter(e => !/ERR_FAILED|Failed to load/.test(e)).join(' | ') || 'none');
+  require('fs').writeFileSync('lead_email.txt', email);
+  await b.close();
+})().catch(e => { console.error('ERR', e.message); process.exit(1); });

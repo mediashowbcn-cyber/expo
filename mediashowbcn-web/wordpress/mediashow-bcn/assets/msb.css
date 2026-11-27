@@ -490,3 +490,10 @@ mark.pendiente { background: #fde68a; color: #0A0A0A; padding: 0 4px; border-rad
 .acceso-web { position: absolute; left: -9999px; }
 .acceso-form .err { color: #f87171; }
 .acceso-in { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+
+/* v7.14: formulario de solicitud en el cotizador */
+.solicitud-box { display: grid; gap: 10px; margin-top: 14px; padding: 14px; border: 1px solid var(--line, #2a2a2a); border-radius: 12px; }
+.solicitud-box label { display: grid; gap: 4px; font-size: 13px; }
+.solicitud-box label.fit-check { display: flex; gap: 8px; align-items: flex-start; }
+.solicitud-box input, .solicitud-box textarea { background: #0f0f10; color: #F4F0E8; border: 1px solid #2a2a2a; border-radius: 8px; padding: 8px 10px; font: inherit; }
+.solicitud-box .err { color: #f87171; }

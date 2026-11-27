@@ -135,6 +135,21 @@ function msb_ajax_registro() {
 	update_user_meta( $uid, 'msb_comunicaciones', empty( $p['comunicaciones'] ) ? 0 : 1 );
 	update_user_meta( $uid, 'msb_privacidad_fecha', current_time( 'mysql' ) );
 	update_user_meta( $uid, 'msb_verificado', 0 );
+	msb_lead_guardar(
+		array(
+			'nombre'      => $nombre,
+			'email'       => $email,
+			'telefono'    => $tel,
+			'empresa'     => $empresa,
+			'tipo_evento' => $tipo,
+			'fecha_evento' => $fecha,
+			'personas'    => $pers,
+			'ciudad'      => $ciudad,
+			'origen'      => $origen,
+			'user_id'     => $uid,
+		),
+		'Registro en la web'
+	);
 	$t = msb_token_crear( $uid, 'confirmar', 2 * DAY_IN_SECONDS );
 	wp_mail(
 		$email,

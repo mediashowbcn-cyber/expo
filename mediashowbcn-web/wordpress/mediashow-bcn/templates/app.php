@@ -466,6 +466,17 @@ $msb_ld = array(
 					<a class="btn" id="wa-quote-btn" href="<?php echo esc_url( $msb_wa ); ?>" target="_blank" rel="noopener" aria-disabled="true">Enviar resumen por WhatsApp</a>
 					<button type="button" class="btn" onclick="toggleProposal()" id="proposal-toggle">Ver propuesta oficial</button>
 					<p class="msg" id="wa-msg" role="status"></p>
+					<form class="solicitud-box" id="solicitud-form" novalidate>
+						<strong>¿Prefieres que te llamemos?</strong>
+						<p class="msg">Preparamos la propuesta a partir de esta configuración. Sin compromiso.</p>
+						<div class="acceso-two"><label>Nombre<input name="nombre" type="text" autocomplete="name" required /></label><label>Teléfono<input name="telefono" type="tel" autocomplete="tel" required /></label></div>
+						<label>Correo<input name="email" type="email" autocomplete="email" required /></label>
+						<label>Comentarios (opcional)<textarea name="mensaje" rows="2"></textarea></label>
+						<label class="fit-check"><input name="privacidad" type="checkbox" required /> He leído la <a href="#" data-legal="privacidad" target="_blank" rel="noopener">política de privacidad</a> y acepto que me contactéis.</label>
+						<label class="acceso-web" aria-hidden="true">Web<input name="web" type="text" tabindex="-1" autocomplete="off" /></label>
+						<button type="submit" class="btn btn-sm btn-pri">Quiero que me llamen</button>
+						<p class="msg" role="status"></p>
+					</form>
 				</div>
 				<div class="proposal-box" id="proposal-box">
 					<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">

@@ -1181,6 +1181,38 @@ tr{break-inside:avoid}
     send($('registro-form'), 'msb_registro');
     send($('entrar-form'), 'msb_entrar');
   }
+  /* Solicitud desde el cotizador: la configuración viaja como resumen para la ficha del cliente. */
+  function setupSolicitud() {
+    const form = $('solicitud-form');
+    if (!form) return;
+    const A = D.acceso || {};
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      if (!form.reportValidity()) return;
+      const msg = form.querySelector('.msg[role="status"]'), btn = form.querySelector('button[type="submit"]');
+      const q = computeQuote();
+      const config = [
+        q.pack ? `Pack ${q.pack.name}` : 'Sin pack',
+        `${state.guests} personas`, `${state.hours} h`, state.space, ZONES[state.zone],
+        state.date ? `fecha ${fmtDate(state.date)}` : 'fecha por confirmar',
+        `Iluminación ${$('dm-select').selectedOptions[0].text}`,
+        'Líneas: ' + q.lines.map(l => l.label + (l.cents === null ? ' (a consultar)' : '')).join('; '),
+        `Total estimado con IVA: ${eur(q.total)}`
+      ].join('\n');
+      btn.disabled = true; msg.textContent = 'Enviando…'; msg.classList.remove('err');
+      try {
+        const fd = new FormData(form);
+        fd.append('action', 'msb_solicitud'); fd.append('nonce', A.nonce || '');
+        fd.append('config', config); fd.append('importe', String(q.total / 100));
+        const j = await (await fetch(D.ajax, { method: 'POST', body: fd, credentials: 'same-origin' })).json();
+        msg.textContent = j.success ? j.data.message : ((j.data && j.data.message) || 'No se ha podido enviar. Inténtalo de nuevo.');
+        msg.classList.toggle('err', !j.success);
+        if (j.success) form.reset();
+      } catch (err) { msg.textContent = 'Sin conexión. Escríbenos por WhatsApp.'; msg.classList.add('err'); }
+      btn.disabled = false;
+    });
+    form.querySelectorAll('[data-legal="privacidad"]').forEach(a => { if (D.privacy) a.href = D.privacy; });
+  }
   /* Barra del visor: seleccionar, mover, acercar y ajustar el tamaño del equipo. */
   function setupViewerTools() {
     const box = document.querySelector('.stage-box');
@@ -4446,6 +4478,7 @@ const Stage = (() => {
   setupViewerTools();
   setupPlan();
   setupAccount();
+  setupSolicitud();
   renderCams();
   // En pantallas pequeñas la cotización empieza plegada para dejar sitio al visor.
   { const qs = document.querySelector('.quote-summary'); if (qs) qs.open = false; }
