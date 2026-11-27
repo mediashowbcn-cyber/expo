@@ -303,6 +303,11 @@ $msb_ld = array(
 				</div>
 
 				<div class="add-bar" id="add-bar"></div>
+				<div class="panel-box work-box" id="work-box" style="margin-top:16px;">
+					<h3>Equipos en el escenario</h3>
+					<p class="msg" style="margin:0 0 6px;">Ajusta cantidades aquí y toca «Ver en 3D» para editar cada equipo.</p>
+					<div id="work-list"></div>
+				</div>
 				<div class="panel-box export-box" style="margin-top:16px;">
 				  <h3>Tu espacio · imagen y vídeo</h3>
 				  <div class="export-grid">

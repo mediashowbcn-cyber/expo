@@ -156,6 +156,38 @@
     $('hours-select').innerHTML = opts.map(x => `<option value="${x}">${x} horas ${x === h ? '(incluidas)' : '(+' + eur0((x - h) * S.extraHour) + ')'}</option>`).join('');
   }
 
+  const KMAP = { spk: 'speaker', trx_extra: 'trx', tower: 'tower', screen55: 'screen', totem: 'totem', mic: 'mic', stream: 'cam', booth: 'booth', lectern: 'lectern', heads: 'head', led_s: 'wall', led_m: 'wall', led_l: 'wall', foh: 'foh' };
+  /* Panel de trabajo: lo que hay en el escenario, con cantidades y acceso directo al equipo en 3D. */
+  function renderWork() {
+    const box = $('work-list');
+    if (!box) return;
+    const rows = [];
+    EXTRAS.forEach(ex => {
+      const q = state.extras[ex.id] || 0;
+      if (!q) return;
+      const sel = ex === TARIMA ? 'tarima' : KMAP[ex.model];
+      rows.push(`<div class="work-row"><span class="work-name">${esc(ex.name)}</span><span class="work-qty"><button type="button" data-w="${ex.id}" data-d="-1" aria-label="Quitar uno de ${esc(ex.name)}">−</button><output>${q}</output><button type="button" data-w="${ex.id}" data-d="1" aria-label="Añadir uno de ${esc(ex.name)}">+</button></span>${sel ? `<button type="button" class="btn btn-sm" data-sel="${sel}">Ver en 3D</button>` : '<span></span>'}</div>`);
+    });
+    box.innerHTML = rows.length ? rows.join('') : '<p class="msg">Todavía no hay equipos en el escenario. Añádelos con «Añadir al render» o desde «Servicios adicionales».</p>';
+  }
+  function setupWork() {
+    const box = $('work-list');
+    box.addEventListener('click', e => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      if (b.dataset.w) {
+        const ex = EXTRAS.find(x => x.id === Number(b.dataset.w));
+        if (ex.model === 'heads') state.headsN = null;
+        state.extras[ex.id] = Math.max(0, Math.min(ex.max, (state.extras[ex.id] || 0) + Number(b.dataset.d)));
+        render();
+      } else if (b.dataset.sel) {
+        $('canvas-3d').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (b.dataset.sel === 'tarima') Stage.select('tarima');
+        else Stage.selectKind(b.dataset.sel);
+      }
+    });
+  }
+
   function extraRow(ex) {
     const label = esc(ex.name);
     const thumb = ex.img
@@ -336,6 +368,7 @@
     $('pack-badge').textContent = pk ? `Pack ${pk.name} (${pk.max === null ? 'a medida' : pk.min + '–' + pk.max + ' pers.'})` : 'Sin packs publicados';
     $('quote-total').textContent = eur(q.total);
     $('quote-total-sm').textContent = eur(q.total);
+    renderWork();
     $('quote-deposit').textContent = eur(q.deposit);
     $('dep-pct').textContent = S.deposit;
     $('reserve-amount').textContent = eur(q.deposit);
@@ -582,7 +615,7 @@
     $('insp-title').textContent = d.label;
     const tar = d.kind === 'tarima', tow = d.kind === 'tower', tru = d.kind === 'truss';
     $('insp-truss-row').hidden = !tru;
-    $('insp-hang-row').hidden = !(d.kind === 'wall' || d.kind === 'screen');
+    $('insp-hang-row').hidden = !(d.kind === 'wall' || d.kind === 'screen' || d.kind === 'head');
     if (d.kind === 'wall' || d.kind === 'screen') { $('insp-hang').checked = !!d.hung; $('insp-hang').disabled = !d.canHang && !d.hung; $('insp-hang-note').hidden = d.canHang || d.hung; }
     if (tru) {
       $('insp-trw').value = d.truss.w; $('insp-trh').value = d.truss.h;
@@ -1991,7 +2024,7 @@ const Stage = (() => {
       if (!ray.ray.intersectPlane(plane, hit)) return;
       if (dragObj.userData.hung) {
         dragObj.position.x = rig.truss.worldToLocal(hit.clone().add(off)).x;
-        hungLayout(dragObj);
+        if (dragObj.userData.kind !== 'head') hungLayout(dragObj);
       } else {
         const x = Math.max(-30, Math.min(30, hit.x + off.x)), z = Math.max(-30, Math.min(30, hit.z + off.z));
         place(dragObj, x, z);
@@ -2016,6 +2049,33 @@ const Stage = (() => {
     });
   }
 
+  // Cabezal móvil: colgado del truss (y se desliza por él) o en el suelo (se arrastra libremente).
+  function hangHead(g, on) {
+    const u = g.userData;
+    if (on) {
+      if (!rig.truss.visible) return;
+      const wp = g.getWorldPosition(V3(0, 0, 0));
+      rig.truss.add(g);
+      rig.truss.updateMatrixWorld(true);
+      const lp = rig.truss.worldToLocal(wp.clone()), hw = TR.w / 2 - 0.35;
+      g.position.set(Math.max(-hw, Math.min(hw, lp.x)), TR.h - 0.33, 0);
+      g.rotation.set(0, 0, 0);
+      u.hung = true;
+    } else {
+      const wp = g.getWorldPosition(V3(0, 0, 0));
+      scene.add(g);
+      u.hung = false;
+      g.rotation.set(0, 0, 0);
+      place(g, wp.x, wp.z);
+    }
+    u.moved = true;
+  }
+  function selectKind(kind) {
+    const d = draggables.find(o => o.visible && o.userData.kind === kind);
+    if (d) select(d);
+    return !!d;
+  }
+
   // Caja de selección sin los haces de luz (que miden metros).
   function selFit(o) {
     const b = selBox.box.makeEmpty();
@@ -2030,7 +2090,7 @@ const Stage = (() => {
     if (u.kind === 'tarima') return { kind: 'tarima', label: 'Tarima', tarima: Object.assign({}, TAR) };
     if (u.kind === 'truss') return { kind: 'truss', label: KIND.truss, truss: Object.assign({}, TR) };
     if (u.kind === 'tower') return { kind: 'tower', label: KIND.tower, towerH: u.towerH, head: u.head, lift: u.lift, size: u.size };
-    return { kind: u.kind, label: KIND[u.kind] || 'Equipo', size: u.size, inch: u.inch, lift: u.lift, dims: u.dims ? u.dims.slice() : null, rot: Math.round(THREE.MathUtils.radToDeg(o.rotation.y)), real: !!u.real, hung: !!u.hung, canHang: (u.kind === 'wall' || u.kind === 'screen') && rig.truss.visible };
+    return { kind: u.kind, label: KIND[u.kind] || 'Equipo', size: u.size, inch: u.inch, lift: u.lift, dims: u.dims ? u.dims.slice() : null, rot: Math.round(THREE.MathUtils.radToDeg(o.rotation.y)), real: !!u.real, hung: !!u.hung, canHang: (u.kind === 'wall' || u.kind === 'screen' || u.kind === 'head') && rig.truss.visible };
   }
 
   function select(o) {
@@ -2065,7 +2125,7 @@ const Stage = (() => {
     else if (prop === 'lift' && u.hung) { /* colgada: la altura la marca el truss */ }
     else if (prop === 'lift') { u.lift = Math.max(0, Math.min(6, v)); place(o, o.position.x, o.position.z); }
     else if (prop === 'rot') o.rotation.y += THREE.MathUtils.degToRad(v);
-    else if (prop === 'hang') t = hang(o, !!v);
+    else if (prop === 'hang') { if (u.kind === 'head') { hangHead(o, !!v); t = o; } else t = hang(o, !!v); }
     else if (prop === 'truss' && u.kind === 'truss') { setTruss(v); notify(); return info(rig.truss); }
     else if (prop === 'reset' && u.kind === 'truss') { Object.assign(TR, TR0); u.moved = false; rig.truss.rotation.y = 0; setTruss({}); notify(); return info(rig.truss); }
     else if (prop === 'tower' && u.kind === 'tower') t = rebuildTower(o, Math.max(1, Math.min(6, v.h)), !!v.head);
@@ -2080,7 +2140,7 @@ const Stage = (() => {
       update(lastState);
     }
     t.userData.moved = t.userData.moved || prop !== 'reset';
-    if (t.userData.hung) hungLayout(t);
+    if (t.userData.hung && t.userData.kind !== 'head') hungLayout(t);
     selected = t;
     selFit(t);
     notify();
@@ -2223,18 +2283,20 @@ const Stage = (() => {
 
     rig.truss.visible = cfg.truss;
     if (!rig.truss.userData.moved) place(rig.truss, 0, -2.1, 0, 0);
-    if (!cfg.truss) draggables.filter(o => o.userData.hung).forEach(o => hang(o, false));
+    if (!cfg.truss) draggables.filter(o => o.userData.hung).forEach(o => (o.userData.kind === 'head' ? hangHead(o, false) : hang(o, false)));
     const nh = vis(cfg.heads, 'heads'), onTruss = Math.min(nh, 12);
-    fill(rig.heads, nh, i => { const h = buildHead(); h.phase = i * 0.7; scene.add(h.g); return h; });
+    fill(rig.heads, nh, i => { const h = buildHead(); h.phase = i * 0.7; scene.add(h.g); tag(h.g, 'head'); h.g.userData.head = h; h.g.userData.hung = false; draggables.push(h.g); return h; });
     rig.heads.forEach((h, i) => {
       h.g.visible = i < nh;
-      if (!h.g.visible) return;
+      if (!h.g.visible || h.g.userData.moved) return;
       if (i < 12) {
+        h.g.userData.hung = true;
         if (h.g.parent !== rig.truss) rig.truss.add(h.g);
         const hw = TR.w / 2 - 0.35;
         h.g.rotation.set(0, 0, 0); h.g.position.set(onTruss === 1 ? 0 : -hw + i * (2 * hw / (onTruss - 1)), TR.h - 0.33, 0);
         return;
       }
+      h.g.userData.hung = false;
       if (h.g.parent !== scene) scene.add(h.g);
       const k = i - 12, side = k % 2 ? 1 : -1, col = Math.floor(k / 2);
       h.g.rotation.x = Math.PI;
@@ -3205,6 +3267,7 @@ const Stage = (() => {
     init,
     update,
     headCount() { return cfg ? cfg.heads : 0; },
+    selectKind(k) { return inited ? selectKind(k) : false; },
     focusSelected() {
       if (!selected || !inited) return;
       const p = selected.getWorldPosition(V3(0, 0, 0));
@@ -3351,6 +3414,7 @@ const Stage = (() => {
     document.addEventListener('fullscreenchange', () => { label(); window.dispatchEvent(new Event('resize')); });
   }
   setupFS();
+  setupWork();
   $('insp-focus').addEventListener('click', () => Stage.focusSelected());
   $('insp-front').addEventListener('click', () => Stage.bringFront());
 })();
