@@ -237,7 +237,7 @@ $msb_ld = array(
 							<small id="insp-hang-note">Añade truss (o un pack con truss) para poder colgarla.</small></div>
 						<div class="fit-row" id="insp-tower-row"><span>Altura de la torre (m)</span>
 							<div class="insp-dims"><input type="number" id="insp-towh" min="1" max="6" step="0.25" aria-label="Altura de la torre en metros" /></div>
-							<label class="fit-check"><input type="checkbox" id="insp-towhead" /> Cabeza móvil arriba</label></div>
+							<label class="fit-check" for="insp-towtop">Arriba de la torre <select id="insp-towtop"><option value="none">Nada</option><option value="head">Cabeza móvil</option><option value="par">PAR LED</option></select></label></div>
 						<label class="fit-row" id="insp-lift-row" for="insp-lift"><span>Altura sobre el suelo <output id="insp-lift-val"></output></span><input type="range" id="insp-lift" min="0" max="400" step="5" /></label>
 						<p class="insp-real" id="insp-real" hidden>Modelo 3D real del equipo</p>
 						<div class="insp-btns"><span id="insp-rot" class="insp-btns"><button type="button" class="btn btn-sm" data-rot="-15">↺ 15°</button><button type="button" class="btn btn-sm" data-rot="15">↻ 15°</button></span><button type="button" class="btn btn-sm" id="insp-focus">Centrar</button><button type="button" class="btn btn-sm" id="insp-front">Traer al frente</button><button type="button" class="btn btn-sm" id="insp-reset">Restablecer</button></div>

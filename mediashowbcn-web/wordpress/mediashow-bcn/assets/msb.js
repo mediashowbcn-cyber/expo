@@ -156,13 +156,20 @@
     $('hours-select').innerHTML = opts.map(x => `<option value="${x}">${x} horas ${x === h ? '(incluidas)' : '(+' + eur0((x - h) * S.extraHour) + ')'}</option>`).join('');
   }
 
-  const KMAP = { spk: 'speaker', trx_extra: 'trx', tower: 'tower', screen55: 'screen', totem: 'totem', mic: 'mic', stream: 'cam', booth: 'booth', lectern: 'lectern', heads: 'head', led_s: 'wall', led_m: 'wall', led_l: 'wall', foh: 'foh' };
+  const KMAP = { par: 'par', booth1: 'booth', booth2: 'booth', booth3: 'booth', booth4: 'booth', booth5: 'booth', spk: 'speaker', trx_extra: 'trx', tower: 'tower', screen55: 'screen', totem: 'totem', mic: 'mic', stream: 'cam', booth: 'booth', lectern: 'lectern', heads: 'head', led_s: 'wall', led_m: 'wall', led_l: 'wall', foh: 'foh' };
   /* Panel de trabajo v7: lista del escenario, acciones sobre el equipo seleccionado, vistas y atajos */
   const REV = {};
   Object.keys(KMAP).forEach(m => { const ex = EXTRAS.find(x => x.model === m); if (ex) REV[KMAP[m]] = ex; });
+  const isBooth = ex => /^booth\d$/.test(ex.model || '');
+  // Solo una cabina DJ a la vez: al elegir una, las demás se quitan.
+  function exclusiveBooth(ex) {
+    if (!isBooth(ex) || !state.extras[ex.id]) return;
+    EXTRAS.forEach(o => { if (o !== ex && isBooth(o)) state.extras[o.id] = 0; });
+  }
   const bumpExtra = (ex, d) => {
     if (!ex) return;
     if (ex.model === 'heads') state.headsN = null;
+    if (isBooth(ex) && d > 0) { state.extras[ex.id] = 1; exclusiveBooth(ex); render(); return; }
     state.extras[ex.id] = Math.max(0, Math.min(ex.max, (state.extras[ex.id] || 0) + d));
     render();
   };
@@ -342,6 +349,7 @@
       const ex = EXTRAS.find(x => x.id === Number(b.dataset.id));
       if (ex.model === 'heads') state.headsN = null;
       state.extras[ex.id] = Math.max(0, Math.min(ex.max, state.extras[ex.id] + Number(b.dataset.d)));
+      exclusiveBooth(ex);
       render();
     });
   }
@@ -723,7 +731,7 @@
     $('insp-tarima-row').hidden = !tar;
     $('insp-tower-row').hidden = !tow;
     if (tow) {
-      $('insp-towh').value = d.towerH; $('insp-towhead').checked = d.head;
+      $('insp-towh').value = d.towerH; $('insp-towtop').value = d.top || (d.head ? 'head' : 'none');
       $('insp-inch-row').hidden = true; $('insp-dims-row').hidden = true; $('insp-size-row').hidden = true;
       $('insp-lift-row').hidden = false; $('insp-rot').hidden = false; $('insp-real').hidden = true;
       $('insp-lift').value = Math.round(d.lift * 100); $('insp-lift-val').textContent = num(d.lift) + ' m';
@@ -766,9 +774,9 @@
       state.headsN = n; $('insp-trheads').value = n; render();
     });
     $('insp-hang').addEventListener('change', e => set('hang', e.target.checked));
-    const tow = () => { const h = Math.round(Number($('insp-towh').value) * 4) / 4; if (h >= 1) set('tower', { h, head: $('insp-towhead').checked }); };
+    const tow = () => { const h = Math.round(Number($('insp-towh').value) * 4) / 4; if (h >= 1) set('tower', { h, top: $('insp-towtop').value }); };
     $('insp-towh').addEventListener('change', tow);
-    $('insp-towhead').addEventListener('change', tow);
+    $('insp-towtop').addEventListener('change', tow);
     const set = (p, v) => showInspector(Stage.adjust(p, v));
     $('insp-size').addEventListener('input', e => set('size', e.target.value / 100));
     $('insp-inch').addEventListener('change', e => set('inch', Number(e.target.value)));
@@ -1756,7 +1764,7 @@ const Stage = (() => {
   const TR0 = { w: 6.4, h: 3.5 }, TR = Object.assign({}, TR0);
   let SPACE = null, spaceInExport = false;
   const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
-  const CAP = { towers: 24, trx: 26, heads: 48, bars: 24, speakers: 24, mics: 24, screens: 24, totems: 24 };
+  const CAP = { pars: 24, towers: 24, trx: 26, heads: 48, bars: 24, speakers: 24, mics: 24, screens: 24, totems: 24 };
   const KIND = { trx: 'Altavoz Alto TRX315', speaker: 'Altavoz RCF EVOX 12', totem: 'Tótem', screen: 'Pantalla', mic: 'Micrófono', cam: 'Cámara', wall: 'Pantalla LED', booth: 'Cabina DJ', lectern: 'Atril', foh: 'Control de sonido', head: 'Cabeza móvil', tower: 'Torre de truss', truss: 'Truss del escenario' };
   let draggables = [], dragObj = null, selected = null, selBox = null, multi = [];
   const LOOK = { light: 1, warm: 0, dir: 27 };
@@ -1906,23 +1914,75 @@ const Stage = (() => {
   }
 
   /* Torre de truss vertical con base, opcionalmente con una cabeza móvil arriba. */
+  const BOOTHS = {
+    1: { w: 1.5, h: 1.0, d: 0.65, sw: 1.4, sh: 0.22, top: 0.82, strip: 0xe65837 },
+    2: { w: 1.2, h: 0.95, d: 0.55, sw: 1.1, sh: 0.2, top: 0.8, strip: 0x22d3ee },
+    3: { w: 2.0, h: 1.05, d: 0.7, sw: 1.9, sh: 0.24, top: 0.86, strip: 0xffb347 },
+    4: { w: 1.3, h: 1.0, d: 1.3, round: true, strip: 0xe65837 },
+    5: { w: 1.6, h: 1.2, d: 0.7, sw: 1.5, sh: 0.1, top: 1.0, strip: 0xffffff }
+  };
+  // Cabina DJ de 5 modelos: cada uno tiene su frontal y su mesa.
+  function buildBoothV(v) {
+    const c = BOOTHS[v] || BOOTHS[1], g = new THREE.Group();
+    let strip;
+    if (c.round) {
+      const body = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.65, c.h, 40), M.black); body.position.y = c.h / 2; g.add(body);
+      const ring = new THREE.Mesh(new THREE.CylinderGeometry(0.66, 0.66, 0.16, 40, 1, true), new THREE.MeshBasicMaterial({ color: c.strip, toneMapped: false }));
+      ring.position.y = 0.82; g.add(ring); strip = ring.material;
+      const top = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.62, 0.03, 40), M.desk); top.position.y = c.h + 0.01; g.add(top);
+    } else {
+      const body = box(c.w, c.h, c.d, M.black); body.position.y = c.h / 2; g.add(body);
+      const front = new THREE.Mesh(new THREE.PlaneGeometry(c.sw, c.sh), new THREE.MeshBasicMaterial({ color: c.strip, toneMapped: false }));
+      front.position.set(0, c.top, c.d / 2 + 0.001); g.add(front); strip = front.material;
+      const top = box(c.w * 0.92, 0.03, c.d * 0.9, M.desk); top.position.y = c.h + 0.015; g.add(top);
+      if (v === 1 || v === 3) [-c.w * 0.3, c.w * 0.3].forEach(x => { const d = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.03, 28), M.desk); d.position.set(x, c.h + 0.04, 0); g.add(d); });
+      if (v === 5) { const tee = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.12), new THREE.MeshBasicMaterial({ color: 0xe65837, toneMapped: false })); tee.position.set(0, c.top - 0.25, c.d / 2 + 0.002); g.add(tee); }
+    }
+    g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+    return { g, strip };
+  }
+  // Cambia el modelo de cabina conservando sitio, giro y la DJ que va dentro.
+  function swapBooth(v) {
+    const old = rig.booth;
+    const { g, strip } = buildBoothV(v);
+    g.position.copy(old.position); g.rotation.copy(old.rotation); g.scale.copy(old.scale);
+    g.userData = Object.assign({}, old.userData, { variant: v });
+    g.visible = old.visible;
+    scene.remove(old); scene.add(g);
+    draggables[draggables.indexOf(old)] = g;
+    if (rig.dj && rig.dj.g) { g.add(rig.dj.g); }
+    rig.booth = g; rig.boothStrip = strip; rig.boothV = v;
+    g.userData.blob = null; contact(g);
+  }
+  // PAR LED de extra: se añade como objeto propio, colgado a 0,9 m o en el suelo.
+  function buildExtraPar() {
+    const p = buildPar(), g = p.g;
+    tag(g, 'par'); g.userData.lift = 0.9; g.userData.par = p;
+    scene.add(g); draggables.push(g); contact(g);
+    return g;
+  }
+
   function buildTower(h, withHead) {
     const g = new THREE.Group();
     const base = box(0.6, 0.02, 0.6, M.pole); base.position.y = 0.01; g.add(base);
     trussRun(new THREE.Vector3(0, 0.02, 0), new THREE.Vector3(0, h, 0), M.alu, g);
     const top = box(0.36, 0.02, 0.36, M.alu); top.position.y = h + 0.01; g.add(top);
     g.traverse(o => { if (o.isMesh) o.castShadow = true; });
-    g.userData.towerH = h; g.userData.head = !!withHead;
-    if (withHead) {
+    const topKind = withHead === true ? 'head' : withHead === false || withHead == null ? 'none' : withHead;
+    g.userData.towerH = h; g.userData.top = topKind; g.userData.head = topKind === 'head';
+    if (topKind === 'head') {
       const hd = buildHead(); hd.g.rotation.x = Math.PI; hd.g.position.y = h + 0.02; hd.phase = Math.random() * 6;
       g.add(hd.g); g.userData.rigHead = hd;
+    } else if (topKind === 'par') {
+      const pr = buildPar(); pr.g.position.set(0, h + 0.1, 0.12); pr.g.rotation.x = 0.5;
+      g.add(pr.g); g.userData.rigPar = pr;
     }
     return g;
   }
   function rebuildTower(o, h, withHead) {
     const n = buildTower(h, withHead);
     n.position.copy(o.position); n.rotation.copy(o.rotation); n.scale.copy(o.scale);
-    n.userData = Object.assign({}, o.userData, { towerH: h, head: withHead, rigHead: n.userData.rigHead });
+    n.userData = Object.assign({}, o.userData, { towerH: h, top: n.userData.top, head: n.userData.head, rigHead: n.userData.rigHead, rigPar: n.userData.rigPar });
     n.visible = o.visible;
     scene.remove(o); scene.add(n);
     draggables[draggables.indexOf(o)] = n;
@@ -2042,6 +2102,7 @@ const Stage = (() => {
 
     const boothStripHolder = buildBooth();
     rig.booth = addDraggable(make('booth', () => boothStripHolder), 'booth');
+    rig.boothV = 1;
     rig.dj = buildDJ(); rig.dj.g.position.set(0, 0, -0.62); rig.booth.add(rig.dj.g);
     const lecternHolder = buildLectern();
     rig.lectern = addDraggable(make('lectern', () => lecternHolder), 'lectern');
@@ -2197,7 +2258,7 @@ const Stage = (() => {
     const u = o.userData;
     if (u.kind === 'tarima') return { kind: 'tarima', label: 'Tarima', tarima: Object.assign({}, TAR) };
     if (u.kind === 'truss') return { kind: 'truss', label: KIND.truss, truss: Object.assign({}, TR) };
-    if (u.kind === 'tower') return { kind: 'tower', label: KIND.tower, towerH: u.towerH, head: u.head, lift: u.lift, size: u.size };
+    if (u.kind === 'tower') return { kind: 'tower', label: KIND.tower, towerH: u.towerH, head: u.head, top: u.top || (u.head ? 'head' : 'none'), lift: u.lift, size: u.size };
     return { kind: u.kind, label: KIND[u.kind] || 'Equipo', size: u.size, inch: u.inch, lift: u.lift, dims: u.dims ? u.dims.slice() : null, rot: Math.round(THREE.MathUtils.radToDeg(o.rotation.y)), real: !!u.real, hung: !!u.hung, canHang: (u.kind === 'wall' || u.kind === 'screen' || u.kind === 'head') && rig.truss.visible };
   }
 
@@ -2237,7 +2298,7 @@ const Stage = (() => {
     else if (prop === 'hang') { if (u.kind === 'head') { hangHead(o, !!v); t = o; } else t = hang(o, !!v); }
     else if (prop === 'truss' && u.kind === 'truss') { setTruss(v); notify(); return info(rig.truss); }
     else if (prop === 'reset' && u.kind === 'truss') { Object.assign(TR, TR0); u.moved = false; rig.truss.rotation.y = 0; setTruss({}); notify(); return info(rig.truss); }
-    else if (prop === 'tower' && u.kind === 'tower') t = rebuildTower(o, Math.max(1, Math.min(6, v.h)), !!v.head);
+    else if (prop === 'tower' && u.kind === 'tower') t = rebuildTower(o, Math.max(1, Math.min(6, v.h)), v.top || (v.head ? 'head' : 'none'));
     else if (prop === 'dims' && u.kind === 'wall') t = rebuildWall(o, Math.max(1, Math.min(16, v[0])), Math.max(0.5, Math.min(8, v[1])));
     else if (prop === 'reset' && u.kind === 'tarima') { setTarima(TAR0); notify(); return info(rig.tarima); }
     else if (prop === 'reset') {
@@ -2436,6 +2497,8 @@ const Stage = (() => {
       place(m, mx, mz, true);
     });
 
+    const bv = [1, 2, 3, 4, 5].find(k => x['booth' + k]) || 1;
+    if (rig.boothV !== bv) swapBooth(bv);
     rig.booth.visible = cfg.booth;
     if (!rig.booth.userData.moved) place(rig.booth, 0, -0.7, true, 0);
     rig.dj.g.visible = cfg.dj;
@@ -2469,6 +2532,15 @@ const Stage = (() => {
     });
     rig.haze.visible = cfg.haze;
 
+    const npx = vis(x.par || 0, 'pars');
+    rig.xpars = rig.xpars || [];
+    fill(rig.xpars, npx, () => buildExtraPar());
+    rig.xpars.forEach((o, i) => {
+      o.visible = i < npx;
+      if (!o.visible || o.userData.moved) return;
+      const side = i % 2 ? 1 : -1, row = Math.floor(i / 2);
+      place(o, side * (1.6 + row * 0.9), -0.6 - (row % 2) * 0.5, false, 0);
+    });
     const nt = vis(cfg.totems, 'totems');
     fill(rig.totems, nt, () => addDraggable(make('totem', buildTotem), 'totem'));
     rig.totems.forEach((t, i) => {
@@ -2487,6 +2559,8 @@ const Stage = (() => {
     rig.heads.forEach((h, i) => { const c = i % 2 ? pal.b : pal.a; h.lensMat.color.setHex(c); h.beamMat.color.setHex(c); h.beamMat.opacity = beamOp; });
     rig.towers.forEach((o, i) => { const h = o.userData.rigHead; if (!h) return; const c = i % 2 ? pal.a : pal.b; h.lensMat.color.setHex(c); h.beamMat.color.setHex(c); h.beamMat.opacity = beamOp; });
     rig.pars.forEach(pr => { pr.lensMat.color.setHex(pal.b); pr.beamMat.color.setHex(pal.b); pr.beamMat.opacity = cfg.haze ? 0.12 : 0.06; });
+    (rig.xpars || []).forEach(o => { const pr = o.userData.par; if (pr) { pr.lensMat.color.setHex(pal.b); pr.beamMat.color.setHex(pal.b); pr.beamMat.opacity = cfg.haze ? 0.12 : 0.06; } });
+    rig.towers.forEach(o => { const pr = o.userData.rigPar; if (pr) { pr.lensMat.color.setHex(pal.b); pr.beamMat.color.setHex(pal.b); pr.beamMat.opacity = cfg.haze ? 0.12 : 0.06; } });
     rig.bars.forEach(b => { b.glowMat.color.setHex(pal.a); b.glowMat.opacity = cfg.haze ? 0.14 : 0.07; });
     rig.boothStrip.color.setHex(pal.a);
     rig.lecternStrip.color.setHex(pal.a);
@@ -2504,6 +2578,8 @@ const Stage = (() => {
     if (cfg.screens) leg.push(`${cfg.screens} pantalla${cfg.screens > 1 ? 's' : ''}`);
     if (cfg.dj) leg.push('DJ');
     if (cfg.lectern) leg.push('Atril');
+    if (npx) leg.push(`${npx} PAR LED`);
+    if (cfg.booth) leg.push(`Cabina DJ ${bv}`);
     leg.push(pal.label);
     $('stage-legend').innerHTML = leg.map(t => `<span>${t}</span>`).join('');
     queueCommit();
@@ -3088,7 +3164,7 @@ const Stage = (() => {
   const POOLS = ['speakers', 'trx', 'mics', 'screens', 'totems', 'cams', 'towers'], SINGLE = ['booth', 'lectern', 'foh'];
   function itemState(o) {
     const u = o.userData;
-    return { x: r3(o.position.x), y: r3(o.position.y), z: r3(o.position.z), ry: r3(o.rotation.y), s: r3(o.scale.x), lift: u.lift || 0, size: u.size || 1, inch: u.inch || 55, moved: !!u.moved, hung: !!u.hung, dims: u.dims, towerH: u.towerH, head: u.head };
+    return { x: r3(o.position.x), y: r3(o.position.y), z: r3(o.position.z), ry: r3(o.rotation.y), s: r3(o.scale.x), lift: u.lift || 0, size: u.size || 1, inch: u.inch || 55, moved: !!u.moved, hung: !!u.hung, dims: u.dims, towerH: u.towerH, head: u.head, top: u.top || (u.head ? 'head' : 'none') };
   }
   function getLayout() {
     const items = { walls: {} };
@@ -3108,7 +3184,8 @@ const Stage = (() => {
     let t = o;
     const u = o.userData;
     if (u.kind === 'wall' && st.dims && (st.dims[0] !== u.dims[0] || st.dims[1] !== u.dims[1])) t = rebuildWall(t, st.dims[0], st.dims[1]);
-    if (u.kind === 'tower' && st.towerH && (st.towerH !== u.towerH || !!st.head !== !!u.head)) t = rebuildTower(t, st.towerH, !!st.head);
+    const stTop = st.top || (st.head ? 'head' : 'none');
+    if (u.kind === 'tower' && st.towerH && (st.towerH !== u.towerH || stTop !== (u.top || (u.head ? 'head' : 'none')))) t = rebuildTower(t, st.towerH, stTop);
     if (!!st.hung !== !!t.userData.hung) t = hang(t, !!st.hung);
     Object.assign(t.userData, { lift: st.lift, size: st.size, inch: st.inch, moved: st.moved });
     t.scale.setScalar(st.s || 1);
