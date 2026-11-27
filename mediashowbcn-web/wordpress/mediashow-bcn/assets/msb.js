@@ -3403,27 +3403,37 @@ const Stage = (() => {
   else if (packParam && packById(packParam)) openQuoterWithPack(packParam);
   else if (location.hash === '#cotizador') switchView('quoter', false);
 
-  /* Visor a pantalla completa con panel de ajustes: escena, añadir equipos, lista y total */
+  /* v7: panel de trabajo dentro del visor (siempre disponible, plegable) y pantalla completa */
   function setupFS() {
     const box = document.querySelector('.stage-box'), btn = $('fs-btn');
     if (!box || !btn) return;
     const dock = document.createElement('div');
-    dock.className = 'stage-dock'; dock.id = 'stage-dock'; dock.hidden = true;
+    dock.className = 'stage-dock'; dock.id = 'stage-dock';
     const pals = [['dm', 'Show naranja y cian'], ['amber', 'Gala ámbar cálido'], ['corp', 'Corporativo limpio']];
     dock.innerHTML = `
-      <div class="dock-sec"><strong>Escena y colores</strong><div class="dock-seg" role="radiogroup">${pals.map(([v, l]) => `<button type="button" role="radio" data-dm="${v}">${l}</button>`).join('')}</div></div>
-      <div class="dock-sec"><strong>Total orientativo</strong><div class="dock-total" id="dock-total">0,00 €</div><a class="btn btn-sm btn-pri" id="dock-wa" href="#" target="_blank" rel="noopener">Enviar por WhatsApp</a></div>
-      <div class="dock-sec"><strong>Añadir al render</strong><div id="dock-add"></div></div>
-      <div class="dock-sec" id="dock-list"></div>`;
+      <button type="button" class="dock-head" id="dock-toggle" aria-expanded="true"><span>Panel de trabajo</span><span class="dock-caret" aria-hidden="true">▾</span></button>
+      <div class="dock-body" id="dock-body">
+        <div class="dock-sec"><strong>Escena y colores</strong><div class="dock-seg" role="radiogroup">${pals.map(([v, l]) => `<button type="button" role="radio" data-dm="${v}">${l}</button>`).join('')}</div></div>
+        <div class="dock-sec"><strong>Total orientativo</strong><div class="dock-total" id="dock-total">0,00 €</div><a class="btn btn-sm btn-pri" id="dock-wa" href="#" target="_blank" rel="noopener">Enviar por WhatsApp</a></div>
+        <div class="dock-sec"><strong>Añadir al render</strong><div id="dock-add"></div></div>
+        <div class="dock-sec" id="dock-list"></div>
+      </div>`;
     box.appendChild(dock);
+    const addBar = $('add-bar'), workBox = $('work-box');
+    $('dock-add').appendChild(addBar); $('dock-list').appendChild(workBox);
     dock.addEventListener('click', e => {
       const b = e.target.closest('button[data-dm]');
       if (!b) return;
       $('dm-select').value = b.dataset.dm; $('dm-select').dispatchEvent(new Event('change'));
     });
-    const addBar = $('add-bar'), workBox = $('work-box');
-    const home = { add: { p: addBar.parentNode, n: addBar.nextSibling }, work: { p: workBox.parentNode, n: workBox.nextSibling } };
-    const back = () => { home.add.p.insertBefore(addBar, home.add.n); home.work.p.insertBefore(workBox, home.work.n); };
+    const setOpen = open => {
+      $('dock-body').hidden = !open; $('dock-toggle').setAttribute('aria-expanded', open ? 'true' : 'false');
+      dock.classList.toggle('collapsed', !open); box.classList.toggle('dock-open', open);
+      try { localStorage.setItem('msb-dock', open ? '1' : '0'); } catch (e) { /* sin almacenamiento */ }
+    };
+    $('dock-toggle').addEventListener('click', () => setOpen($('dock-body').hidden));
+    let saved = null; try { saved = localStorage.getItem('msb-dock'); } catch (e) { /* sin almacenamiento */ }
+    setOpen(saved === null ? window.matchMedia('(min-width: 900px)').matches : saved === '1');
     const syncPal = () => dock.querySelectorAll('button[data-dm]').forEach(b => b.setAttribute('aria-checked', b.dataset.dm === $('dm-select').value ? 'true' : 'false'));
     $('dm-select').addEventListener('change', syncPal); syncPal();
     const label = () => { btn.textContent = document.fullscreenElement === box ? 'Salir de pantalla completa' : 'Pantalla completa'; };
@@ -3431,14 +3441,7 @@ const Stage = (() => {
       if (document.fullscreenElement === box) document.exitFullscreen();
       else if (box.requestFullscreen) box.requestFullscreen().catch(() => {});
     });
-    document.addEventListener('fullscreenchange', () => {
-      const on = document.fullscreenElement === box;
-      label();
-      dock.hidden = !on;
-      if (on) { $('dock-add').appendChild(addBar); $('dock-list').appendChild(workBox); }
-      else back();
-      window.dispatchEvent(new Event('resize'));
-    });
+    document.addEventListener('fullscreenchange', () => { label(); window.dispatchEvent(new Event('resize')); });
   }
   // La cotización va justo debajo del visor, a todo el ancho.
   (function placeQuote() {

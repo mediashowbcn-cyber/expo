@@ -392,12 +392,16 @@ details.fit-sec[open] { gap: 10px; }
   .qs-body > .proposal-box, .qs-body > #pack-hint { grid-column: 1 / -1; }
 }
 
-/* Pantalla completa del cotizador: visor a toda la pantalla y panel de ajustes */
-.stage-dock[hidden] { display: none; }
-.stage-box:fullscreen .stage-dock, .stage-box:-webkit-full-screen .stage-dock { display: grid; position: absolute; top: 0; right: 0; bottom: 0; width: 340px; overflow-y: auto; gap: 14px; padding: 14px; background: rgba(10,10,10,.94); border-left: 1px solid #2a2a2a; z-index: 20; align-content: start; }
-.stage-box:fullscreen .stage-bar, .stage-box:-webkit-full-screen .stage-bar { right: 350px; }
-.stage-box:fullscreen .insp, .stage-box:-webkit-full-screen .insp { right: 352px; }
-.stage-box:fullscreen .stage-legend, .stage-box:-webkit-full-screen .stage-legend { right: 352px; }
+/* v7: panel de trabajo dentro del visor, plegable */
+.stage-dock { position: absolute; top: 12px; right: 12px; z-index: 12; width: 300px; max-height: calc(100% - 130px); overflow-y: auto; background: rgba(10,10,10,.93); border: 1px solid #2a2a2a; border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,.45); backdrop-filter: blur(6px); }
+.stage-dock.collapsed { width: auto; max-height: none; }
+.dock-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%; padding: 10px 14px; background: transparent; border: 0; border-bottom: 1px solid #222; color: #F4F0E8; font: 700 13px/1 'Work Sans', system-ui, sans-serif; letter-spacing: .04em; text-transform: uppercase; cursor: pointer; }
+.stage-dock.collapsed .dock-head { border-bottom: 0; }
+.dock-caret { transition: transform .2s; color: #E65837; }
+.dock-head[aria-expanded="false"] .dock-caret { transform: rotate(-90deg); }
+.dock-body { display: grid; gap: 14px; padding: 14px; align-content: start; }
+.dock-body[hidden] { display: none; }
+.stage-box.dock-open .insp { right: 324px; }
 .dock-sec { display: grid; gap: 8px; }
 .dock-sec > strong { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: #A6A49E; }
 .dock-seg { display: grid; gap: 6px; }
@@ -406,5 +410,6 @@ details.fit-sec[open] { gap: 10px; }
 .dock-total { font-family: 'Bebas Neue', sans-serif; font-size: 34px; color: #E65837; line-height: 1; }
 #dock-add { display: flex; flex-wrap: wrap; gap: 6px; }
 #dock-add .add-bar { margin: 0; }
-#dock-list .work-box { margin: 0; }
-@media (max-width: 680px) { .stage-box:fullscreen .stage-dock, .stage-box:-webkit-full-screen .stage-dock { width: 78vw; } .stage-box:fullscreen .stage-bar { right: 0; } }
+#dock-list .work-box { margin: 0; padding: 0; background: none; border: 0; }
+#dock-list .work-box h3 { display: none; }
+@media (max-width: 680px) { .stage-dock { width: 240px; } .stage-box:fullscreen .stage-dock { width: 78vw; } }
