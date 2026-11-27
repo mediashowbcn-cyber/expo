@@ -6,7 +6,8 @@
 
 defined( 'ABSPATH' ) || exit;
 
-const MSB_ESTADOS = array( 'Nuevo', 'Contactado', 'Propuesta enviada', 'Propuesta aprobada', 'Reservado', 'Cliente', 'Perdido' );
+// Los mismos estados que usa Flow (Cotizado = propuesta enviada; Ganado = reserva pagada), más la aprobación del cliente.
+const MSB_ESTADOS = array( 'Nuevo', 'Contactado', 'Cotizado', 'Propuesta aprobada', 'Ganado', 'Perdido' );
 
 add_action(
 	'init',
@@ -175,7 +176,7 @@ function msb_lead_desde_pedido( $order_id ) {
 		'Reserva pagada · pedido #' . $order_id
 	);
 	if ( $id ) {
-		update_post_meta( $id, '_msb_estado', 'Reservado' );
+		update_post_meta( $id, '_msb_estado', 'Ganado' );
 		$order->update_meta_data( '_msb_lead_marcado', 1 );
 		$order->save();
 	}
@@ -375,7 +376,7 @@ function msb_resumen_pagina() {
 	foreach ( $ids as $id ) {
 		$e = get_post_meta( $id, '_msb_estado', true ) ?: 'Nuevo';
 		$por[ $e ] = ( $por[ $e ] ?? 0 ) + 1;
-		if ( 'Perdido' !== $e && 'Cliente' !== $e ) {
+		if ( 'Perdido' !== $e && 'Ganado' !== $e ) {
 			$pipeline += (float) get_post_meta( $id, '_msb_importe', true );
 		}
 		if ( strtotime( (string) get_post_meta( $id, '_msb_creado', true ) ) > strtotime( '-30 days' ) ) {
@@ -383,7 +384,7 @@ function msb_resumen_pagina() {
 		}
 	}
 	$total   = count( $ids );
-	$ganados = ( $por['Reservado'] ?? 0 ) + ( $por['Cliente'] ?? 0 );
+	$ganados = $por['Ganado'] ?? 0;
 	$conv    = $total ? round( 100 * $ganados / $total ) : 0;
 	echo '<div class="wrap"><h1>Resumen comercial</h1>';
 	echo '<p><strong>' . (int) $total . '</strong> solicitudes · <strong>' . (int) $mes . '</strong> en los últimos 30 días · conversión <strong>' . (int) $conv . ' %</strong> · pipeline abierto <strong>' . esc_html( number_format( $pipeline, 2, ',', '.' ) ) . ' €</strong> (estimado)</p>';

@@ -78,12 +78,19 @@ function msb_gestion_ruta( $path ) {
 /* ---------- Lectura y escritura ---------- */
 
 function msb_gestion_leer( $col, $doc ) {
+	if ( 'leads' === $col ) {
+		$id = msb_lead_post_de_docid( $doc );
+		return $id ? msb_lead_a_flow( $id ) : null;
+	}
 	global $wpdb;
 	$fila = $wpdb->get_var( $wpdb->prepare( 'SELECT data FROM ' . msb_gestion_tabla() . ' WHERE col = %s AND doc = %s', $col, $doc ) ); // phpcs:ignore WordPress.DB.PreparedSQL
 	return null === $fila ? null : json_decode( $fila, true );
 }
 
 function msb_gestion_guardar( $col, $doc, $data ) {
+	if ( 'leads' === $col ) {
+		return msb_lead_desde_flow( $doc, $data ) ? true : new WP_Error( 'msb_lead', 'No se ha podido guardar la solicitud.', array( 'status' => 500 ) );
+	}
 	global $wpdb;
 	$json = wp_json_encode( $data, JSON_UNESCAPED_UNICODE );
 	if ( strlen( $json ) > 2 * 1024 * 1024 ) {
@@ -150,7 +157,11 @@ add_action(
 						if ( ! $r ) {
 							return new WP_Error( 'msb_ruta', 'Ruta no válida.', array( 'status' => 400 ) );
 						}
-						$wpdb->delete( msb_gestion_tabla(), array( 'col' => $r[0], 'doc' => $r[1] ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+						if ( 'leads' === $r[0] ) {
+							msb_lead_borrar_flow( $r[1] );
+						} else {
+							$wpdb->delete( msb_gestion_tabla(), array( 'col' => $r[0], 'doc' => $r[1] ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+						}
 						return array( 'ok' => true );
 					},
 				),
@@ -169,6 +180,7 @@ add_action(
 					foreach ( (array) $filas as $f ) {
 						$firmas[ $f['col'] ] = $f['n'] . '|' . $f['u'];
 					}
+					$firmas['leads'] = msb_lead_firma_flow();
 					return $firmas;
 				},
 			)
@@ -185,6 +197,9 @@ add_action(
 						$col = (string) $req->get_param( 'name' );
 						if ( ! msb_gestion_nombre_valido( $col ) ) {
 							return new WP_Error( 'msb_col', 'Colección no válida.', array( 'status' => 400 ) );
+						}
+						if ( 'leads' === $col ) {
+							return array( 'docs' => msb_lead_listar_flow() );
 						}
 						$filas = $wpdb->get_results( $wpdb->prepare( 'SELECT doc, data FROM ' . msb_gestion_tabla() . ' WHERE col = %s ORDER BY id ASC LIMIT 5000', $col ), ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL
 						$docs  = array();
