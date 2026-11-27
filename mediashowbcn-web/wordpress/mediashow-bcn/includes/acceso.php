@@ -465,17 +465,17 @@ add_action(
 	5
 );
 
-/* ---------- Aviso en la tienda para quien no ha entrado ---------- */
+/* ---------- La tienda solo es para clientes registrados ---------- */
 
 add_action(
-	'woocommerce_before_main_content',
+	'template_redirect',
 	function () {
 		if ( is_user_logged_in() ) {
 			return;
 		}
-		echo '<div class="msb-aviso-cuenta" role="region" aria-label="Entra o regístrate">';
-		echo '<p><strong>Entra o regístrate para finalizar tu compra.</strong> Con tu cuenta también puedes visitar el cotizador 3D y ver tu evento antes de reservar.</p>';
-		echo '<a class="button msb-aviso-btn" href="' . esc_url( home_url( '/#cotizador' ) ) . '">Entrar o registrarme</a>';
-		echo '</div>';
+		if ( function_exists( 'is_woocommerce' ) && ( is_woocommerce() || is_cart() || is_checkout() || is_account_page() ) ) {
+			wp_safe_redirect( add_query_arg( 'acceso', 'tienda', home_url( '/#cotizador' ) ) );
+			exit;
+		}
 	}
 );

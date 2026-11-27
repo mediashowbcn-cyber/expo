@@ -162,6 +162,31 @@ $msb_ld = array(
 		</section>
 		<?php endif; ?>
 
+		<?php $msb_gal = msb_galeria(); ?>
+		<?php if ( $msb_gal['embed'] || $msb_gal['mp4'] || $msb_gal['imagenes'] ) : ?>
+		<section class="sec-block galeria-media" id="galeria-media" aria-labelledby="gal-t">
+			<div class="container">
+				<div class="eyebrow">Galería</div>
+				<h2 class="sec-title" id="gal-t">Así se ve un evento nuestro</h2>
+				<?php if ( $msb_gal['embed'] ) : ?>
+					<div class="galeria-video"><iframe src="<?php echo esc_url( $msb_gal['embed'] ); ?>" title="Vídeo de Media Show BCN" loading="lazy" allow="accelerometer; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>
+				<?php elseif ( $msb_gal['mp4'] ) : ?>
+					<div class="galeria-video"><video controls preload="metadata" src="<?php echo esc_url( $msb_gal['video'] ); ?>"></video></div>
+				<?php endif; ?>
+				<?php if ( $msb_gal['imagenes'] ) : ?>
+					<div class="carrusel" data-carrusel>
+						<button type="button" class="carrusel-btn" data-dir="-1" aria-label="Imagen anterior">‹</button>
+						<div class="carrusel-pista">
+							<?php foreach ( $msb_gal['imagenes'] as $img ) : ?><img src="<?php echo esc_url( $img ); ?>" alt="Foto de un evento de Media Show BCN" loading="lazy" /><?php endforeach; ?>
+						</div>
+						<button type="button" class="carrusel-btn" data-dir="1" aria-label="Imagen siguiente">›</button>
+					</div>
+				<?php endif; ?>
+				<p class="galeria-mas"><a class="btn" href="<?php echo esc_url( $msb_gal['url'] ); ?>">Ver toda la galería →</a></p>
+			</div>
+		</section>
+		<?php endif; ?>
+
 		<section class="call-cta" aria-labelledby="call-t">
 			<div class="container call-in">
 				<a class="call-orb" href="<?php echo esc_url( $msb_tel ); ?>" aria-label="Llamar ahora al <?php echo esc_attr( msb_opt( 'phone_label' ) ); ?>">

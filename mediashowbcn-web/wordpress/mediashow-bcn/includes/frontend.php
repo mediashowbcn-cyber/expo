@@ -141,3 +141,24 @@ add_action(
 	},
 	1
 );
+
+/**
+ * Galería de la portada: vídeo (YouTube, Vimeo o MP4) e imágenes, con la URL de la página de galería.
+ */
+function msb_galeria() {
+	$video = (string) msb_opt( 'galeria_video' );
+	$embed = '';
+	if ( preg_match( '#(?:youtube\.com/watch\?v=|youtu\.be/|youtube\.com/shorts/)([\w-]{6,})#', $video, $m ) ) {
+		$embed = 'https://www.youtube-nocookie.com/embed/' . $m[1];
+	} elseif ( preg_match( '#vimeo\.com/(?:video/)?(\d+)#', $video, $m ) ) {
+		$embed = 'https://player.vimeo.com/video/' . $m[1];
+	}
+	$imagenes = array_values( array_filter( array_map( 'trim', explode( ',', (string) msb_opt( 'galeria_imagenes' ) ) ) ) );
+	return array(
+		'video'    => $video,
+		'embed'    => $embed,
+		'mp4'      => '' === $embed && '' !== $video,
+		'imagenes' => $imagenes,
+		'url'      => home_url( '/galeria/' ),
+	);
+}

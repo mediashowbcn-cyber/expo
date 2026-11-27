@@ -27,6 +27,8 @@ function msb_defaults() {
 		'chat_ip_limit'    => 20,
 		'chat_daily_limit' => 300,
 		'chat_greeting'    => '¡Hola! Soy el asistente de Media Show BCN. Cuéntame tu evento (tipo, fecha y personas) y te preparo el montaje en 3D.',
+		'galeria_video'        => '',
+		'galeria_imagenes'    => '',
 		'google_client_id'     => '',
 		'google_client_secret' => '',
 	);
@@ -60,6 +62,8 @@ function msb_sanitize_settings( $in ) {
 	$out['chat_ip_limit']    = isset( $in['chat_ip_limit'] ) ? min( 500, max( 1, (int) $in['chat_ip_limit'] ) ) : $d['chat_ip_limit'];
 	$out['chat_daily_limit'] = isset( $in['chat_daily_limit'] ) ? min( 100000, max( 1, (int) $in['chat_daily_limit'] ) ) : $d['chat_daily_limit'];
 	$out['chat_greeting']    = isset( $in['chat_greeting'] ) ? mb_substr( sanitize_text_field( $in['chat_greeting'] ), 0, 300 ) : $d['chat_greeting'];
+	$out['galeria_video'] = isset( $in['galeria_video'] ) ? esc_url_raw( trim( $in['galeria_video'] ) ) : $d['galeria_video'];
+	$out['galeria_imagenes'] = isset( $in['galeria_imagenes'] ) ? implode( ',', array_slice( array_filter( array_map( 'esc_url_raw', array_map( 'trim', explode( ',', $in['galeria_imagenes'] ) ) ) ), 0, 12 ) ) : $d['galeria_imagenes'];
 	$out['google_client_id']     = isset( $in['google_client_id'] ) ? sanitize_text_field( $in['google_client_id'] ) : $d['google_client_id'];
 	$out['google_client_secret'] = isset( $in['google_client_secret'] ) ? sanitize_text_field( $in['google_client_secret'] ) : $d['google_client_secret'];
 	return $out;
@@ -111,6 +115,8 @@ function msb_settings_page() {
 		'included_hours' => array( 'Horas incluidas en cada pack', 'number' ),
 		'extra_hour'     => array( 'Precio hora extra (€, sin IVA)', 'number' ),
 		'ionos_agent'    => array( 'ID del asistente IA de IONOS', 'text' ),
+		'galeria_video'     => array( 'Galería: enlace de vídeo (YouTube, Vimeo o MP4)', 'text' ),
+		'galeria_imagenes' => array( 'Galería: imágenes (URL separadas por comas, máx. 12)', 'text' ),
 		'google_client_id'     => array( 'Google: ID de cliente OAuth (vacío = botón oculto)', 'text' ),
 		'google_client_secret' => array( 'Google: secreto de cliente OAuth', 'text' ),
 		'flow_webhook'   => array( 'URL de MediaShowFlow: recibe un aviso al aprobar una propuesta (vacío = desactivado)', 'text' ),

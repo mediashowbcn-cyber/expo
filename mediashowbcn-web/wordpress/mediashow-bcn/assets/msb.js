@@ -1150,6 +1150,7 @@ tr{break-inside:avoid}
     const hc = $('header-cuenta'); if (hc) hc.textContent = inside ? 'Mi cuenta' : 'Entrar / Registrarse';
     const gb = $('google-btn'); if (gb) gb.hidden = !A.google || inside;
     if (A.estado === 'google_error') { $('acceso-state').textContent = 'No hemos podido entrar con Google. Prueba de nuevo o usa tu correo.'; }
+    if (A.estado === 'tienda') { $('acceso-state').textContent = 'Entra o regístrate para ver la tienda, comprar y visitar el cotizador 3D.'; }
     if (A.estado === 'no_disponible') { $('acceso-state').textContent = 'El acceso con Google todavía no está activo. Usa tu correo.'; }
     document.body.classList.toggle('is-public', !inside);
     $('acceso-forms').hidden = inside;
@@ -1218,6 +1219,11 @@ tr{break-inside:avoid}
     });
     form.querySelectorAll('[data-legal="privacidad"]').forEach(a => { if (D.privacy) a.href = D.privacy; });
   }
+  /* Carrusel de la galería de la portada */
+  document.querySelectorAll('[data-carrusel]').forEach(c => {
+    const pista = c.querySelector('.carrusel-pista');
+    c.querySelectorAll('.carrusel-btn').forEach(b => b.addEventListener('click', () => pista.scrollBy({ left: Number(b.dataset.dir) * pista.clientWidth * 0.8, behavior: 'smooth' })));
+  });
   /* Barra del visor: seleccionar, mover, acercar y ajustar el tamaño del equipo. */
   function setupViewerTools() {
     const box = document.querySelector('.stage-box');
