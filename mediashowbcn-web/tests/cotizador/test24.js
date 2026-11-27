@@ -1,0 +1,20 @@
+const { chromium } = require('playwright');
+const route = require('./route160.js');
+(async () => {
+  const b = await chromium.launch({ args: ['--use-gl=swiftshader', '--enable-webgl', '--ignore-gpu-blocklist'] });
+  const p = await b.newPage({ viewport: { width: 1280, height: 800 } });
+  const errs = []; p.on('pageerror', e => errs.push(e.message));
+  await p.route('**/*', route);
+  await p.goto('http://localhost:8099/', { waitUntil: 'domcontentloaded', timeout: 90000 });
+  await p.waitForFunction(() => window.THREE && THREE.REVISION);
+  await p.evaluate(() => { localStorage.removeItem('msb-dock'); msbApplyConfig({ pack: 25, asistentes: 100, extras: [{ id: 50 }] }); openQuoterWithPack(25); });
+  await p.waitForTimeout(1500);
+  console.log('dock open:', await p.isVisible('#dock-body'), '| add bar inside dock:', await p.evaluate(() => !!document.querySelector('#stage-dock #add-bar')), '| work list inside dock:', await p.evaluate(() => !!document.querySelector('#stage-dock #work-list')));
+  await p.locator('.stage-box').scrollIntoViewIfNeeded();
+  await p.locator('.stage-box').screenshot({ path: 's24-open.png' });
+  await p.click('#dock-toggle'); await p.waitForTimeout(300);
+  console.log('after toggle body visible:', await p.isVisible('#dock-body'));
+  await p.locator('.stage-box').screenshot({ path: 's24-closed.png' });
+  console.log('errors:', errs.filter(e => !/ERR_FAILED|Failed to load/.test(e)).join('; ') || 'none');
+  await b.close();
+})().catch(e => { console.error('ERR', e.message); process.exit(1); });

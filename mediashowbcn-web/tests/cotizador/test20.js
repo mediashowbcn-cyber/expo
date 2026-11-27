@@ -1,0 +1,27 @@
+const { chromium } = require('playwright');
+const route = require('./route160.js');
+(async () => {
+  const b = await chromium.launch({ args: ['--use-gl=swiftshader', '--enable-webgl', '--ignore-gpu-blocklist'] });
+  const p = await b.newPage({ viewport: { width: 1366, height: 1000 } });
+  const errs = []; p.on('pageerror', e => errs.push(e.message));
+  await p.route('**/*', route);
+  await p.goto('http://localhost:8099/', { waitUntil: 'domcontentloaded', timeout: 90000 });
+  await p.waitForFunction(() => window.THREE && THREE.REVISION);
+  await p.evaluate(() => { window.__sel = []; addEventListener('msb:select', e => __sel.push(e.detail && e.detail.kind)); msbApplyConfig({ pack: 26, asistentes: 150, extras: [{ id: 33, cantidad: 1 }] }); openQuoterWithPack(26); });
+  await p.waitForTimeout(1500);
+  console.log('work rows:', await p.$$eval('.work-row', r => r.map(x => x.innerText.replace(/\s+/g,' '))));
+  await p.click('#work-list button[data-w="33"][data-d="1"]'); await p.waitForTimeout(400);
+  console.log('after +1 heads legend:', await p.textContent('#stage-legend'));
+  await p.click('#work-list button[data-sel="head"]'); await p.waitForTimeout(400);
+  console.log('selected kind:', await p.evaluate(() => __sel[__sel.length - 1]));
+  await p.check('#insp-hang').catch(async () => {}); 
+  await p.waitForTimeout(300);
+  console.log('hang row visible:', await p.isVisible('#insp-hang-row'), 'checked:', await p.isChecked('#insp-hang'));
+  await p.uncheck('#insp-hang'); await p.waitForTimeout(300);
+  await p.fill('#insp-lift', '120'); await p.dispatchEvent('#insp-lift', 'input'); await p.waitForTimeout(300);
+  console.log('lift value:', await p.textContent('#insp-lift-val'));
+  await p.check('#insp-hang'); await p.waitForTimeout(300);
+  console.log('re-hung ok:', await p.isChecked('#insp-hang'));
+  console.log('errors:', errs.filter(e => !/ERR_FAILED|Failed to load/.test(e)).join('; ') || 'none');
+  await b.close();
+})().catch(e => { console.error('ERR', e.message); process.exit(1); });

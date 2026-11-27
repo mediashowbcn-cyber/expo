@@ -1,0 +1,23 @@
+# Pruebas del cotizador 3D
+
+Son pruebas de navegador (Playwright) contra una instalación local de WordPress
+con el plugin «Media Show BCN» y el catálogo de ejemplo de `mock/msb-mock.php`.
+
+## Puesta en marcha
+1. WordPress local (MariaDB + PHP 8.x), con el plugin en `wp-content/plugins/mediashow-bcn`.
+2. Copiar `mock/msb-mock.php` a `wp-content/mu-plugins/`.
+3. Servir la instalación en `http://localhost:8099` (`php -S localhost:8099`).
+4. Usuario de pruebas con rol administrador y `manage_woocommerce`.
+5. Playwright instalado (`npm i playwright`) con Three.js r160 en `npm2/node_modules`
+   (el archivo `route160.js` sirve Three.js, model-viewer y qrcode desde esa carpeta).
+
+## Pruebas
+- `test17.js`: exportación del render final con un equipo seleccionado.
+- `test18.js`: cabezales móviles escritos a mano desde el panel del truss.
+- `test19.js`: cotización plegable, extras plegables, centrar y traer al frente.
+- `test20.js`: cabezales individuales (arrastrar, colgar, altura) y panel de trabajo.
+- `test22.js` / `test24.js`: pantalla completa y panel dentro del visor.
+- `test12.js`: esquinas arrastrables, contorno del espacio y «Adaptar».
+- `test15.js`: enlace para el cliente, aprobación y AR.
+
+Cada prueba imprime el resultado y termina con `errors: none` si no hay errores de página.
