@@ -201,6 +201,12 @@ $msb_ld = array(
 			<p class="msg" id="acceso-state">Gratis puedes montar tu espacio en 3D con marca de agua. Con cuenta gratuita desbloqueas el plano, la planilla, el PDF, el render final y la compra.</p></div>
 			<p><a class="btn btn-sm btn-pri" id="propuesta-link" href="#" hidden>Propuesta técnica completa · 120 €</a></p>
 		</div>
+		<ol class="acceso-pasos" aria-label="Cómo funciona">
+			<li><strong>Monta tu evento en 3D, gratis.</strong> Elige pack y equipos, y sube una foto de tu sala para verlo sobre tu espacio. Sin cuenta y sin pagar nada.</li>
+			<li><strong>Crea tu cuenta en un minuto.</strong> Nombre, correo, teléfono y tipo de evento. Te enviamos un enlace para confirmar el correo; no hay contraseña que recordar.</li>
+			<li><strong>Pide la propuesta completa: 120 €.</strong> Incluye plano, planilla, render y presupuesto en PDF. Si reservas en los 30 días siguientes, se descuenta del depósito.</li>
+			<li><strong>Reserva la fecha con el <?php echo esc_html( (float) msb_opt( 'deposit' ) ); ?> %.</strong> El resto se paga antes del evento. Las condiciones están en <a href="<?php echo esc_url( $msb_links['condiciones'] ); ?>">condiciones de reserva</a>.</li>
+		</ol>
 		<div class="acceso-grid" id="acceso-forms">
 			<form class="acceso-form" id="registro-form" novalidate>
 				<strong>Crear cuenta gratis</strong>

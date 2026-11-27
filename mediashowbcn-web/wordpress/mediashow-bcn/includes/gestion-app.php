@@ -37,13 +37,19 @@ add_action(
 		if ( get_option( 'msb_gestion_db' ) !== MSB_GESTION_VERSION ) {
 			msb_gestion_instalar();
 		}
-		if ( ! get_page_by_path( 'gestion' ) ) {
+		// La gestión no es pública: la página es privada (solo la ve una sesión de administrador).
+		$gestion = get_page_by_path( 'gestion' );
+		if ( $gestion && 'publish' === $gestion->post_status && ! get_option( 'msb_gestion_privada' ) ) {
+			wp_update_post( array( 'ID' => $gestion->ID, 'post_status' => 'private' ) );
+			update_option( 'msb_gestion_privada', 1 );
+		}
+		if ( ! $gestion ) {
 			$id = wp_insert_post(
 				array(
 					'post_type'   => 'page',
 					'post_title'  => 'Gestión',
 					'post_name'   => 'gestion',
-					'post_status' => 'publish',
+					'post_status' => 'private',
 					'post_content' => '',
 				)
 			);

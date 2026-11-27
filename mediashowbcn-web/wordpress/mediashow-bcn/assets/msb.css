@@ -497,3 +497,10 @@ mark.pendiente { background: #fde68a; color: #0A0A0A; padding: 0 4px; border-rad
 .solicitud-box label.fit-check { display: flex; gap: 8px; align-items: flex-start; }
 .solicitud-box input, .solicitud-box textarea { background: #0f0f10; color: #F4F0E8; border: 1px solid #2a2a2a; border-radius: 8px; padding: 8px 10px; font: inherit; }
 .solicitud-box .err { color: #f87171; }
+
+/* v7.18.2: cómo funciona el cotizador (texto para el visitante) */
+.acceso-pasos { margin: 0 0 16px; padding: 0; list-style: none; counter-reset: paso; display: grid; gap: 10px; }
+@media (min-width: 860px) { .acceso-pasos { grid-template-columns: repeat(2, 1fr); } }
+.acceso-pasos li { counter-increment: paso; position: relative; padding: 12px 14px 12px 52px; border: 1px solid var(--line, #2a2a2a); border-radius: 12px; font-size: 14px; color: var(--gray, #A6A49E); }
+.acceso-pasos li::before { content: counter(paso); position: absolute; left: 14px; top: 12px; width: 26px; height: 26px; border-radius: 50%; background: var(--accent, #E65837); color: #0A0A0A; font-weight: 700; display: grid; place-items: center; }
+.acceso-pasos strong { color: var(--white, #F4F0E8); display: block; margin-bottom: 2px; }
