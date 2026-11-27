@@ -841,14 +841,15 @@ const CORE=[
  {k:'portal',n:'M-06',t:'Portal del cliente',ic:'portal',d:'Lo que ve su cliente: propuesta, estado y pagos.',col:null}
 ];
 const NAVG=[
- ['Clientes',['cotizador','presupuestos','clientes','contracts','portal']],
+ ['Clientes',['cotizador','presupuestos','clientes','contracts','portal','msgcom']],
  ['Eventos',['eventos','checklists','logistics','riders','venues','permits','incidents','maintenance']],
  ['Recursos',['crew','inventario','subrentals','availability','tasks']],
  ['Empresa',['invoices','expenses','suppliers','payouts','commissions','marketing','content','portfolio','reviews']]
 ];
-const ROUTES=['inicio','panel','modulos','cotizador','presupuestos','eventos','clientes','crew','inventario','portal','ajustes'].concat(MODS.map(m=>m.k));
-const NAMES={panel:'Panel',modulos:'Todos los módulos',cotizador:'Cotizador',presupuestos:'Presupuestos',eventos:'Eventos',clientes:'Clientes',crew:'Crew',inventario:'Inventario',portal:'Portal del cliente',ajustes:'Ajustes'};MODS.forEach(m=>NAMES[m.k]=m.t);
-const ICO={cotizador:'cotizador',presupuestos:'presupuestos',eventos:'eventos',clientes:'clientes',crew:'crew',inventario:'inventario',panel:'panel',modulos:'modulos',portal:'portal',ajustes:'ajustes'};MODS.forEach(m=>ICO[m.k]=m.ic);
+const ROUTES=['inicio','panel','modulos','cotizador','presupuestos','eventos','clientes','crew','inventario','portal','msgcom','ajustes'].concat(MODS.map(m=>m.k));
+ICON.mensajes='<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>';
+const NAMES={panel:'Panel',modulos:'Todos los módulos',cotizador:'Cotizador',presupuestos:'Presupuestos',eventos:'Eventos',clientes:'Clientes',crew:'Crew',inventario:'Inventario',portal:'Portal del cliente',msgcom:'Mensajes comerciales',ajustes:'Ajustes'};MODS.forEach(m=>NAMES[m.k]=m.t);
+const ICO={msgcom:'mensajes',cotizador:'cotizador',presupuestos:'presupuestos',eventos:'eventos',clientes:'clientes',crew:'crew',inventario:'inventario',panel:'panel',modulos:'modulos',portal:'portal',ajustes:'ajustes'};MODS.forEach(m=>ICO[m.k]=m.ic);
 const svg=n=>`<svg viewBox="0 0 24 24" aria-hidden="true">${ICON[n]||ICON.panel}</svg>`;
 
 /* ===== Referencias y utilidades de datos ===== */
@@ -1368,6 +1369,69 @@ const sameCli=(a,b)=>a&&b&&String(a).trim().toLowerCase()===String(b).trim().toL
 function cliQuotes(c){return S.quotes.filter(q=>q.clientId===c.id||sameCli(q.client&&q.client.company,c.company)&&c.company||sameCli(q.client&&q.client.name,c.name)&&c.name)}
 function cliEvents(c){return S.events.filter(e=>sameCli(e.client,c.company)&&c.company||sameCli(e.client,c.name)&&c.name)}
 function cliValue(c){const inv=S.invoices.filter(i=>i.client===c.id&&i.st!=='Anulada');if(inv.length)return sumBy(inv,'total');return sumBy(cliQuotes(c).filter(q=>q.status==='aceptado'),'total')}
+/* ===== Mensajes comerciales: plantillas con los datos del cliente, enviadas por WhatsApp o correo ===== */
+const MSG_TPL=[
+ {id:'primer',t:'Primer contacto',d:'Respuesta a una solicitud nueva',x:'Buenos días {cliente}. Gracias por su solicitud para {evento} ({personas} personas, {fecha}). Le preparo una propuesta a medida y se la envío en breve. ¿Le viene bien que le llame hoy o mañana?'},
+ {id:'propuesta',t:'Propuesta enviada',d:'Con el enlace de la propuesta',x:'Buenos días {cliente}. Le adjunto la propuesta para {evento}: {pack}, total con IVA {total}. Puede verla y aprobarla aquí: {enlace}. Quedo a su disposición para cualquier cambio.'},
+ {id:'seguimiento',t:'Seguimiento',d:'Propuesta sin respuesta después de 3 días',x:'Hola {cliente}, ¿pudo revisar la propuesta para {evento}? Si quiere ajustar algún equipo o la fecha, lo cambiamos hoy mismo. Un saludo.'},
+ {id:'reserva',t:'Reserva recibida',d:'Depósito cobrado, fecha confirmada',x:'{cliente}, hemos recibido su reserva para {evento} el {fecha}. Su fecha queda confirmada. El saldo ({saldo}) se paga antes del evento. Gracias por confiar en Media Show.'},
+ {id:'saldo',t:'Recordatorio de saldo',d:'Pago pendiente antes del evento',x:'Hola {cliente}, le recordamos que queda pendiente el saldo de {saldo} para {evento} ({fecha}). Puede pagarlo por transferencia o con el enlace que le enviamos. Gracias.'},
+ {id:'confirmacion',t:'Confirmación final',d:'Una semana antes del evento',x:'{cliente}, dentro de una semana montamos {evento}. Le confirmamos la hora de llegada del equipo y la persona de contacto el día anterior. ¿Hay algún cambio de última hora?'},
+ {id:'oferta',t:'Oferta de temporada',d:'Campaña o promoción (edite el texto)',x:'Hola {cliente}, tenemos una oferta para su próximo evento: {oferta}. Las tarifas actuales son: {tarifas}. Si le interesa, le preparamos la propuesta hoy.'},
+ {id:'resena',t:'Pedir reseña',d:'Después del evento',x:'{cliente}, gracias por confiar en nosotros para {evento}. Si le ha gustado el resultado, nos ayudaría mucho una opinión breve. Un saludo del equipo de Media Show.'}
+];
+const MSG_ST={tpl:'primer',cli:'',enlace:'',oferta:''};
+function msgContactos_L(){
+ const out=[];
+ S.leads.forEach(l=>out.push({id:'l:'+l.id,name:l.name||'Cliente',company:l.company||'',email:l.email||'',phone:l.phone||'',ev:l.type||'Evento',date:l.date||'',guests:l.guests||'',total:l.cot&&typeof l.cot.total==='number'?l.cot.total:null,pack:l.cot&&l.cot.packName||''}));
+ S.clients.forEach(c=>out.push({id:'c:'+c.id,name:c.name||'Cliente',company:c.company||'',email:c.email||'',phone:c.phone||'',ev:'Evento',date:'',guests:'',total:null,pack:''}));
+ return out;
+}
+function msgTarifas_L(){
+ const c=S.cfg||{},packs=(c.packs||[]).filter(p=>p.active!==false);
+ const iva=(c.settings&&c.settings.iva)||21;
+ return packs.map(p=>`${p.name} (${p.min!=null?p.min+'–'+p.max+' personas':'a medida'}): ${p.from?'desde ':''}${euro(p.price)} sin IVA`).join('; ')+` · IVA ${iva} %`;
+}
+function msgRellenar_L(tpl,c){
+ const eventoTxt=c?c.ev:'su evento';
+ const val={cliente:c?(c.company||c.name):'',evento:eventoTxt,personas:c&&c.guests?c.guests:'___',fecha:c&&c.date?fdate(c.date):'fecha por confirmar',pack:c&&c.pack?'Pack '+c.pack:'el pack propuesto',total:c&&c.total!=null?euro(c.total):'el total de la propuesta',saldo:c&&c.total!=null?euro(c.total*(1-((S.cfg.settings&&S.cfg.settings.reserva)||50)/100)):'el saldo pendiente',enlace:MSG_ST.enlace||'[enlace de la propuesta]',oferta:MSG_ST.oferta||'[oferta]',tarifas:msgTarifas_L()};
+ return tpl.x.replace(/\{(\w+)\}/g,(m,k)=>val[k]!=null?val[k]:m);
+}
+VIEWS.msgcom=()=>{
+ const cs=msgContactos_L(), sel=MSG_ST.cli, c=cs.find(x=>x.id===sel)||null;
+ const tpl=MSG_TPL.find(t=>t.id===MSG_ST.tpl)||MSG_TPL[0];
+ const txt=msgRellenar_L(tpl,c);
+ const tel=c&&c.phone?String(c.phone).replace(/\D/g,''):'';
+ const wa=tel?`https://wa.me/${tel.length===9?'34'+tel:tel}?text=${encodeURIComponent(txt)}`:'';
+ const mail=c&&c.email?`mailto:${encodeURIComponent(c.email)}?subject=${encodeURIComponent(tpl.t+' · Media Show')}&body=${encodeURIComponent(txt)}`:'';
+ return head('Clientes','Mensajes comerciales','Plantillas para escribir a cada cliente con sus datos, sus tarifas y su propuesta. Revise el texto antes de enviarlo.')+
+ `<div class="card" style="margin-bottom:14px"><div class="sec">1 · Cliente</div>
+  <select id="msgCli" aria-label="Cliente">${'<option value="">Elija un cliente o un lead…</option>'+cs.map(x=>`<option value="${esc(x.id)}" ${x.id===sel?'selected':''}>${esc(x.company||x.name)}${x.email?' · '+esc(x.email):''}</option>`).join('')}</select>
+  <div class="hint" style="margin-top:6px">${cs.length?'':'Todavía no hay clientes ni leads. Entran desde el cotizador web o desde Clientes.'}</div></div>
+ <div class="card" style="margin-bottom:14px"><div class="sec">2 · Tipo de mensaje</div>
+  <div class="row" style="flex-wrap:wrap;gap:8px">${MSG_TPL.map(t=>`<button class="btn ${t.id===tpl.id?'pri':''}" type="button" data-a="msg-tpl" data-id="${t.id}">${esc(t.t)}</button>`).join('')}</div>
+  <div class="hint" style="margin-top:8px">${esc(tpl.d)}</div></div>
+ <div class="card" style="margin-bottom:14px"><div class="sec">3 · Datos para el mensaje</div>
+  <div class="ag two"><div class="field"><label for="msgEnlace">Enlace de la propuesta</label><input id="msgEnlace" value="${esc(MSG_ST.enlace)}" placeholder="https://…"></div>
+  <div class="field"><label for="msgOferta">Oferta (para «Oferta de temporada»)</label><input id="msgOferta" value="${esc(MSG_ST.oferta)}" placeholder="p. ej. 10 % en reservas antes del 31 de marzo"></div></div></div>
+ <div class="card"><div class="sec">4 · Mensaje listo</div>
+  <textarea id="msgTxt" rows="8" aria-label="Texto del mensaje">${esc(txt)}</textarea>
+  <div class="row" style="flex-wrap:wrap;gap:8px;margin-top:10px">
+   <button class="btn" type="button" data-a="msg-copy">Copiar texto</button>
+   ${wa?`<a class="btn pri" href="${esc(wa)}" target="_blank" rel="noopener">Enviar por WhatsApp</a>`:'<span class="hint">Para WhatsApp, el cliente necesita teléfono.</span>'}
+   ${mail?`<a class="btn" href="${esc(mail)}">Enviar por correo</a>`:'<span class="hint">Para correo, el cliente necesita email.</span>'}
+  </div>
+  <p class="hint" style="margin-top:10px">Los mensajes se envían desde su propio WhatsApp o correo. Flow no envía nada por usted.</p></div>`;
+};
+A['msg-tpl']=t=>{MSG_ST.tpl=t.dataset.id;renderRoute(false)};
+A['msg-copy']=()=>{const x=document.getElementById('msgTxt');if(!x)return;const v=x.value;(navigator.clipboard?navigator.clipboard.writeText(v):Promise.reject()).then(()=>toast('Texto copiado.'),()=>{x.select();toast('Seleccione el texto y cópielo.')})};
+document.addEventListener('change',e=>{
+ if(e.target.id==='msgCli'){MSG_ST.cli=e.target.value;renderRoute(false)}
+});
+document.addEventListener('input',e=>{
+ if(e.target.id==='msgEnlace'){MSG_ST.enlace=e.target.value;const x=document.getElementById('msgTxt');if(x)x.value=msgRellenar_L(MSG_TPL.find(t=>t.id===MSG_ST.tpl)||MSG_TPL[0],msgContactos_L().find(c=>c.id===MSG_ST.cli)||null)}
+ if(e.target.id==='msgOferta'){MSG_ST.oferta=e.target.value;const x=document.getElementById('msgTxt');if(x)x.value=msgRellenar_L(MSG_TPL.find(t=>t.id===MSG_ST.tpl)||MSG_TPL[0],msgContactos_L().find(c=>c.id===MSG_ST.cli)||null)}
+});
 VIEWS.clientes=()=>{
  const t=CL.tab,q=CL.q.trim().toLowerCase();
  const open=S.leads.filter(l=>l.status!=='Ganado'&&l.status!=='Perdido').length;
@@ -5805,7 +5869,7 @@ if(!ROUTES.includes('integraciones'))ROUTES.push('integraciones');
 NAMES.integraciones='Integraciones';ICO.integraciones='integraciones';
 
 const CATS_L=[
- {k:'ventas',t:'Ventas',core:['cotizador','ventas','presupuestos','clientes']},
+ {k:'ventas',t:'Ventas',core:['cotizador','ventas','presupuestos','clientes','msgcom']},
  {k:'prod',t:'Producción',core:['eventos','directo','crew','inventario']},
  {k:'fin',t:'Finanzas',core:['finanzas']},
  {k:'plat',t:'Plataforma',core:['integraciones','plataforma','ajustes']}
