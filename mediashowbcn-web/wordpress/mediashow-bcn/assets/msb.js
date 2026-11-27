@@ -156,7 +156,7 @@
     $('hours-select').innerHTML = opts.map(x => `<option value="${x}">${x} horas ${x === h ? '(incluidas)' : '(+' + eur0((x - h) * S.extraHour) + ')'}</option>`).join('');
   }
 
-  const KMAP = { mesa_alta: 'mesa_alta', silla: 'silla', silla_fiesta: 'silla_fiesta', lounge: 'lounge', bars: 'bar', laser: 'laser', head_wash: 'head', head_beam: 'head', par: 'par', booth1: 'booth', booth2: 'booth', booth3: 'booth', booth4: 'booth', booth5: 'booth', spk: 'speaker', trx_extra: 'trx', tower: 'tower', screen55: 'screen', totem: 'totem', mic: 'mic', stream: 'cam', booth: 'booth', lectern: 'lectern', heads: 'head', led_s: 'wall', led_m: 'wall', led_l: 'wall', foh: 'foh' };
+  const KMAP = { pasacables: 'pasacables', mesa_alta: 'mesa_alta', silla: 'silla', silla_fiesta: 'silla_fiesta', lounge: 'lounge', bars: 'bar', laser: 'laser', head_wash: 'head', head_beam: 'head', par: 'par', booth1: 'booth', booth2: 'booth', booth3: 'booth', booth4: 'booth', booth5: 'booth', spk: 'speaker', trx_extra: 'trx', tower: 'tower', screen55: 'screen', totem: 'totem', mic: 'mic', stream: 'cam', booth: 'booth', lectern: 'lectern', heads: 'head', led_s: 'wall', led_m: 'wall', led_l: 'wall', foh: 'foh' };
   /* Panel de trabajo v7: lista del escenario, acciones sobre el equipo seleccionado, vistas y atajos */
   const REV = {};
   Object.keys(KMAP).forEach(m => { const ex = EXTRAS.find(x => x.model === m); if (ex) REV[KMAP[m]] = ex; });
@@ -1375,7 +1375,8 @@
     mesa_alta: { name: 'Mesa alta de cóctel (Ø 0,8 m)', w: 0, kg: 12 },
     silla: { name: 'Silla', w: 0, kg: 5 },
     silla_fiesta: { name: 'Silla de fiesta', w: 0, kg: 5 },
-    lounge: { name: 'Set lounge (sofá y mesa baja)', w: 0, kg: 60 }
+    lounge: { name: 'Set lounge (sofá y mesa baja)', w: 0, kg: 60 },
+    pasacables: { name: 'Pasacables de goma (1 m)', w: 0, kg: 4 }
   };
   const fmtN = (v, d = 1) => Number(v).toLocaleString('es-ES', { maximumFractionDigits: d });
 
@@ -2020,7 +2021,7 @@ const Stage = (() => {
   let SPACE = null, spaceInExport = false;
   const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
   const CAP = { lasers: 24, pars: 24, towers: 24, trx: 26, heads: 48, bars: 24, speakers: 24, mics: 24, screens: 24, totems: 24 };
-  const KIND = { trx: 'Altavoz Alto TRX315', speaker: 'Altavoz RCF EVOX 12', totem: 'Tótem', screen: 'Pantalla', mic: 'Micrófono', cam: 'Cámara', wall: 'Pantalla LED', booth: 'Cabina DJ', lectern: 'Atril', foh: 'Control de sonido', head: 'Cabeza móvil', tower: 'Torre de truss', truss: 'Truss del escenario', bar: 'Barra de luz LED', mesa_alta: 'Mesa alta de cóctel', silla: 'Silla', silla_fiesta: 'Silla de fiesta', lounge: 'Set lounge' };
+  const KIND = { trx: 'Altavoz Alto TRX315', speaker: 'Altavoz RCF EVOX 12', totem: 'Tótem', screen: 'Pantalla', mic: 'Micrófono', cam: 'Cámara', wall: 'Pantalla LED', booth: 'Cabina DJ', lectern: 'Atril', foh: 'Control de sonido', head: 'Cabeza móvil', tower: 'Torre de truss', truss: 'Truss del escenario', bar: 'Barra de luz LED', mesa_alta: 'Mesa alta de cóctel', silla: 'Silla', silla_fiesta: 'Silla de fiesta', lounge: 'Set lounge', pasacables: 'Pasacables de goma' };
   let draggables = [], dragObj = null, selected = null, selBox = null, multi = [];
   let customPal = null, coverMesh = null, coverOn = false, dimGroup = null, dimsOn = false, measureOn = false, measurePts = [], measureGroup = null;
   let moveOn = true;
@@ -2608,7 +2609,7 @@ const Stage = (() => {
   }
 
   // Mobiliario: volúmenes sencillos en metros. Su cantidad la marca el presupuesto.
-  const FURN = ['mesa_alta', 'silla', 'silla_fiesta', 'lounge'];
+  const FURN = ['mesa_alta', 'silla', 'silla_fiesta', 'lounge', 'pasacables'];
   const FURN_MAT = {};
   const furnMat = hex => FURN_MAT[hex] || (FURN_MAT[hex] = new THREE.MeshStandardMaterial({ color: hex, roughness: 0.6, metalness: 0.05 }));
   function buildFurn(kind) {
@@ -2627,6 +2628,14 @@ const Stage = (() => {
       add(new THREE.BoxGeometry(1.6, 0.35, 0.8), 0x2a2a2a, 0, 0.25, 0);
       add(new THREE.BoxGeometry(1.6, 0.45, 0.2), 0x2a2a2a, 0, 0.6, -0.3);
       add(new THREE.BoxGeometry(0.6, 0.4, 0.6), 0xdddddd, 0, 0.2, 1.0);
+    } else if (kind === 'pasacables') {
+      // Rampa de goma de 1 m con tres cables que pasan por debajo hacia el escenario.
+      const ramp = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.05, 0.4), furnMat(0x161616));
+      ramp.position.set(0, 0.025, 0); ramp.castShadow = true; g.add(ramp);
+      [[-0.14, 0x111111], [0, 0xE65837], [0.14, 0x111111]].forEach(([z, hex]) => {
+        const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 3.0, 8), furnMat(hex));
+        cable.rotation.z = Math.PI / 2; cable.position.set(0, 0.012, z); cable.castShadow = true; g.add(cable);
+      });
     }
     return g;
   }
@@ -2801,7 +2810,7 @@ const Stage = (() => {
       pars: p === 'corporate' ? 2 : 0,
       mics: ({ starter: 1, corporate: 2, premium: 4, integral: 4 }[p] || 2) + (x.mic || 0),
       dj: (x.dj || 0) > 0,
-      booth: p === 'starter' || (x.booth || 0) > 0 || (x.dj || 0) > 0,
+      booth: p === 'starter' || (x.booth || 0) > 0 || (x.dj || 0) > 0 || [1, 2, 3, 4, 5].some(k => (x['booth' + k] || 0) > 0),
       lectern: (x.lectern || 0) > 0,
       foh: p !== 'starter',
       wall: led || (p === 'integral' ? 'S' : ''),

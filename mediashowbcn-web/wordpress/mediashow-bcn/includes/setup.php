@@ -297,6 +297,7 @@ function msb_setup_products() {
 		array( 'MSB-HABLADOR', 'Habladores de mesa', '', 200, '', 'Habladores impresos para mesa, con tu logo o el nombre del evento.' ),
 		array( 'MSB-TARJETAS', 'Tarjetas de presentación', '', 500, '', 'Tarjetas de visita impresas.' ),
 		array( 'MSB-FLYER', 'Flyers impresos', '', 1000, '', 'Flyers impresos para el evento.' ),
+		array( 'MSB-PASACABLES', 'Pasacables de goma (1 m)', '', 20, 'pasacables', 'Rampa de goma para pasar cables por el suelo sin tropiezos.' ),
 		array( 'MSB-LONA', 'Lona publicitaria', '', 10, '', 'Lona impresa para la fachada o el escenario.' ),
 		array( 'MSB-FRANELA', 'Franelas personalizadas', '', 200, '', 'Camisetas personalizadas para el equipo o los invitados.' ),
 	);
