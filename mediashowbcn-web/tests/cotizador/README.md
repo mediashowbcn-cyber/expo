@@ -23,6 +23,7 @@ con el plugin «Media Show BCN» y el catálogo de ejemplo de `mock/msb-mock.php
 - `test36.js`: imagen propia en la pantalla LED (subir y quitar).
 - `test37.js`: panel movible, secciones ocultables, barra del visor (seleccionar todo, individual, mover, zoom, tamaño) y selector de más equipos.
 - `test38.js`: barras de luz seleccionables, movibles con flechas y deshacibles.
+- `test48.js` a `test51.js`: Media Show Flow dentro de WordPress (página /gestion/ solo para el equipo, datos en la tabla msb_gestion, sincronización entre dispositivos). Requieren en el entorno de pruebas un plugin temporal que entre con una clave de prueba; no se incluye en el repositorio.
 - `test46.js`: solicitud del cotizador crea una ficha en la base de datos (importe y configuración).
 - `test47.js`: registro autónomo crea una ficha con tipo de evento y origen.
 - `test44.js`: nivel público (bloque de cuenta, pagos ocultos, marca de agua forzada) y registro autónomo.

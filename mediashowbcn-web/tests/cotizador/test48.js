@@ -1,0 +1,24 @@
+const { chromium } = require('playwright');
+const route = require('./route160.js');
+(async () => {
+  const b = await chromium.launch({ args: ['--use-gl=swiftshader', '--enable-webgl', '--ignore-gpu-blocklist'] });
+  const errs = [];
+  const anon = await b.newPage();
+  const r0 = await anon.goto('http://localhost:8099/?pagename=gestion', { waitUntil: 'domcontentloaded', timeout: 60000 });
+  console.log('anónimo →', anon.url().slice(0, 80));
+  const api = await anon.request.get('http://localhost:8099/?rest_route=/msb/v1/gestion/doc&path=config/main');
+  console.log('API anónima HTTP', api.status());
+  const p = await b.newPage({ viewport: { width: 1366, height: 900 } });
+  p.on('pageerror', e => errs.push(e.message));
+  p.on('console', m => { if (m.type() === 'error') errs.push('console: ' + m.text()); });
+  await p.goto('http://localhost:8099/?msb_test_login=k3y-prueba-local', { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await p.waitForTimeout(4000);
+  console.log('tras entrar →', p.url());
+  await p.waitForTimeout(6000);
+  const ok = (n, c) => console.log((c ? 'PASS ' : 'FAIL ') + n);
+  ok('Flow se carga (claude API)', await p.evaluate(() => typeof window.claude === 'object'));
+  ok('Flow pide datos a la base de la web', await p.evaluate(() => !!window.MSB_GESTION && window.MSB_GESTION.rest.indexOf('/msb/v1/gestion/') > 0));
+  await p.screenshot({ path: 'gestion48.png' });
+  console.log('errores:', errs.filter(e => !/fonts|gstatic|net::ERR/.test(e)).slice(0, 8).join(' | ') || 'none');
+  await b.close();
+})().catch(e => { console.error('ERR', e.message); process.exit(1); });
