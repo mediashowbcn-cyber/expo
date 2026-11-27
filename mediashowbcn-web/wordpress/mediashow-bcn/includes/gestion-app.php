@@ -63,7 +63,7 @@ add_action(
 /* ---------- Permisos y nombres ---------- */
 
 function msb_gestion_permiso() {
-	if ( ! current_user_can( 'manage_woocommerce' ) ) {
+	if ( ! current_user_can( 'msb_gestion' ) ) {
 		return new WP_Error( 'msb_no_permiso', 'Solo el equipo de Media Show puede usar la gestión.', array( 'status' => 403 ) );
 	}
 	return true;
@@ -255,7 +255,7 @@ add_filter(
 );
 
 function msb_gestion_pagina() {
-	if ( ! current_user_can( 'manage_woocommerce' ) ) {
+	if ( ! current_user_can( 'msb_gestion' ) ) {
 		wp_safe_redirect( wp_login_url( home_url( '/gestion/' ) ) );
 		exit;
 	}
@@ -269,7 +269,7 @@ function msb_gestion_pagina() {
 	$cfg = array(
 		'rest'  => esc_url_raw( rest_url( 'msb/v1/gestion/' ) ),
 		'nonce' => wp_create_nonce( 'wp_rest' ),
-		'user'  => array( 'name' => $u->display_name, 'email' => $u->user_email ),
+		'user'  => array( 'name' => $u->display_name, 'email' => $u->user_email, 'rol' => msb_rol_flow( $u ) ),
 		'salir' => wp_logout_url( home_url( '/' ) ),
 	);
 	$base = '<base href="' . esc_url( MSB_URL . 'flow/' ) . '">';

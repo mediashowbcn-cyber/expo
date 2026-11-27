@@ -8,14 +8,40 @@ defined( 'ABSPATH' ) || exit;
 
 const MSB_ROLE_CLIENTE = 'msb_cliente';
 
+/* Equipo: administradores (4), gerencia (1) y técnicos (4). Todos entran en la gestión con «msb_gestion». */
+const MSB_ROLES_EQUIPO = array(
+	'msb_admin'   => array( 'Administrador de la gestión', 'Flow: propietario', 'propietario' ),
+	'msb_gerente' => array( 'Gerencia', 'Flow: producción, ve y edita todo', 'produccion' ),
+	'msb_tecnico' => array( 'Técnico', 'Flow: sus eventos y checklists', 'tecnico' ),
+);
+
 add_action(
 	'init',
 	function () {
 		if ( ! get_role( MSB_ROLE_CLIENTE ) ) {
 			add_role( MSB_ROLE_CLIENTE, 'Cliente de evento', array( 'read' => true ) );
 		}
+		foreach ( MSB_ROLES_EQUIPO as $rol => $d ) {
+			if ( ! get_role( $rol ) ) {
+				add_role( $rol, $d[0], array( 'read' => true, 'msb_gestion' => true, 'manage_woocommerce' => 'msb_admin' === $rol ) );
+			}
+		}
+		if ( get_role( 'administrator' ) && ! get_role( 'administrator' )->has_cap( 'msb_gestion' ) ) {
+			get_role( 'administrator' )->add_cap( 'msb_gestion' );
+		}
 	}
 );
+
+/** Rol de Flow que corresponde a la cuenta de WordPress (vacío si no es del equipo). */
+function msb_rol_flow( $user = null ) {
+	$u = $user ?: wp_get_current_user();
+	foreach ( MSB_ROLES_EQUIPO as $rol => $d ) {
+		if ( in_array( $rol, (array) $u->roles, true ) ) {
+			return $d[2];
+		}
+	}
+	return in_array( 'administrator', (array) $u->roles, true ) ? 'propietario' : '';
+}
 
 /** 'cliente' si la sesión es de un cliente confirmado (o del equipo), 'publico' en otro caso. */
 function msb_access_level() {
