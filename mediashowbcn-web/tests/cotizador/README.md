@@ -21,5 +21,7 @@ con el plugin «Media Show BCN» y el catálogo de ejemplo de `mock/msb-mock.php
 - `test15.js`: enlace para el cliente, aprobación y AR.
 - `test35.js`: versión 7.8 (arco, cobertura, cotas, medir, paleta, deshacer por equipo, fecha .ics, WhatsApp por evento, comparar versiones). El paso de la pantalla LED se salta en este test; lo cubre `test36.js`.
 - `test36.js`: imagen propia en la pantalla LED (subir y quitar).
+- `test37.js`: panel movible, secciones ocultables, barra del visor (seleccionar todo, individual, mover, zoom, tamaño) y selector de más equipos.
+- `test38.js`: barras de luz seleccionables, movibles con flechas y deshacibles.
 
 Cada prueba imprime el resultado y termina con `errors: none` si no hay errores de página.

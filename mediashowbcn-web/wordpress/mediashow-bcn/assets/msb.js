@@ -156,7 +156,7 @@
     $('hours-select').innerHTML = opts.map(x => `<option value="${x}">${x} horas ${x === h ? '(incluidas)' : '(+' + eur0((x - h) * S.extraHour) + ')'}</option>`).join('');
   }
 
-  const KMAP = { laser: 'laser', head_wash: 'head', head_beam: 'head', par: 'par', booth1: 'booth', booth2: 'booth', booth3: 'booth', booth4: 'booth', booth5: 'booth', spk: 'speaker', trx_extra: 'trx', tower: 'tower', screen55: 'screen', totem: 'totem', mic: 'mic', stream: 'cam', booth: 'booth', lectern: 'lectern', heads: 'head', led_s: 'wall', led_m: 'wall', led_l: 'wall', foh: 'foh' };
+  const KMAP = { bars: 'bar', laser: 'laser', head_wash: 'head', head_beam: 'head', par: 'par', booth1: 'booth', booth2: 'booth', booth3: 'booth', booth4: 'booth', booth5: 'booth', spk: 'speaker', trx_extra: 'trx', tower: 'tower', screen55: 'screen', totem: 'totem', mic: 'mic', stream: 'cam', booth: 'booth', lectern: 'lectern', heads: 'head', led_s: 'wall', led_m: 'wall', led_l: 'wall', foh: 'foh' };
   /* Panel de trabajo v7: lista del escenario, acciones sobre el equipo seleccionado, vistas y atajos */
   const REV = {};
   Object.keys(KMAP).forEach(m => { const ex = EXTRAS.find(x => x.model === m); if (ex) REV[KMAP[m]] = ex; });
@@ -970,9 +970,13 @@
     const bar = $('add-bar');
     const items = ADD.map(([m, label]) => [EXTRAS.find(ex => ex.model === m), label]).filter(x => x[0]);
     if (!items.length) { bar.hidden = true; return; }
-    bar.innerHTML = '<span>Añadir al render:</span>' + items.map(([ex, label]) => `<button type="button" class="btn btn-sm" data-add="${ex.id}">${esc(label)}</button>`).join('');
+    const rest = EXTRAS.filter(ex => ex.max && !items.some(([e2]) => e2 === ex));
+    bar.innerHTML = '<span>Añadir al render:</span>' + items.map(([ex, label]) => `<button type="button" class="btn btn-sm" data-add="${ex.id}">${esc(label)}</button>`).join('')
+      + (rest.length ? `<label class="add-more"><span class="sr-only">Otros equipos</span><select id="add-more-sel"><option value="">Más equipos…</option>${rest.map(ex => `<option value="${ex.id}">${esc(ex.name)}</option>`).join('')}</select></label><button type="button" class="btn btn-sm" id="add-more-btn">Añadir</button>` : '');
     bar.addEventListener('click', e => {
-      const b = e.target.closest('[data-add]');
+      const more = e.target.closest('#add-more-btn');
+      let b = e.target.closest('[data-add]');
+      if (more) { const sel = $('add-more-sel'); if (!sel.value) return; b = { dataset: { add: sel.value } }; sel.value = ''; }
       if (!b) return;
       const ex = EXTRAS.find(x => x.id === Number(b.dataset.add));
       if (ex === TARIMA) { editTarima(); render(); return; }
@@ -982,6 +986,31 @@
     });
   }
 
+  /* Barra del visor: seleccionar, mover, acercar y ajustar el tamaño del equipo. */
+  function setupViewerTools() {
+    const box = document.querySelector('.stage-box');
+    if (!box || box.querySelector('.viewer-tools')) return;
+    const bar = document.createElement('div');
+    bar.className = 'viewer-tools'; bar.setAttribute('role', 'toolbar'); bar.setAttribute('aria-label', 'Herramientas del visor');
+    bar.innerHTML = `<button type="button" data-vt="all" title="Selecciona todos los equipos para moverlos a la vez">Seleccionar todo</button>
+      <button type="button" data-vt="single" title="Selecciona un equipo cada vez">Individual</button>
+      <button type="button" data-vt="move" aria-pressed="true" title="Si está activo, arrastrar mueve el equipo; si no, arrastrar gira la cámara">Mover equipos</button>
+      <button type="button" data-vt="zin" title="Acerca la cámara">Acercar</button>
+      <button type="button" data-vt="zout" title="Aleja la cámara">Alejar</button>
+      <button type="button" data-vt="big" title="Agranda el equipo seleccionado (o todos los seleccionados)">Agrandar</button>
+      <button type="button" data-vt="small" title="Achica el equipo seleccionado (o todos los seleccionados)">Achicar</button>`;
+    box.appendChild(bar);
+    bar.addEventListener('click', e => {
+      const b = e.target.closest('button[data-vt]');
+      if (!b) return;
+      const v = b.dataset.vt, msg = $('export-msg');
+      if (v === 'all') { const n = Stage.selectAll(); msg.textContent = n ? `${n} equipos seleccionados. Arrástralos o usa las flechas para moverlos a la vez.` : 'No hay equipos en el escenario.'; }
+      else if (v === 'single') Stage.singleSelect();
+      else if (v === 'move') { const on = b.getAttribute('aria-pressed') !== 'true'; b.setAttribute('aria-pressed', on ? 'true' : 'false'); Stage.setMoveMode(on); msg.textContent = on ? 'Arrastrar mueve los equipos.' : 'Arrastrar gira la cámara. Los equipos no se mueven.'; }
+      else if (v === 'zin' || v === 'zout') { if (!Stage.zoomBy(v === 'zin' ? 1.25 : 0.8)) msg.textContent = 'La cámara está fija a la foto del espacio. Desmarca «Cámara fija a la foto» en Encajar con la foto para acercar.'; }
+      else if (v === 'big' || v === 'small') { if (!Stage.scaleSelected(v === 'big' ? 1.15 : 1 / 1.15)) msg.textContent = 'Selecciona primero un equipo.'; }
+    });
+  }
   /* Integración con la foto: perspectiva (esquinas arrastrables), contorno del espacio, primer plano y luz */
   function setupIntegrate() {
     const msg = $('cal-msg'), smsg = $('space-msg');
@@ -1940,9 +1969,10 @@ const Stage = (() => {
   let SPACE = null, spaceInExport = false;
   const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
   const CAP = { lasers: 24, pars: 24, towers: 24, trx: 26, heads: 48, bars: 24, speakers: 24, mics: 24, screens: 24, totems: 24 };
-  const KIND = { trx: 'Altavoz Alto TRX315', speaker: 'Altavoz RCF EVOX 12', totem: 'Tótem', screen: 'Pantalla', mic: 'Micrófono', cam: 'Cámara', wall: 'Pantalla LED', booth: 'Cabina DJ', lectern: 'Atril', foh: 'Control de sonido', head: 'Cabeza móvil', tower: 'Torre de truss', truss: 'Truss del escenario' };
+  const KIND = { trx: 'Altavoz Alto TRX315', speaker: 'Altavoz RCF EVOX 12', totem: 'Tótem', screen: 'Pantalla', mic: 'Micrófono', cam: 'Cámara', wall: 'Pantalla LED', booth: 'Cabina DJ', lectern: 'Atril', foh: 'Control de sonido', head: 'Cabeza móvil', tower: 'Torre de truss', truss: 'Truss del escenario', bar: 'Barra de luz LED' };
   let draggables = [], dragObj = null, selected = null, selBox = null, multi = [];
   let customPal = null, coverMesh = null, coverOn = false, dimGroup = null, dimsOn = false, measureOn = false, measurePts = [], measureGroup = null;
+  let moveOn = true;
   const LOOK = { light: 1, warm: 0, dir: 27 };
   const glb = {};
   const KIND_MODEL = { speaker: ['rcf', 'spk'], trx: ['trx', 'trx_extra'], totem: ['totem'], screen: ['screen55'], booth: ['booth'], lectern: ['lectern'], mic: ['mic'], cam: ['stream'], foh: ['foh'] };
@@ -2358,6 +2388,7 @@ const Stage = (() => {
       aim(e);
       const all = draggables.filter(o => o.visible);
       if (rig.tarima.visible) all.push(rig.tarima);
+      rig.bars.forEach(b => { if (b.g.visible) all.push(b.g); });
       const hits = ray.intersectObjects(all, true);
       if (!hits.length) return null;
       let o = hits[0].object;
@@ -2374,7 +2405,7 @@ const Stage = (() => {
       down = { x: e.clientX, y: e.clientY, moved: false };
       const o = pick(e);
       if (!o) return;
-      if (o.userData.fixed) { down.target = o; return; }
+      if (o.userData.fixed || !moveOn) { down.target = o; return; }
       dragObj = o;
       remember(o);
       controls.enabled = false;
@@ -2526,7 +2557,7 @@ const Stage = (() => {
   }
 
   function selectKind(kind) {
-    const d = draggables.find(o => o.visible && o.userData.kind === kind);
+    const d = draggables.find(o => o.visible && o.userData.kind === kind) || (kind === 'bar' ? (rig.bars.find(b => b.g.visible) || {}).g : null);
     if (d) select(d);
     return !!d;
   }
@@ -2765,12 +2796,13 @@ const Stage = (() => {
     });
 
     const nb = vis(cfg.bars, 'bars');
-    fill(rig.bars, nb, () => { const b = buildBar(); scene.add(b.g); return b; });
+    fill(rig.bars, nb, () => { const b = buildBar(); b.g.userData.kind = 'bar'; scene.add(b.g); return b; });
     rig.bars.forEach((b, i) => {
       b.g.visible = i < nb;
       if (!b.g.visible) return;
       const row = Math.floor(i / 6), inRow = Math.min(6, nb - row * 6), j = i % 6;
       const px = inRow === 1 ? 0 : -2.7 + j * (5.4 / (inRow - 1));
+      if (b.g.userData.moved) return;
       if (row === 0) b.g.position.set(px, (onStageAt(px, 1.4) ? SH : 0) + 0.035, 1.4);
       else b.g.position.set(px * 1.25, 0.035, 1.9 + row * 0.5);
     });
@@ -3469,6 +3501,7 @@ const Stage = (() => {
   function getLayout() {
     const items = { walls: {} };
     POOLS.forEach(k => { items[k] = (rig[k] || []).map(itemState); });
+    items.bars = rig.bars.map(b => itemState(b.g));
     SINGLE.forEach(k => { items[k] = [itemState(rig[k])]; });
     Object.keys(rig.walls).forEach(k => { items.walls[k] = itemState(rig.walls[k]); });
     return {
@@ -3502,6 +3535,7 @@ const Stage = (() => {
     if (L.truss.moved) { rig.truss.rotation.y = L.truss.ry; place(rig.truss, L.truss.x, L.truss.z); }
     update(lastState);
     POOLS.forEach(k => (L.items[k] || []).forEach((st, i) => { if (rig[k][i]) rig[k][i] = applyItem(rig[k][i], st); }));
+    (L.items.bars || []).forEach((st, i) => { if (rig.bars[i]) applyItem(rig.bars[i].g, st); });
     SINGLE.forEach(k => { rig[k] = applyItem(rig[k], (L.items[k] || [])[0]); });
     Object.keys(L.items.walls || {}).forEach(k => { if (rig.walls[k]) rig.walls[k] = applyItem(rig.walls[k], L.items.walls[k]); });
     camera.position.fromArray(L.cam.pos); controls.target.fromArray(L.cam.target);
@@ -3795,6 +3829,34 @@ const Stage = (() => {
       selFit(selected || L[0]); notify(); return true;
     },
     undoItem() { return inited ? undoItem() : false; },
+    selectAll() {
+      if (!inited) return 0;
+      multi = draggables.filter(o => o.visible && !o.userData.fixed && o.userData.kind !== 'tarima');
+      select(multi.length ? multi[multi.length - 1] : null);
+      return multi.length;
+    },
+    singleSelect() { if (!inited) return; multi = []; if (selected) select(selected); },
+    setMoveMode(on) { moveOn = !!on; return moveOn; },
+    zoomBy(f) {
+      if (!inited || camLock) return false;
+      const off = camera.position.clone().sub(controls.target);
+      const len = Math.max(1.5, Math.min(60, off.length() / f));
+      camera.position.copy(controls.target).addScaledVector(off.normalize(), len);
+      controls.update(); return true;
+    },
+    scaleSelected(f) {
+      if (!inited || !selected) return false;
+      const list = multi.length > 1 && multi.includes(selected) ? multi : [selected];
+      list.forEach(o => {
+        const u = o.userData;
+        if (u.kind === 'tarima' || u.kind === 'truss') return;
+        remember(o);
+        u.size = Math.max(0.3, Math.min(3, (u.size || 1) * f)); o.scale.setScalar(u.size);
+        if (u.hung) hungLayout(o); else place(o, o.position.x, o.position.z);
+        u.moved = true;
+      });
+      selFit(selected); notify(); return true;
+    },
     setMeasure(on) { measureOn = !!on; if (!measureOn) clearMeasure(); return measureOn; },
     setCoverage(on) { coverOn = !!on; if (coverOn) buildCover(); else clearCover(); return coverOn; },
     setDims(on) { dimsOn = !!on; if (dimsOn) buildDims(); else clearDims(); return dimsOn; },
@@ -4031,6 +4093,7 @@ const Stage = (() => {
     dock.innerHTML = `
       <button type="button" class="dock-head" id="dock-toggle" aria-expanded="true"><span>Panel de trabajo</span><span class="dock-caret" aria-hidden="true">▾</span></button>
       <div class="dock-body" id="dock-body">
+        <div class="dock-hidden" id="dock-hidden"></div>
         <div class="dock-sec"><strong>Escena y colores</strong><div class="dock-seg" role="radiogroup">${pals.map(([v, l]) => `<button type="button" role="radio" data-dm="${v}">${l}</button>`).join('')}</div><div class="cam-row pal-row"><label>Color principal <input type="color" id="pal-a" value="#e65837" /></label><label>Color de acento <input type="color" id="pal-b" value="#22d3ee" /></label><button type="button" data-tool="palapply">Aplicar colores</button><button type="button" data-tool="palreset">Quitar colores propios</button></div></div>
         <div class="dock-sec" id="dock-cams"><strong>Cámaras</strong><div class="cam-row"><button type="button" data-preset="front">Frente</button><button type="button" data-preset="audience">Público</button><button type="button" data-preset="back">Trasera</button><button type="button" data-save="1">Guardar vista</button></div><div id="cam-saved" class="cam-saved"></div></div>
         <div class="dock-sec"><strong>Total orientativo</strong><div class="dock-total" id="dock-total">0,00 €</div><a class="btn btn-sm btn-pri" id="dock-wa" href="#" target="_blank" rel="noopener">Enviar por WhatsApp</a></div>
@@ -4055,7 +4118,50 @@ const Stage = (() => {
       dock.classList.toggle('collapsed', !open); box.classList.toggle('dock-open', open);
       try { localStorage.setItem('msb-dock', open ? '1' : '0'); } catch (e) { /* sin almacenamiento */ }
     };
-    $('dock-toggle').addEventListener('click', () => setOpen($('dock-body').hidden));
+    // Cabecera: un toque pliega el panel; arrastrar lo mueve dentro del visor.
+    let drag = null, dragged = false;
+    const head = $('dock-toggle');
+    head.addEventListener('pointerdown', e => {
+      if (e.button !== 0) return;
+      dragged = false;
+      const r = dock.getBoundingClientRect(), br = box.getBoundingClientRect();
+      drag = { x: e.clientX, y: e.clientY, moved: false, left: r.left - br.left, top: r.top - br.top };
+      head.setPointerCapture(e.pointerId);
+    });
+    head.addEventListener('pointermove', e => {
+      if (!drag) return;
+      const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+      if (!drag.moved && Math.hypot(dx, dy) < 5) return;
+      drag.moved = true;
+      const br = box.getBoundingClientRect();
+      const left = Math.max(0, Math.min(br.width - dock.offsetWidth, drag.left + dx));
+      const top = Math.max(0, Math.min(br.height - 40, drag.top + dy));
+      dock.style.left = left + 'px'; dock.style.top = top + 'px'; dock.style.right = 'auto';
+    });
+    const endDrag = () => {
+      if (!drag) return;
+      const moved = drag.moved; drag = null; dragged = moved;
+      if (moved) { try { localStorage.setItem('msb-dock-pos', JSON.stringify({ left: parseFloat(dock.style.left), top: parseFloat(dock.style.top) })); } catch (x) { /* sin almacenamiento */ } }
+    };
+    head.addEventListener('pointerup', endDrag); head.addEventListener('pointercancel', endDrag);
+    head.addEventListener('click', () => { if (dragged) { dragged = false; return; } setOpen($('dock-body').hidden); });
+    const resetPos = () => { dock.style.left = ''; dock.style.top = ''; dock.style.right = ''; try { localStorage.removeItem('msb-dock-pos'); } catch (x) { /* sin almacenamiento */ } };
+    try { const sp = JSON.parse(localStorage.getItem('msb-dock-pos') || 'null'); if (sp && Number.isFinite(sp.left)) { dock.style.left = sp.left + 'px'; dock.style.top = sp.top + 'px'; dock.style.right = 'auto'; } } catch (x) { /* sin almacenamiento */ }
+    // Secciones: cada una se puede ocultar con × y volver a mostrarse desde la barra superior.
+    const secs = [...dock.querySelectorAll('.dock-sec')];
+    secs.forEach(s => { const st = s.querySelector('strong'); if (!st) return; s.dataset.sec = st.textContent; const x = document.createElement('button'); x.type = 'button'; x.className = 'sec-x'; x.dataset.hide = st.textContent; x.setAttribute('aria-label', 'Ocultar ' + st.textContent); x.textContent = '×'; st.appendChild(x); });
+    let hiddenSecs = []; try { hiddenSecs = JSON.parse(localStorage.getItem('msb-dock-hidden') || '[]'); } catch (x) { hiddenSecs = []; }
+    const paintSecs = () => {
+      secs.forEach(s => { s.hidden = hiddenSecs.includes(s.dataset.sec); });
+      $('dock-hidden').innerHTML = (hiddenSecs.length ? '<span>Ocultas:</span>' + hiddenSecs.map(n => `<button type="button" data-show="${esc(n)}">${esc(n)} +</button>`).join('') : '') + '<button type="button" data-dockreset="1">Restablecer panel</button>';
+    };
+    dock.addEventListener('click', e => {
+      const h = e.target.closest('button[data-hide]'), s = e.target.closest('button[data-show]'), r = e.target.closest('button[data-dockreset]');
+      if (h) { hiddenSecs = [...new Set([...hiddenSecs, h.dataset.hide])]; try { localStorage.setItem('msb-dock-hidden', JSON.stringify(hiddenSecs)); } catch (x) { /* sin almacenamiento */ } paintSecs(); }
+      if (s) { hiddenSecs = hiddenSecs.filter(n => n !== s.dataset.show); try { localStorage.setItem('msb-dock-hidden', JSON.stringify(hiddenSecs)); } catch (x) { /* sin almacenamiento */ } paintSecs(); }
+      if (r) { resetPos(); hiddenSecs = []; try { localStorage.removeItem('msb-dock-hidden'); } catch (x) { /* sin almacenamiento */ } paintSecs(); }
+    });
+    paintSecs();
     let saved = null; try { saved = localStorage.getItem('msb-dock'); } catch (e) { /* sin almacenamiento */ }
     setOpen(saved === null ? window.matchMedia('(min-width: 900px)').matches : saved === '1');
     const syncPal = () => dock.querySelectorAll('button[data-dm]').forEach(b => b.setAttribute('aria-checked', b.dataset.dm === $('dm-select').value ? 'true' : 'false'));
@@ -4077,6 +4183,7 @@ const Stage = (() => {
   })();
   setupFS();
   setupWork();
+  setupViewerTools();
   renderCams();
   // En pantallas pequeñas la cotización empieza plegada para dejar sitio al visor.
   { const qs = document.querySelector('.quote-summary'); if (qs) qs.open = false; }

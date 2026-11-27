@@ -448,3 +448,20 @@ mark.pendiente { background: #fde68a; color: #0A0A0A; padding: 0 4px; border-rad
 .cmp-table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 8px; }
 .cmp-table th, .cmp-table td { border-bottom: 1px solid #e5e5e5; padding: 4px 6px; text-align: left; }
 .cmp-table tr.diff td { background: #fff4ef; font-weight: 600; }
+
+/* v7.8.1: panel movible y secciones ocultables, barra del visor, selector de equipos */
+.dock-head { cursor: grab; touch-action: none; }
+.dock-hidden { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12px; color: #A6A49E; }
+.dock-hidden:empty { display: none; }
+.dock-hidden button { background: #161618; color: #F4F0E8; border: 1px solid #2a2a2a; border-radius: 999px; padding: 4px 10px; font: inherit; cursor: pointer; }
+.dock-sec[hidden] { display: none !important; }
+.sec-x { float: right; background: none; border: 0; color: #A6A49E; font-size: 16px; line-height: 1; cursor: pointer; padding: 0 2px; }
+.sec-x:hover { color: #F4F0E8; }
+.viewer-tools { position: absolute; left: 12px; bottom: 12px; z-index: 11; display: flex; flex-wrap: wrap; gap: 6px; max-width: calc(100% - 24px); }
+.viewer-tools button { background: rgba(10,10,10,.88); color: #F4F0E8; border: 1px solid #2a2a2a; border-radius: 999px; padding: 7px 12px; font: 600 12.5px/1 'Work Sans', system-ui, sans-serif; cursor: pointer; backdrop-filter: blur(6px); }
+.viewer-tools button:hover { border-color: #E65837; }
+.viewer-tools button[aria-pressed="true"] { border-color: #E65837; background: rgba(230,88,55,.25); }
+.stage-box.presentation .viewer-tools { display: none !important; }
+.add-more { display: inline-flex; align-items: center; gap: 4px; }
+.add-more select { background: #0f0f10; color: #F4F0E8; border: 1px solid #2a2a2a; border-radius: 8px; padding: 6px 8px; font: inherit; max-width: 220px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
