@@ -23,11 +23,12 @@ add_action(
 		}
 		foreach ( MSB_ROLES_EQUIPO as $rol => $d ) {
 			if ( ! get_role( $rol ) ) {
-				add_role( $rol, $d[0], array( 'read' => true, 'msb_gestion' => true, 'manage_woocommerce' => 'msb_admin' === $rol ) );
+				add_role( $rol, $d[0], array( 'read' => true, 'msb_gestion' => true, 'msb_borrar' => 'msb_admin' === $rol, 'manage_woocommerce' => 'msb_admin' === $rol ) );
 			}
 		}
-		if ( get_role( 'administrator' ) && ! get_role( 'administrator' )->has_cap( 'msb_gestion' ) ) {
+		if ( get_role( 'administrator' ) && ! get_role( 'administrator' )->has_cap( 'msb_borrar' ) ) {
 			get_role( 'administrator' )->add_cap( 'msb_gestion' );
+			get_role( 'administrator' )->add_cap( 'msb_borrar' );
 		}
 	}
 );

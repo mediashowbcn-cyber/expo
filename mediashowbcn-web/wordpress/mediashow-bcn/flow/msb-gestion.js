@@ -149,8 +149,8 @@
   var u = CFG.user || {};
   var user = {
     id: function () { return Promise.resolve(u.email || ''); },
-    canEdit: function () { return Promise.resolve(true); },
-    can: function () { return Promise.resolve(true); },
+    canEdit: function () { return Promise.resolve(u.rol === 'propietario'); },
+    can: function (p) { return Promise.resolve(p === 'data.write' ? !!u.rol : true); },
     name: function () { return Promise.resolve(u.name || u.email || ''); },
     email: function () { return Promise.resolve(u.email || ''); }
   };

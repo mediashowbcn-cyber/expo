@@ -156,7 +156,9 @@ add_action(
 				),
 				array(
 					'methods'             => 'DELETE',
-					'permission_callback' => 'msb_gestion_permiso',
+					'permission_callback' => function () {
+						return current_user_can( 'msb_borrar' ) ? true : new WP_Error( 'msb_no_borrar', 'Solo el propietario puede borrar datos.', array( 'status' => 403 ) );
+					},
 					'callback'            => function ( $req ) {
 						global $wpdb;
 						$r = msb_gestion_ruta( $req->get_param( 'path' ) );

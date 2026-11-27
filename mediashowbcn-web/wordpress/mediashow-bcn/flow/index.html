@@ -841,11 +841,10 @@ const CORE=[
  {k:'portal',n:'M-06',t:'Portal del cliente',ic:'portal',d:'Lo que ve su cliente: propuesta, estado y pagos.',col:null}
 ];
 const NAVG=[
- ['Núcleo',['cotizador','presupuestos','eventos','clientes','crew','inventario']],
- ['Comercial',['contracts','commissions','marketing','content','portfolio','reviews']],
- ['Producción',['riders','checklists','logistics','subrentals','venues','permits','incidents','maintenance']],
- ['Finanzas',['invoices','expenses','suppliers','payouts']],
- ['Equipo',['availability','tasks']]
+ ['Clientes',['cotizador','presupuestos','clientes','contracts','portal']],
+ ['Eventos',['eventos','checklists','logistics','riders','venues','permits','incidents','maintenance']],
+ ['Recursos',['crew','inventario','subrentals','availability','tasks']],
+ ['Empresa',['invoices','expenses','suppliers','payouts','commissions','marketing','content','portfolio','reviews']]
 ];
 const ROUTES=['inicio','panel','modulos','cotizador','presupuestos','eventos','clientes','crew','inventario','portal','ajustes'].concat(MODS.map(m=>m.k));
 const NAMES={panel:'Panel',modulos:'Todos los módulos',cotizador:'Cotizador',presupuestos:'Presupuestos',eventos:'Eventos',clientes:'Clientes',crew:'Crew',inventario:'Inventario',portal:'Portal del cliente',ajustes:'Ajustes'};MODS.forEach(m=>NAMES[m.k]=m.t);
@@ -1829,7 +1828,7 @@ let ROL_A=LSA.get('roles',null);
 let ACC_A=[];
 function rolNorm_A(){const d=defMatrix_A();if(!ROL_A||typeof ROL_A!=='object')ROL_A={matrix:d,assign:{}};ROL_A.matrix=ROL_A.matrix||{};ROLES_A.forEach(([r])=>{ROL_A.matrix[r]={...d[r],...(ROL_A.matrix[r]||{})}});ROL_A.matrix.propietario=d.propietario;ROL_A.assign=ROL_A.assign||{}}
 rolNorm_A();
-function myRole_A(){
+function myRole_A(){if(window.MSB_GESTION&&MSB_GESTION.user&&MSB_GESTION.user.rol)return MSB_GESTION.user.rol;
  if(S.mode==='db'){const a=ACC_A.find(x=>x.id===S.uid);return(a&&a.role)||(ROL_A.assign[S.uid])||(S.canAdmin?'propietario':'produccion')}
  return LSA.get('myrole','propietario');
 }
@@ -10615,98 +10614,5 @@ route=getRoute();renderRoute(false);initStore();
 </script>
 
 
-<style id="msfNavCss">
-.nav-oc{display:none!important}.nav-edit a.nav-oc{display:flex!important;opacity:.45}
-.grp.nav-grp{cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none}
-.grp.nav-grp:after{content:"▾";font-size:12px;opacity:.7}.grp.nav-grp.closed:after{content:"▸"}
-.nav-tools{display:grid;gap:6px;margin:14px 6px 8px;padding-top:12px;border-top:1px solid var(--line)}
-.nav-tools button{background:var(--surf2);color:var(--fg);border:1px solid var(--line);border-radius:9px;padding:8px 10px;font:600 12.5px var(--sans);cursor:pointer;text-align:left}
-.nav-tools button[aria-pressed="true"]{border-color:var(--accent)}
-.nav-edit a{outline:1px dashed var(--line);outline-offset:-1px}
-</style>
-<script>
-/* Menú personalizable (solo en este navegador): ocultar elementos sin borrarlos, plegar grupos y tema claro u oscuro. */
-(function () {
-  var KH = 'msf-nav-ocultos', KC = 'msf-nav-plegados', KT = 'msf-tema';
-  function leer(k, d) { try { var v = JSON.parse(localStorage.getItem(k)); return v == null ? d : v; } catch (e) { return d; } }
-  function guardar(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
-  var ocultos = leer(KH, []), plegados = leer(KC, []), editando = false;
-
-  function aplicarTema() {
-    var t = null; try { t = localStorage.getItem(KT); } catch (e) {}
-    if (t === 'claro' || t === 'oscuro') document.documentElement.setAttribute('data-theme', t === 'claro' ? 'light' : 'dark');
-    else document.documentElement.removeAttribute('data-theme');
-  }
-  function temaActual() {
-    var d = document.documentElement.getAttribute('data-theme');
-    if (d === 'light') return 'claro';
-    if (d === 'dark') return 'oscuro';
-    return window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'claro' : 'oscuro';
-  }
-  function aplicar() {
-    var nav = document.getElementById('nav'); if (!nav) return;
-    var grupo = '';
-    Array.prototype.forEach.call(nav.children, function (el) {
-      if (el.classList.contains('grp')) {
-        grupo = el.textContent.trim(); el.classList.add('nav-grp'); el.dataset.grp = grupo;
-        el.classList.toggle('closed', plegados.indexOf(grupo) >= 0);
-        return;
-      }
-      if (el.tagName !== 'A') return;
-      var r = (el.getAttribute('href') || '').replace('#', '');
-      var oc = ocultos.indexOf(r) >= 0;
-      var plegado = plegados.indexOf(grupo) >= 0;
-      el.dataset.grp = grupo;
-      el.classList.toggle('nav-oc', oc);
-      el.style.display = (!editando && (oc || plegado)) ? 'none' : '';
-    });
-    var tools = nav.querySelector('.nav-tools');
-    if (!tools) {
-      tools = document.createElement('div'); tools.className = 'nav-tools';
-      tools.innerHTML = '<button type="button" data-nt="editar">Personalizar menú</button><button type="button" data-nt="tema"></button><button type="button" data-nt="mostrar"></button>';
-      nav.appendChild(tools);
-    }
-    var be = tools.querySelector('[data-nt="editar"]'), bt = tools.querySelector('[data-nt="tema"]'), bm = tools.querySelector('[data-nt="mostrar"]');
-    be.textContent = editando ? 'Listo' : 'Personalizar menú'; be.setAttribute('aria-pressed', editando ? 'true' : 'false');
-    bt.textContent = 'Tema: ' + temaActual() + ' (cambiar)';
-    bm.textContent = ocultos.length ? 'Mostrar ocultos (' + ocultos.length + ')' : 'Sin elementos ocultos';
-    bm.disabled = !ocultos.length;
-    nav.classList.toggle('nav-edit', editando);
-  }
-  document.addEventListener('click', function (ev) {
-    var nav = document.getElementById('nav'); if (!nav) return;
-    var t = ev.target.closest && ev.target.closest('#nav .nav-tools button');
-    if (t) {
-      ev.preventDefault();
-      var a = t.dataset.nt;
-      if (a === 'editar') editando = !editando;
-      if (a === 'tema') { localStorage.setItem(KT, temaActual() === 'claro' ? 'oscuro' : 'claro'); aplicarTema(); }
-      if (a === 'mostrar') { ocultos = []; guardar(KH, ocultos); }
-      aplicar(); return;
-    }
-    var grp = ev.target.closest && ev.target.closest('#nav .grp.nav-grp');
-    if (grp) {
-      var g = grp.dataset.grp;
-      plegados = plegados.indexOf(g) >= 0 ? plegados.filter(function (x) { return x !== g; }) : plegados.concat([g]);
-      guardar(KC, plegados); aplicar(); ev.preventDefault(); return;
-    }
-    var link = ev.target.closest && ev.target.closest('#nav a');
-    if (link && editando) {
-      ev.preventDefault(); ev.stopPropagation();
-      var r = (link.getAttribute('href') || '').replace('#', '');
-      ocultos = ocultos.indexOf(r) >= 0 ? ocultos.filter(function (x) { return x !== r; }) : ocultos.concat([r]);
-      guardar(KH, ocultos); aplicar();
-    }
-  }, true);
-  aplicarTema();
-  // Flow reconstruye el menú muchas veces: se observa el contenedor y se vuelve a aplicar la personalización.
-  var nav = document.getElementById('nav');
-  if (nav && window.MutationObserver) {
-    new MutationObserver(function () { aplicar(); }).observe(nav, { childList: true });
-  }
-  aplicar();
-  window.addEventListener('hashchange', aplicar);
-})();
-</script>
 </body>
 </html>
