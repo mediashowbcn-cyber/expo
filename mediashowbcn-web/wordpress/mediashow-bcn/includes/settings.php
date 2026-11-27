@@ -76,6 +76,19 @@ add_action(
 		// La clave no se muestra nunca; un campo vacío conserva la guardada.
 		register_setting(
 			'msb',
+			'msb_openai_key',
+			array(
+				'sanitize_callback' => function ( $v ) {
+					$v = trim( (string) $v );
+					if ( '' === $v ) {
+						return (string) get_option( 'msb_openai_key', '' );
+					}
+					return 'borrar' === $v ? '' : preg_replace( '/[^A-Za-z0-9_\-]/', '', $v );
+				},
+			)
+		);
+		register_setting(
+			'msb',
 			'msb_anthropic_key',
 			array(
 				'sanitize_callback' => function ( $v ) {
@@ -188,6 +201,17 @@ function msb_settings_page() {
 						<?php else : ?>
 							<input class="regular-text" id="msb-key" type="password" autocomplete="off" name="msb_anthropic_key" value="" placeholder="<?php echo esc_attr( get_option( 'msb_anthropic_key' ) ? 'Guardada · escribe otra para cambiarla o «borrar»' : 'sk-ant-…' ); ?>" />
 							<p class="description">Más seguro: añádela a <code>wp-config.php</code> con <code>define( 'MSB_ANTHROPIC_KEY', 'sk-ant-…' );</code></p>
+						<?php endif; ?>
+					</td>
+				</tr>
+				<tr>
+					<th scope="row"><label for="msb-openai">Clave de OpenAI (ChatGPT en Flow)</label></th>
+					<td>
+						<?php if ( defined( 'MSB_OPENAI_KEY' ) && MSB_OPENAI_KEY ) : ?>
+							<p>Definida en <code>wp-config.php</code>.</p>
+						<?php else : ?>
+							<input class="regular-text" id="msb-openai" type="password" autocomplete="off" name="msb_openai_key" value="" placeholder="<?php echo esc_attr( get_option( 'msb_openai_key' ) ? 'Guardada · escribe otra para cambiarla o «borrar»' : 'sk-…' ); ?>" />
+							<p class="description">Se usa para el asistente de Flow. Mejor en <code>wp-config.php</code>: <code>define( 'MSB_OPENAI_KEY', 'sk-…' );</code></p>
 						<?php endif; ?>
 					</td>
 				</tr>

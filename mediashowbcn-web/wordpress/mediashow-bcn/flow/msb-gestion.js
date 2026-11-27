@@ -160,7 +160,13 @@
       if (nombre === 'db') return Promise.resolve(REST ? db : null);
       if (nombre === 'user') return Promise.resolve(user);
       if (nombre === 'downloads') return Promise.resolve(downloads);
-      return Promise.resolve(null); // «sample» (IA): no disponible fuera de claude.ai
+      if (nombre === 'sample') {
+        // Asistente con ChatGPT: la clave está en el servidor.
+        return Promise.resolve(REST ? function (prompt) {
+          return req('POST', 'ia', null, { prompt: String(prompt || '') }).then(function (r) { return { text: r.text }; });
+        } : null);
+      }
+      return Promise.resolve(null);
     }
   };
   window.msbGestionSalir = function () { window.location.href = CFG.salir || '/'; };

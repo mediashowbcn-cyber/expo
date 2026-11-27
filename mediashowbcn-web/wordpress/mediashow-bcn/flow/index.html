@@ -5859,7 +5859,7 @@ function navBuild_L(){
  const n=groups.reduce((s,g)=>s+g.items.length,0);
  if(n){
   const body=`<input class="navq" id="navq" type="search" placeholder="Buscar módulo…" aria-label="Buscar módulo" value="${esc(NAVQ_L.q)}" autocomplete="off">`+
-   groups.map(g=>`<div class="navsub">${esc(g.t)}</div>`+g.items.map(r=>link_L(r,NAMES[r],countOf(r),0)).join('')).join('')+
+   groups.map(g=>{const k='mg_'+g.t.toLowerCase().normalize('NFD').replace(/[^a-z]/g,'');return catHtml_L(k,g.t,g.items.map(r=>link_L(r,NAMES[r],countOf(r),0)).join(''),openState_L(k,false),'','sub')}).join('')+
    `<div class="navmorehint" hidden id="navnone">Sin resultados.</div>`;
   h+=catHtml_L('more','Más módulos',body,openState_L('more',false),`<span class="cnt" style="margin-left:6px;letter-spacing:0">${n}</span>`,'more');
  }
