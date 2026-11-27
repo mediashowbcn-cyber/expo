@@ -425,3 +425,7 @@ details.fit-sec[open] { gap: 10px; }
 .cam-chip button { padding: 6px 10px; border: 0; background: transparent; color: #F4F0E8; font: 600 12px/1.2 'Work Sans', system-ui, sans-serif; cursor: pointer; }
 .cam-chip button[data-camdel] { color: #A6A49E; border-left: 1px solid #2a2a2a; }
 .dock-keys { margin: 0; font-size: 11.5px; line-height: 1.5; color: #A6A49E; }
+.work-swatches { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.work-swatches button { width: 26px; height: 26px; border-radius: 50%; border: 2px solid #2a2a2a; cursor: pointer; padding: 0; }
+.work-swatches button.sw-reset { width: auto; border-radius: 999px; padding: 0 10px; height: 26px; background: #111; color: #F4F0E8; font: 600 11.5px/1 'Work Sans', system-ui, sans-serif; }
+.work-hidden { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 0; font-size: 12.5px; color: #A6A49E; }

@@ -178,8 +178,9 @@
         <button type="button" class="btn btn-sm" data-act="dup" ${can ? '' : 'disabled'} title="Duplicar (D)">Duplicar</button>
         <button type="button" class="btn btn-sm" data-act="center" title="Centrar (C)">Centrar</button>
         <button type="button" class="btn btn-sm" data-act="front" title="Traer al frente (F)">Al frente</button>
-        <button type="button" class="btn btn-sm" data-act="del" ${can ? '' : 'disabled'} title="Quitar (Supr)">Quitar</button>
-      </div></div>`;
+        <button type="button" class="btn btn-sm" data-act="del" title="Quitar (Supr)">Quitar</button>
+      </div>
+      <div class="work-swatches" aria-label="Color del equipo">${[['#0f1012', 'Negro'], ['#e8e8e8', 'Blanco'], ['#9aa3ad', 'Plata'], ['#E65837', 'Naranja'], ['#22d3ee', 'Cian']].map(([h, l]) => `<button type="button" data-tint="${h}" title="${l}" aria-label="Color ${l}" style="background:${h}"></button>`).join('')}<button type="button" data-tint="" class="sw-reset" title="Color original">Original</button></div></div>`;
     }
     const rows = [];
     EXTRAS.forEach(ex => {
@@ -188,7 +189,9 @@
       const sk = ex === TARIMA ? 'tarima' : KMAP[ex.model];
       rows.push(`<div class="work-row"><span class="work-name">${esc(ex.name)}</span><span class="work-qty"><button type="button" data-w="${ex.id}" data-d="-1" aria-label="Quitar uno de ${esc(ex.name)}">−</button><output>${q}</output><button type="button" data-w="${ex.id}" data-d="1" aria-label="Añadir uno de ${esc(ex.name)}">+</button></span>${sk ? `<button type="button" class="btn btn-sm" data-sel="${sk}">Ver en 3D</button>` : '<span></span>'}</div>`);
     });
-    box.innerHTML = bar + (rows.length ? rows.join('') : '<p class="msg">Todavía no hay equipos en el escenario. Añádelos con «Añadir al render» o desde «Servicios adicionales».</p>');
+    const hid = Stage.removedCount ? Stage.removedCount() : 0;
+    const hidRow = hid ? `<div class="work-hidden"><span>${hid} equipo${hid > 1 ? 's' : ''} del pack quitado${hid > 1 ? 's' : ''} del render</span><button type="button" class="btn btn-sm" data-act="restore">Restaurar</button></div>` : '';
+    box.innerHTML = bar + (rows.length ? rows.join('') : '<p class="msg">Todavía no hay equipos en el escenario. Añádelos con «Añadir al render» o desde «Servicios adicionales».</p>') + hidRow;
   }
   function renderCams() {
     const box = $('cam-saved');
@@ -208,6 +211,8 @@
         if (b.dataset.sel === 'tarima') Stage.select('tarima'); else Stage.selectKind(b.dataset.sel);
         return;
       }
+      if (b.dataset.tint !== undefined) { Stage.tintSelected(b.dataset.tint ? parseInt(b.dataset.tint.slice(1), 16) : null); return; }
+      if (b.dataset.act === 'restore') { Stage.restoreRemoved(); return; }
       if (b.dataset.act) act(b.dataset.act);
     });
     window.addEventListener('msb:select', renderWork);
@@ -261,7 +266,7 @@
     if (a === 'dup') { if (!ex) return; bumpExtra(ex, 1); Stage.duplicateSelected(); }
     else if (a === 'del') {
       if (ex && (state.extras[ex.id] || 0) > 0) bumpExtra(ex, -1);
-      else $('export-msg').textContent = 'Este equipo viene incluido en el pack. Para quitarlo, cambia de pack o de escena.';
+      else { Stage.hideSelected(); $('export-msg').textContent = 'Equipo quitado del render. El precio del pack no cambia; puedes restaurarlo desde la lista.'; }
     }
     else if (a === 'center') Stage.focusSelected();
     else if (a === 'front') Stage.bringFront();
@@ -891,7 +896,8 @@
     return {
       app: 'msb', v: 1, savedAt: new Date().toISOString(),
       ui: { packMode: state.packMode, guests: state.guests, hours: state.hours, space: state.space, zone: state.zone, dm: state.dm, date: state.date, extras: Object.assign({}, state.extras), name: $('client-name').value, phone: $('client-phone').value },
-      layout: L, photo: venueImg ? photoCache : null, mask: venueImg ? Stage.maskData() : null
+      layout: L, photo: venueImg ? photoCache : null, mask: venueImg ? Stage.maskData() : null,
+      views: (() => { try { return JSON.parse(localStorage.getItem('msb-views') || '[]'); } catch (e) { return []; } })()
     };
   }
   function autosave() {
@@ -915,6 +921,7 @@
     if (P.photo) useVenue(await loadImg(P.photo), 'Proyecto recuperado con su foto.');
     else if (venueImg) $('venue-remove').click();
     photoCache = P.photo || null;
+    if (Array.isArray(P.views)) { try { localStorage.setItem('msb-views', JSON.stringify(P.views)); } catch (e) { /* sin almacenamiento */ } renderCams(); }
     Stage.setLayout(P.layout);
     if (P.mask) Stage.setMask(P.mask);
     $('cal-edit').hidden = !Stage.hasCorners();
@@ -2256,6 +2263,8 @@ const Stage = (() => {
       Object.keys(sizes).forEach(i => out.push(`${sizes[i]} ${name}${sizes[i] > 1 ? (name === 'tótem' ? 's' : 's') : ''} de ${i}"`));
     });
     if (rig.truss.visible && (TR.w !== TR0.w || TR.h !== TR0.h)) out.push(`Truss de ${String(TR.w).replace('.', ',')} m de ancho × ${String(TR.h).replace('.', ',')} m de alto`);
+    const hid = draggables.filter(o => o.userData.removed).length;
+    if (hid) out.push(`${hid} equipo${hid > 1 ? 's' : ''} del pack quitado${hid > 1 ? 's' : ''} del render (el precio del pack no cambia)`);
     const hungN = draggables.filter(o => o.visible && o.userData.hung).map(o => o.userData.kind === 'wall' ? 'pantalla LED' : 'pantalla');
     if (hungN.length) out.push('Colgado del truss: ' + hungN.join(', '));
     const th = {};
@@ -2447,6 +2456,7 @@ const Stage = (() => {
       const side = i % 2 ? 1 : -1, row = Math.floor(i / 2);
       place(t, side * (2.4 + row * 1.3), 2.6 + row * 0.9, false, -side * 0.4);
     });
+    draggables.forEach(o => { if (o.userData.removed) o.visible = false; });
     if (selected && !selected.visible) select(null);
 
     lights.a.color.setHex(pal.a); lights.b.color.setHex(pal.b); lights.rim.color.setHex(pal.rim);
@@ -3349,6 +3359,31 @@ const Stage = (() => {
     headCount() { return cfg ? cfg.heads : 0; },
     selectKind(k) { return inited ? selectKind(k) : false; },
     selInfo() { return selected && inited ? info(selected) : null; },
+    hideSelected() {
+      if (!selected || !inited || selected.userData.kind === 'tarima') return false;
+      selected.userData.removed = true; selected.visible = false;
+      select(null); notify(); return true;
+    },
+    restoreRemoved() {
+      if (!inited) return 0;
+      let n = 0;
+      draggables.forEach(o => { if (o.userData.removed) { o.userData.removed = false; n++; } });
+      if (lastState) update(lastState);
+      notify(); return n;
+    },
+    removedCount() { return inited ? draggables.filter(o => o.userData.removed).length : 0; },
+    tintSelected(hex) {
+      if (!selected || !inited) return false;
+      const col = hex == null ? null : new THREE.Color(hex);
+      selected.userData.tint = hex == null ? null : hex;
+      selected.traverse(m => {
+        if (!m.isMesh || !m.material || !m.material.color || m.material.map) return;
+        if (m.material.blending === THREE.AdditiveBlending) return;
+        if (!m.userData.origColor) { m.userData.origColor = m.material.color.getHex(); m.material = m.material.clone(); }
+        m.material.color.setHex(col ? hex : m.userData.origColor);
+      });
+      selFit(selected); notify(); return true;
+    },
     nudge(dx, dz) {
       if (!selected || !inited || selected.userData.kind === 'tarima' || selected.userData.hung) return false;
       const o = selected;

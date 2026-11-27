@@ -1,7 +1,7 @@
 # Cuaderno del cotizador 3D (para retomar el trabajo)
 
 ## Estado
-- Plugin «Media Show BCN» en la versión **7.1.0**, instalado en mediashowbcn.com (blog 258969453).
+- Plugin «Media Show BCN» en la versión **7.2.0**, instalado en mediashowbcn.com (blog 258969453).
 - Código canónico: `mediashowbcn-web/wordpress/mediashow-bcn/assets/msb.js` (un solo archivo, sin paso de compilación).
   Los fuentes de trabajo antiguos ya no se usan: editar siempre `msb.js` directamente.
 - Three.js r160 como módulo ES (`assets/three-loader.js`). Las fuentes de sus addons vienen de jsDelivr.
@@ -25,10 +25,32 @@
 2. **Fotos reales de producto**: pendientes; los renders actuales son ilustrativos.
 3. **Panel de trabajo v7**:
    - HECHO en 7.1.0: acciones sobre el equipo seleccionado (duplicar, quitar de los extras, centrar, al frente); cámaras guardadas por nombre; atajos de teclado (flechas, Q/E, +/−, D, C, F, Supr, Esc).
-   - PENDIENTE: quitar equipos que vienen con el pack (necesita un estado «oculto» por equipo que sobreviva a los cambios de cantidad).
-   - PENDIENTE: color por equipo y por escena (ahora solo tres escenas).
-   - PENDIENTE: alinear y distribuir selecciones varias (seleccionar más de uno).
-   - PENDIENTE: vistas guardadas en el proyecto (ahora se guardan en el navegador).
+   - HECHO en 7.2.0: quitar equipos del pack del render (el precio no cambia; se restauran desde la lista); color por equipo (cinco tonos y original); vistas guardadas dentro del archivo de proyecto.
+   - PENDIENTE: alinear y distribuir varios equipos (necesita selección múltiple).
+
+## Ideas para la siguiente tanda (orden de utilidad para el cotizador)
+1. Seleccionar varios equipos (Mayús.+clic) y alinearlos en línea, a la misma distancia o en arco.
+2. Plantilla de montaje por tipo de evento (boda, empresa, concierto, conferencia) que coloque el escenario y el sonido de partida.
+3. Medida de distancia entre dos puntos del suelo (para comprobar cobertura y accesos).
+4. Zona de cobertura de sonido en el visor (no solo en el dossier).
+5. Aviso cuando un equipo está fuera del contorno del espacio.
+6. Aviso cuando un altavoz apunta a la zona de público sin cobertura.
+7. Aviso de sobrecarga de truss (peso colgado frente a un límite configurable).
+8. Aviso de potencia eléctrica por encima de un umbral configurable (líneas de 16 A).
+9. Colores de la escena editables (paleta propia por cliente).
+10. Escala humana: figuras de persona de 1,75 m para dar tamaño a la sala.
+11. Rejilla de cotas en el visor con medida de cada equipo.
+12. Deshacer por equipo (sin deshacer todo el montaje).
+13. Historial de versiones del montaje (guardar y comparar dos versiones).
+14. Comparar dos montajes lado a lado (pack corporate frente a premium).
+15. Modo presentación: ocultar el panel y dejar solo el visor y el total.
+16. Exportar la lista de material como CSV para el técnico.
+17. Plantilla de mensajes de WhatsApp según el tipo de evento.
+18. Recordatorio de fecha y disponibilidad dentro del panel.
+19. Atajos para cambiar de escena (1, 2, 3) y de cámara (F, P, T).
+20. Vista previa de la pantalla LED con contenido propio (imagen o vídeo del cliente).
+
+Cada idea se prueba en el navegador antes de subirla, como las anteriores.
 4. **Causa de equipos que acaban en el fondo**: hay herramientas de recuperación («Centrar», «Traer al frente»), pero no la causa.
 5. **Foto real de un espacio** para la prueba de extremo a extremo del pack.
 6. **Descripciones largas** de producto (solo se han revisado las cortas).
